@@ -1,0 +1,251 @@
+import Link from "next/link";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
+import { buttonClass, Card, cx, EmptyState, LinkButton } from "@/components/ui";
+import { isActiveAttendee } from "@/components/status";
+import { getContext } from "@/lib/context";
+import { createClient } from "@/lib/supabase/server";
+import { addDaysISO, dayRange, formatDayLong, formatTime, isoWeekday, todayISO, TZ, WEEKDAYS_SHORT } from "@/lib/format";
+
+export const metadata = { title: "Agenda" };
+
+type Attendee = { id: string; status: string; is_makeup: boolean; patients: { name: string } | null };
+type Appt = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  capacity: number;
+  status: string;
+  series_id: string | null;
+  services: { name: string; kind: string } | null;
+  professionals: { name: string } | null;
+  appointment_attendees: Attendee[];
+};
+
+const DOT: Record<string, string> = {
+  agendado: "bg-faint",
+  confirmado: "bg-info",
+  presente: "bg-ok",
+  falta: "bg-bad",
+};
+
+export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ d?: string; bemvindo?: string }> }) {
+  const ctx = await getContext();
+  const sp = await searchParams;
+  const today = todayISO();
+  const day = sp.d && /^\d{4}-\d{2}-\d{2}$/.test(sp.d) ? sp.d : today;
+  const weekStart = addDaysISO(day, 1 - isoWeekday(day));
+  const week = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
+  const supabase = await createClient();
+
+  // Mantém sempre as próximas 8 semanas dos horários fixos lançadas
+  if (ctx.canManageAgenda) await supabase.rpc("ensure_agenda", { p_clinic: ctx.clinicId });
+
+  const { from, to } = dayRange(day);
+  const weekRange = { from: dayRange(week[0]).from, to: dayRange(week[6]).to };
+  const [{ data: appts }, { data: weekAppts }, { count: patientCount }, { count: seriesCount }] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select(
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(name), appointment_attendees(id, status, is_makeup, patients(name))",
+      )
+      .eq("clinic_id", ctx.clinicId)
+      .gte("starts_at", from)
+      .lt("starts_at", to)
+      .order("starts_at"),
+    supabase
+      .from("appointments")
+      .select("starts_at")
+      .eq("clinic_id", ctx.clinicId)
+      .eq("status", "agendado")
+      .gte("starts_at", weekRange.from)
+      .lt("starts_at", weekRange.to),
+    supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", ctx.clinicId),
+    supabase.from("recurring_series").select("id", { count: "exact", head: true }).eq("clinic_id", ctx.clinicId),
+  ]);
+
+  const perDay = new Map<string, number>();
+  const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: TZ });
+  (weekAppts ?? []).forEach((a) => {
+    const k = dayFmt.format(new Date(a.starts_at));
+    perDay.set(k, (perDay.get(k) ?? 0) + 1);
+  });
+
+  const list = (appts ?? []) as unknown as Appt[];
+  const active = list.filter((a) => a.status === "agendado");
+  const canceled = list.filter((a) => a.status === "cancelado");
+  const showWelcome = ctx.canManageAgenda && (sp.bemvindo || (!patientCount && !seriesCount));
+
+  return (
+    <>
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">{day === today ? "Hoje" : formatDayLong(day).split(",")[0]}</h1>
+          <p className="text-[15px] text-muted">{day === today ? formatDayLong(day) : formatDayLong(day).split(", ")[1]}</p>
+        </div>
+        {ctx.canManageAgenda && (
+          <LinkButton href={`/agenda/nova?d=${day}`}>
+            <Plus size={18} /> Nova sessão
+          </LinkButton>
+        )}
+      </header>
+
+      {showWelcome && (
+        <Card className="mb-6 p-5 sm:p-6">
+          <p className="text-[17px] font-semibold">Bem-vindo(a)! Vamos deixar sua agenda pronta em 3 passos:</p>
+          <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { href: "/pacientes", icon: Users, title: "1. Pacientes", text: "Cadastre ou importe da planilha.", done: !!patientCount },
+              { href: "/horarios/novo", icon: Repeat, title: "2. Horários fixos", text: "Ex.: Pilates ter/qui 7h.", done: !!seriesCount },
+              { href: "/agenda", icon: CalendarDays, title: "3. Agenda", text: "Pronto! Marque presença aqui.", done: false },
+            ].map((s) => (
+              <li key={s.title}>
+                <Link
+                  href={s.href}
+                  className={cx(
+                    "flex h-full items-start gap-3 rounded-xl border p-4 transition-colors hover:bg-hover",
+                    s.done ? "border-ok/30 bg-ok-soft/50" : "border-line",
+                  )}
+                >
+                  <s.icon size={20} className={s.done ? "text-ok" : "text-accent"} />
+                  <span>
+                    <span className="block font-medium">{s.title}</span>
+                    <span className="text-sm text-muted">{s.done ? "Feito ✓" : s.text}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
+
+      {/* Navegação da semana */}
+      <div className="mb-6 flex items-center gap-2">
+        <Link href={`/agenda?d=${addDaysISO(day, -7)}`} className={buttonClass("ghost", "md")} aria-label="Semana anterior">
+          <ChevronLeft size={20} />
+        </Link>
+        <div className="grid flex-1 grid-cols-7 gap-1">
+          {week.map((d) => {
+            const sel = d === day;
+            const n = perDay.get(d) ?? 0;
+            return (
+              <Link
+                key={d}
+                href={`/agenda?d=${d}`}
+                aria-current={sel ? "date" : undefined}
+                className={cx(
+                  "flex flex-col items-center rounded-xl py-2 transition-colors",
+                  sel ? "bg-accent text-white" : "hover:bg-hover",
+                  !sel && d === today && "text-accent",
+                )}
+              >
+                <span className={cx("text-[12px] capitalize", sel ? "text-white/80" : "text-muted")}>{WEEKDAYS_SHORT[isoWeekday(d)]}</span>
+                <span className="text-[17px] font-semibold tabular-nums">{Number(d.slice(8))}</span>
+                <span className={cx("mt-0.5 h-1.5 w-1.5 rounded-full", n ? (sel ? "bg-white" : "bg-accent") : "bg-transparent")} />
+              </Link>
+            );
+          })}
+        </div>
+        <Link href={`/agenda?d=${addDaysISO(day, 7)}`} className={buttonClass("ghost", "md")} aria-label="Próxima semana">
+          <ChevronRight size={20} />
+        </Link>
+      </div>
+      {day !== today && (
+        <div className="-mt-3 mb-5 text-center">
+          <Link href="/agenda" className="text-sm font-medium text-accent hover:underline">
+            Voltar para hoje
+          </Link>
+        </div>
+      )}
+
+      {active.length === 0 ? (
+        <EmptyState
+          icon={<CalendarDays size={22} />}
+          title="Dia livre"
+          text={ctx.canManageAgenda ? "Nenhuma sessão neste dia." : "Você não tem sessões neste dia."}
+          action={
+            ctx.canManageAgenda && (
+              <LinkButton href={`/agenda/nova?d=${day}`} variant="secondary">
+                <Plus size={18} /> Marcar sessão
+              </LinkButton>
+            )
+          }
+        />
+      ) : (
+        <ul className="space-y-3">
+          {active.map((a) => {
+            const people = a.appointment_attendees.filter((t) => isActiveAttendee(t.status));
+            const turma = a.services?.kind === "turma" || a.capacity > 1;
+            const past = new Date(a.ends_at) < new Date();
+            return (
+              <li key={a.id}>
+                <Link href={`/agenda/${a.id}`} className="group block">
+                  <Card className={cx("flex gap-4 p-4 transition-colors group-hover:border-faint sm:p-5", past && "opacity-75")}>
+                    <div className="w-14 shrink-0 pt-0.5">
+                      <p className="text-[17px] font-semibold tabular-nums">{formatTime(a.starts_at)}</p>
+                      <p className="text-[13px] text-muted tabular-nums">{formatTime(a.ends_at)}</p>
+                    </div>
+                    <div className="min-w-0 flex-1 border-l border-line pl-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{a.services?.name}</p>
+                          <p className="truncate text-sm text-muted">{a.professionals?.name}</p>
+                        </div>
+                        {turma && (
+                          <span
+                            className={cx(
+                              "shrink-0 rounded-full px-2 py-0.5 text-[13px] font-medium tabular-nums",
+                              people.length >= a.capacity ? "bg-warn-soft text-warn" : "bg-hover text-muted",
+                            )}
+                          >
+                            {people.length}/{a.capacity}
+                          </span>
+                        )}
+                      </div>
+                      {people.length > 0 ? (
+                        <ul className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">
+                          {people.map((t) => (
+                            <li key={t.id} className="flex items-center gap-1.5 text-[15px]">
+                              <span className={cx("size-2 rounded-full", DOT[t.status] ?? "bg-faint")} aria-hidden />
+                              {t.patients?.name}
+                              {t.is_makeup && <span className="text-[12px] text-muted">(reposição)</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2.5 text-[15px] text-faint">Sem paciente</p>
+                      )}
+                    </div>
+                  </Card>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {active.length > 0 && (
+        <p className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[13px] text-muted">
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-faint" /> Agendado</span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-info" /> Confirmado</span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-ok" /> Veio</span>
+          <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-bad" /> Faltou</span>
+        </p>
+      )}
+
+      {canceled.length > 0 && (
+        <details className="mt-6 text-sm text-muted">
+          <summary className="cursor-pointer">{canceled.length} sessão(ões) cancelada(s) neste dia</summary>
+          <ul className="mt-2 space-y-1">
+            {canceled.map((a) => (
+              <li key={a.id}>
+                <Link href={`/agenda/${a.id}`} className="hover:underline">
+                  {formatTime(a.starts_at)} · {a.services?.name} · {a.professionals?.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
+}
