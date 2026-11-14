@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Repeat, Settings, Users, Wallet } from "lucide-react";
+import { CalendarDays, MessageCircle, Repeat, Settings, Users, Wallet } from "lucide-react";
 import { cx } from "./ui";
 
 const ITEMS = [
@@ -10,6 +10,7 @@ const ITEMS = [
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/horarios", label: "Horários fixos", short: "Horários", icon: Repeat },
   { href: "/financeiro", label: "Financeiro", icon: Wallet, finance: true },
+  { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, finance: true, desktopOnly: true },
   { href: "/ajustes", label: "Ajustes", icon: Settings },
 ];
 
@@ -46,7 +47,7 @@ export function SideNav({ showFinance }: { showFinance: boolean }) {
 
 export function BottomNav({ showFinance }: { showFinance: boolean }) {
   const isActive = useActive();
-  const list = items(showFinance);
+  const list = items(showFinance).filter((i) => !("desktopOnly" in i));
   return (
     <nav
       aria-label="Menu principal"

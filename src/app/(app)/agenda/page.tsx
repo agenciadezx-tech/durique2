@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
+import { BellRing, CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
 import { buttonClass, Card, cx, EmptyState, LinkButton } from "@/components/ui";
 import { WeekGrid, type GridAppt } from "./week-grid";
 import { isActiveAttendee } from "@/components/status";
@@ -212,6 +212,22 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             Voltar para hoje
           </Link>
         </div>
+      )}
+
+      {ctx.role !== "profissional" && day === today && (
+        <Link
+          href="/whatsapp?aba=lembretes"
+          className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3 text-[15px] transition-colors hover:border-faint"
+        >
+          <span className="grid size-9 place-items-center rounded-full bg-ok-soft text-ok">
+            <BellRing size={18} />
+          </span>
+          <span className="flex-1">
+            <span className="font-medium">Lembretes de amanhã</span>
+            <span className="block text-sm text-muted">Enviar pelo WhatsApp e marcar quem confirmou</span>
+          </span>
+          <ChevronRight size={18} className="text-faint" />
+        </Link>
       )}
 
       {active.length === 0 ? (

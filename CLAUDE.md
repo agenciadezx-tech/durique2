@@ -30,6 +30,11 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - RPCs: `sell_package` (gera parcelas), `ensure_plan_charges` (mensalidades até o mês seguinte), `commission_report` (comissão por sessão realizada).
 - Recepção vê e lança só receitas; despesas, resultado e comissões são de `admin`/`financeiro`.
 
+## Conceitos do WhatsApp
+- `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).
+- Modo manual: a Central `/whatsapp` monta a mensagem e abre `wa.me` com o texto; `message_log` registra o envio (`WaSendButton`).
+- Próximo passo: envio automático via Zapster (Edge Function + pg_cron), webhook para respostas 1/2.
+
 ## Interface (padrões)
 - Textos em português simples, sem jargão ("Veio / Faltou / Desmarcou", não "presença/ausência").
 - Componentes em `src/components/ui.tsx` (Card, Field, Input, Select, Badge, EmptyState, PageHeader…) e `forms.tsx` (`ActionForm` com mensagens amigáveis, `SubmitButton`, `ConfirmSubmit` para ações destrutivas).

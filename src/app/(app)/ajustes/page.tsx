@@ -1,6 +1,8 @@
 import { LogOut, Package, Plus, Stethoscope, UserRound } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select } from "@/components/ui";
+import { saveTemplates } from "../whatsapp/actions";
+import { TEMPLATE_VARS } from "@/lib/messages";
+import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textarea } from "@/components/ui";
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
@@ -52,10 +54,11 @@ function ServiceFields({ s }: { s?: { name: string; kind: string; duration_min: 
 export default async function AjustesPage() {
   const ctx = await getContext();
   const supabase = await createClient();
-  const [{ data: pros }, { data: services }, { data: products }] = await Promise.all([
+  const [{ data: pros }, { data: services }, { data: products }, { data: wa }] = await Promise.all([
     supabase.from("professionals").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("services").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("products").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
+    supabase.from("whatsapp_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle(),
   ]);
   const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
   const admin = ctx.isAdmin;
@@ -292,6 +295,38 @@ export default async function AjustesPage() {
             <p className="text-sm text-muted">Cadastre o que a clínica vende (ex.: pacote de 10 sessões, pilates 2x/semana) para vender aos pacientes.</p>
           )}
         </Section>
+
+        <section id="whatsapp" className="scroll-mt-20 space-y-3">
+          <h2 className="text-[17px] font-semibold">WhatsApp</h2>
+          <Card className="p-5 sm:p-6">
+            <div className="mb-5 flex items-start gap-3 rounded-xl bg-bg p-4">
+              <span className="mt-1 size-2.5 shrink-0 rounded-full bg-warn" aria-hidden />
+              <div className="text-[15px]">
+                <p className="font-medium">Envio assistido</p>
+                <p className="text-muted">
+                  As mensagens saem prontas e você envia pelo WhatsApp da clínica, na tela WhatsApp. O envio automático (com respostas 1/2 que
+                  atualizam a agenda sozinhas) chega quando o número for conectado.
+                </p>
+              </div>
+            </div>
+            {wa && (
+              <ActionForm action={saveTemplates}>
+                {(
+                  [
+                    { k: "tpl_lembrete", t: "Lembrete de sessão", v: TEMPLATE_VARS.lembrete },
+                    { k: "tpl_cobranca", t: "Cobrança", v: TEMPLATE_VARS.cobranca },
+                    { k: "tpl_renovacao", t: "Fim de pacote", v: TEMPLATE_VARS.renovacao },
+                  ] as const
+                ).map((f) => (
+                  <Field key={f.k} label={f.t} hint={"Pode usar: " + f.v.map((x) => `{${x.key}} = ${x.label}`).join(" · ")}>
+                    <Textarea name={f.k} rows={3} defaultValue={wa[f.k]} disabled={!admin} />
+                  </Field>
+                ))}
+                {admin && <SubmitButton size="md">Salvar textos</SubmitButton>}
+              </ActionForm>
+            )}
+          </Card>
+        </section>
 
         <Section title="Sua conta">
           <Card className="flex flex-wrap items-center justify-between gap-3 p-5">

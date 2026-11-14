@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Minus, Plus, Undo2 } from "lucide-react";
 import { ConfirmSubmit } from "@/components/forms";
 import { PayButton } from "@/components/finance";
+import { WaSendButton } from "@/components/wa-send";
+import { firstName, renderTemplate } from "@/lib/messages";
 import { Alert, Card, cx, EmptyState, LinkButton } from "@/components/ui";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +22,7 @@ type Tx = {
   paid_on: string | null;
   payment_method: string | null;
   patient_id: string | null;
-  patients: { name: string } | null;
+  patients: { name: string; phone: string | null } | null;
   categories: { name: string } | null;
 };
 
@@ -48,7 +50,7 @@ export default async function LancamentosPage({
 
   let q = supabase
     .from("transactions")
-    .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name), categories(name)")
+    .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name, phone), categories(name)")
     .eq("clinic_id", ctx.clinicId)
     .eq("type", f.type);
   if (f.paid) q = q.not("paid_on", "is", null).gte("paid_on", from).lte("paid_on", to).order("paid_on", { ascending: false });
@@ -62,7 +64,7 @@ export default async function LancamentosPage({
   if (!f.paid && !onlyLate && month === today.slice(0, 7)) {
     const { data: l } = await supabase
       .from("transactions")
-      .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name), categories(name)")
+      .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name, phone), categories(name)")
       .eq("clinic_id", ctx.clinicId)
       .eq("type", f.type)
       .is("paid_on", null)
@@ -71,6 +73,7 @@ export default async function LancamentosPage({
     late = (l ?? []) as unknown as Tx[];
   }
   const all = [...late, ...rows];
+  const { data: wa } = await supabase.from("whatsapp_settings").select("tpl_cobranca").eq("clinic_id", ctx.clinicId).maybeSingle();
   const total = all.reduce((a, t) => a + t.amount_cents, 0);
   const back = `/financeiro/lancamentos?tipo=${f.key}&mes=${month}`;
 
@@ -176,7 +179,25 @@ export default async function LancamentosPage({
                         </ConfirmSubmit>
                       </form>
                     ) : (
-                      <PayButton id={t.id} type={t.type} amountLabel="" back={back} />
+                      <>
+                        {t.type === "receita" && t.patient_id && t.patients?.phone && wa && (
+                          <WaSendButton
+                            compact
+                            phone={t.patients.phone}
+                            kind="cobranca"
+                            patientId={t.patient_id}
+                            transactionId={t.id}
+                            body={renderTemplate(wa.tpl_cobranca, {
+                              nome: firstName(t.patients.name),
+                              descricao: t.description,
+                              valor: formatMoney(t.amount_cents),
+                              vencimento: formatDateShort(t.due_date),
+                              clinica: ctx.clinicName,
+                            })}
+                          />
+                        )}
+                        <PayButton id={t.id} type={t.type} amountLabel="" back={back} />
+                      </>
                     )}
                     {ctx.canSeeExpenses && (
                       <form action={deleteTransaction}>
