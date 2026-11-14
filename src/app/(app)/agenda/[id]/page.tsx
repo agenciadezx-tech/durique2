@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageCircle, Repeat } from "lucide-react";
+import { MessageCircle, NotebookPen, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PatientPicker } from "@/components/patient-picker";
 import { Alert, Avatar, Card, PageHeader, Section } from "@/components/ui";
@@ -142,6 +142,14 @@ export default async function SessaoPage({
                           )
                         }
                       />
+                      {ctx.professionalId && !canceled && t.status === "presente" && t.patients && (
+                        <Link
+                          href={`/pacientes/${t.patients.id}/prontuario/novo?tipo=evolucao&sessao=${t.id}`}
+                          className="mt-2 mr-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline"
+                        >
+                          <NotebookPen size={16} /> Escrever evolução
+                        </Link>
+                      )}
                       {showFinance && !canceled && t.status === "presente" && !t.package_id && !chargedOf.has(t.id) && t.patients && (
                         <ChargeForm
                           attendeeId={t.id}

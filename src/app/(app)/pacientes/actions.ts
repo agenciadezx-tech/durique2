@@ -162,3 +162,43 @@ export async function extendPackage(data: FormData) {
   await supabase.from("patient_packages").update({ expires_on: date, status: "ativo" }).eq("id", String(data.get("id")));
   revalidatePath(`/pacientes/${String(data.get("patient_id"))}`);
 }
+
+export async function createDocument(data: FormData) {
+  const ctx = await getContext();
+  if (ctx.role === "financeiro") return;
+  const patientId = String(data.get("patient_id"));
+  const templateId = String(data.get("template_id") ?? "");
+  if (!templateId) return;
+  const supabase = await createClient();
+  const [{ data: t }, { data: p }] = await Promise.all([
+    supabase.from("document_templates").select("id, name, body").eq("id", templateId).single(),
+    supabase.from("patients").select("name, cpf").eq("id", patientId).single(),
+  ]);
+  if (!t || !p) return;
+  const cpf = p.cpf ? `${p.cpf.slice(0, 3)}.${p.cpf.slice(3, 6)}.${p.cpf.slice(6, 9)}-${p.cpf.slice(9)}` : "____________";
+  const date = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "long" }).format(new Date());
+  const body = t.body
+    .replaceAll("{paciente}", p.name)
+    .replaceAll("{cpf}", cpf)
+    .replaceAll("{clinica}", ctx.clinicName)
+    .replaceAll("{cidade}", "")
+    .replaceAll("{data}", date)
+    .replace(/^,\s*/m, "");
+  const { data: doc } = await supabase
+    .from("patient_documents")
+    .insert({ clinic_id: ctx.clinicId, patient_id: patientId, template_id: t.id, title: t.name, body })
+    .select("id")
+    .single();
+  revalidatePath(`/pacientes/${patientId}`);
+  if (doc) redirect(`/pacientes/${patientId}/documentos/${doc.id}`);
+}
+
+export async function cancelDocument(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return;
+  const supabase = await createClient();
+  await supabase.from("patient_documents").update({ status: "cancelado" }).eq("id", String(data.get("id")));
+  const patientId = String(data.get("patient_id"));
+  revalidatePath(`/pacientes/${patientId}`);
+  redirect(`/pacientes/${patientId}`);
+}

@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
-import { Alert, Badge, buttonClass, Card, cx, LinkButton, PageHeader, Section } from "@/components/ui";
+import { Alert, Badge, buttonClass, Card, cx, LinkButton, PageHeader, Section, Select } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
-import { setPackageStatus, setPatientActive, updatePatient } from "../actions";
+import { createDocument, setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PatientFields } from "../patient-fields";
 
 export default async function PacientePage({
@@ -79,6 +79,13 @@ export default async function PacientePage({
   const paid = (txs ?? []).filter((t) => t.paid_on).slice(-5).reverse();
   const openTotal = open.reduce((a, t) => a + t.amount_cents, 0);
   const showFinance = ctx.role !== "profissional";
+  const [{ data: docs }, { data: templates }, { data: lastRec }] = await Promise.all([
+    supabase.from("patient_documents").select("id, title, status, signed_at, created_at").eq("patient_id", id).neq("status", "cancelado").order("created_at", { ascending: false }),
+    supabase.from("document_templates").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
+    ctx.canSeeClinical
+      ? supabase.from("clinical_records").select("record_date, kind").eq("patient_id", id).neq("kind", "adendo").order("record_date", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null as { record_date: string; kind: string } | null }),
+  ]);
 
   return (
     <>
@@ -147,6 +154,58 @@ export default async function PacientePage({
             )}
           </Section>
         </div>
+
+        {ctx.canSeeClinical && (
+          <Link href={`/pacientes/${patient.id}/prontuario`} className="block">
+            <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                <Lock size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Prontuário</span>
+                <span className="text-sm text-muted">
+                  {lastRec ? `Último registro: ${lastRec.kind === "avaliacao" ? "avaliação" : "evolução"} em ${formatDateShort(lastRec.record_date)}` : "Avaliação, evoluções e escalas"}
+                </span>
+              </span>
+              <ChevronRight size={20} className="text-faint" />
+            </Card>
+          </Link>
+        )}
+
+        {ctx.role !== "financeiro" && (
+          <Section title="Termos e contratos">
+            {docs && docs.length > 0 && (
+              <Card className="divide-y divide-line overflow-hidden">
+                {docs.map((d) => (
+                  <Link key={d.id} href={`/pacientes/${patient.id}/documentos/${d.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-hover">
+                    <FileSignature size={18} className={d.status === "assinado" ? "text-ok" : "text-warn"} />
+                    <span className="min-w-0 flex-1 truncate font-medium">{d.title}</span>
+                    {d.status === "assinado" ? (
+                      <Badge tone="ok">Assinado {formatDateShort(d.signed_at!.slice(0, 10))}</Badge>
+                    ) : (
+                      <Badge tone="warn">Aguardando</Badge>
+                    )}
+                  </Link>
+                ))}
+              </Card>
+            )}
+            {templates && templates.length > 0 && (
+              <form action={createDocument} className="flex flex-col gap-2 sm:flex-row">
+                <input type="hidden" name="patient_id" value={patient.id} />
+                <Select name="template_id" defaultValue={templates[0].id} aria-label="Modelo de documento" className="sm:flex-1">
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
+                <SubmitButton size="lg" variant="secondary" pendingText="Gerando…">
+                  <FileSignature size={18} /> Gerar para assinar
+                </SubmitButton>
+              </form>
+            )}
+          </Section>
+        )}
 
         {showFinance && (
           <Section

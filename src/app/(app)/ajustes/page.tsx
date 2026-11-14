@@ -6,7 +6,7 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { renameClinic, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
+import { renameClinic, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
 import { CommissionFields, ProductFields } from "./product-fields";
 
 export const metadata = { title: "Ajustes" };
@@ -54,11 +54,12 @@ function ServiceFields({ s }: { s?: { name: string; kind: string; duration_min: 
 export default async function AjustesPage() {
   const ctx = await getContext();
   const supabase = await createClient();
-  const [{ data: pros }, { data: services }, { data: products }, { data: wa }] = await Promise.all([
+  const [{ data: pros }, { data: services }, { data: products }, { data: wa }, { data: docTemplates }] = await Promise.all([
     supabase.from("professionals").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("services").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("products").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("whatsapp_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle(),
+    supabase.from("document_templates").select("id, name, body").eq("clinic_id", ctx.clinicId).order("name"),
   ]);
   const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
   const admin = ctx.isAdmin;
@@ -114,6 +115,9 @@ export default async function AjustesPage() {
                         <Field label="E-mail">
                           <Input name="email" type="email" defaultValue={p.email ?? ""} />
                         </Field>
+                        <Field label="CREFITO" hint="Aparece nos registros do prontuário.">
+                          <Input name="crefito" defaultValue={p.crefito ?? ""} placeholder="Ex.: 123456-F" />
+                        </Field>
                       </div>
                       <CommissionFields percent={p.commission_percent} fixedCents={p.commission_fixed_cents} />
                       <SubmitButton size="md">Salvar</SubmitButton>
@@ -153,6 +157,9 @@ export default async function AjustesPage() {
                     </Field>
                     <Field label="E-mail">
                       <Input name="email" type="email" />
+                    </Field>
+                    <Field label="CREFITO">
+                      <Input name="crefito" placeholder="Ex.: 123456-F" />
                     </Field>
                   </div>
                   <CommissionFields />
@@ -294,6 +301,47 @@ export default async function AjustesPage() {
           {!products?.length && (
             <p className="text-sm text-muted">Cadastre o que a clínica vende (ex.: pacote de 10 sessões, pilates 2x/semana) para vender aos pacientes.</p>
           )}
+        </Section>
+
+        <Section title="Modelos de documentos">
+          <Card className="divide-y divide-line overflow-hidden">
+            {(docTemplates ?? []).map((t) => (
+              <Disclosure key={t.id} summary={<span className="font-medium">{t.name}</span>}>
+                <ActionForm action={saveDocTemplate}>
+                  <input type="hidden" name="id" value={t.id} />
+                  <Field label="Nome">
+                    <Input name="name" defaultValue={t.name} disabled={!admin} />
+                  </Field>
+                  <Field label="Texto" hint="Pode usar {paciente}, {cpf}, {clinica}, {cidade} e {data}.">
+                    <Textarea name="body" rows={8} defaultValue={t.body} disabled={!admin} />
+                  </Field>
+                  {admin && <SubmitButton size="md">Salvar</SubmitButton>}
+                </ActionForm>
+              </Disclosure>
+            ))}
+            {admin && (
+              <Disclosure
+                summary={
+                  <span className="flex items-center gap-3 font-medium text-accent">
+                    <span className="grid size-10 place-items-center rounded-full bg-accent-soft">
+                      <Plus size={18} />
+                    </span>
+                    Novo modelo
+                  </span>
+                }
+              >
+                <ActionForm action={saveDocTemplate} resetOnSuccess>
+                  <Field label="Nome">
+                    <Input name="name" required placeholder="Ex.: Termo de pilates" />
+                  </Field>
+                  <Field label="Texto" hint="Pode usar {paciente}, {cpf}, {clinica}, {cidade} e {data}.">
+                    <Textarea name="body" rows={8} required />
+                  </Field>
+                  <SubmitButton size="md">Criar modelo</SubmitButton>
+                </ActionForm>
+              </Disclosure>
+            )}
+          </Card>
         </Section>
 
         <section id="whatsapp" className="scroll-mt-20 space-y-3">

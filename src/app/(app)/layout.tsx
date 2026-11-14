@@ -7,7 +7,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ctx = await getContext();
   return (
     <div className="lg:flex">
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
+      <aside className="sticky top-0 hidden print:!hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
         <div className="px-2">
           <Logo />
           <p className="mt-4 truncate text-sm font-medium">{ctx.clinicName}</p>
@@ -25,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </aside>
 
       <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-bg/90 px-5 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 flex h-14 print:hidden items-center justify-between border-b border-line bg-bg/90 px-5 backdrop-blur lg:hidden">
           <Logo compact />
           <span className="truncate pl-3 text-sm font-medium text-muted">{ctx.clinicName}</span>
         </header>

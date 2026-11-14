@@ -50,6 +50,7 @@ export async function saveProfessional(_: ActionState, data: FormData): Promise<
     name,
     phone,
     email: String(data.get("email") ?? "").trim() || null,
+    crefito: String(data.get("crefito") ?? "").trim() || null,
     commission_percent,
     commission_fixed_cents,
   };
@@ -130,4 +131,20 @@ export async function saveProduct(_: ActionState, data: FormData): Promise<Actio
   if (error) return { error: friendlyError(error) };
   revalidatePath("/ajustes");
   return { ok: id ? "Atualizado." : `${name} foi adicionado.` };
+}
+
+export async function saveDocTemplate(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await adminCtx();
+  if (!ctx) return NOT_ADMIN;
+  const id = String(data.get("id") ?? "");
+  const name = String(data.get("name") ?? "").trim();
+  const body = String(data.get("body") ?? "").trim();
+  if (!name || body.length < 20) return { error: "Preencha o nome e o texto do documento." };
+  const supabase = await createClient();
+  const { error } = id
+    ? await supabase.from("document_templates").update({ name, body }).eq("id", id)
+    : await supabase.from("document_templates").insert({ clinic_id: ctx.clinicId, name, body });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/ajustes");
+  return { ok: id ? "Modelo atualizado." : "Modelo criado." };
 }

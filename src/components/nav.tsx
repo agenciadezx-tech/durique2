@@ -51,7 +51,7 @@ export function BottomNav({ showFinance }: { showFinance: boolean }) {
   return (
     <nav
       aria-label="Menu principal"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 print:hidden border-t border-line bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className={cx("mx-auto grid max-w-lg", list.length === 5 ? "grid-cols-5" : "grid-cols-4")}>
         {list.map(({ href, label, short, icon: Icon }) => (

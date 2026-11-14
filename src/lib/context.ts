@@ -14,6 +14,9 @@ export type AppContext = {
   canManageAgenda: boolean; // admin ou recepção
   isAdmin: boolean;
   canSeeExpenses: boolean; // admin ou financeiro (despesas, resultado, comissões)
+  canSeeClinical: boolean; // admin ou profissional (prontuário)
+  professionalId: string | null; // profissional ligado ao usuário (pode escrever/assinar prontuário)
+  professionalName: string | null;
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -33,7 +36,7 @@ export const getContext = cache(async (): Promise<AppContext> => {
 
   const { data: member } = await supabase
     .from("members")
-    .select("clinic_id, role, clinics(name)")
+    .select("id, clinic_id, role, clinics(name)")
     .eq("user_id", user.id)
     .eq("active", true)
     .order("created_at")
@@ -50,6 +53,14 @@ export const getContext = cache(async (): Promise<AppContext> => {
     .limit(1)
     .single();
 
+  const { data: pro } = await supabase
+    .from("professionals")
+    .select("id, name")
+    .eq("member_id", member.id)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
   const role = member.role as Role;
   const clinic = member.clinics as unknown as { name: string } | null;
   return {
@@ -62,5 +73,8 @@ export const getContext = cache(async (): Promise<AppContext> => {
     canManageAgenda: role === "admin" || role === "recepcao",
     isAdmin: role === "admin",
     canSeeExpenses: role === "admin" || role === "financeiro",
+    canSeeClinical: role === "admin" || role === "profissional",
+    professionalId: pro?.id ?? null,
+    professionalName: pro?.name ?? null,
   };
 });
