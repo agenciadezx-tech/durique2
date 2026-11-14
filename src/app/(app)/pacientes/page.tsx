@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ChevronRight, FileSpreadsheet, Plus, Search, Users } from "lucide-react";
+import { AlertTriangle, ChevronRight, FileSpreadsheet, Plus, Search, Users } from "lucide-react";
+import { WaSendButton } from "@/components/wa-send";
+import { firstName } from "@/lib/messages";
 import { Avatar, Card, EmptyState, Input, LinkButton, PageHeader } from "@/components/ui";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +32,11 @@ export default async function PacientesPage({
     query = digits.length >= 4 ? query.or(`name.ilike.%${term}%,phone.ilike.%${digits}%,cpf.ilike.%${digits}%`) : query.ilike("name", `%${term}%`);
   }
   const { data: patients } = await query;
+  type Risk = { patient_id: string; name: string; phone: string | null; motivo: string };
+  const risk: Risk[] =
+    ctx.canManageAgenda && !inativos && !q
+      ? (((await supabase.rpc("patients_at_risk", { p_clinic: ctx.clinicId })).data ?? []) as Risk[])
+      : [];
   const { count: total } = await supabase
     .from("patients")
     .select("id", { count: "exact", head: true })
@@ -75,6 +82,33 @@ export default async function PacientesPage({
         />
       ) : (
         <>
+          {risk && risk.length > 0 && (
+            <details className="mb-4 rounded-2xl border border-warn/30 bg-warn-soft/40" open={risk.length <= 3}>
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 font-medium text-warn [&::-webkit-details-marker]:hidden">
+                <AlertTriangle size={18} /> {risk.length} aluno{risk.length === 1 ? "" : "s"} em risco de desistir
+              </summary>
+              <ul className="divide-y divide-warn/20 border-t border-warn/20">
+                {risk.slice(0, 10).map((r) => (
+                  <li key={r.patient_id} className="flex items-center gap-3 px-4 py-2.5">
+                    <Link href={`/pacientes/${r.patient_id}`} className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{r.name}</span>
+                      <span className="text-sm text-muted">{r.motivo}</span>
+                    </Link>
+                    {r.phone && (
+                      <WaSendButton
+                        compact
+                        phone={r.phone}
+                        kind="outro"
+                        patientId={r.patient_id}
+                        body={`Olá, ${firstName(r.name)}! Sentimos sua falta por aqui na ${ctx.clinicName}. Está tudo bem? Quer que eu reserve seu próximo horário?`}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
           <form className="relative mb-4" role="search">
             <Search size={18} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-faint" />
             <Input name="q" defaultValue={q} placeholder="Buscar por nome, telefone ou CPF" className="pl-10" type="search" />

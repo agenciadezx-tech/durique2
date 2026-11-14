@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { Archive, ArchiveRestore, ChevronRight, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
-import { Alert, Badge, buttonClass, Card, cx, LinkButton, PageHeader, Section, Select } from "@/components/ui";
+import { Alert, Badge, buttonClass, Card, cx, Field, Input, LinkButton, PageHeader, Section, Select } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
-import { createDocument, setPackageStatus, setPatientActive, updatePatient } from "../actions";
+import { createDocument, freezePackage, setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PatientFields } from "../patient-fields";
 
 export default async function PacientePage({
@@ -58,7 +58,7 @@ export default async function PacientePage({
   const [{ data: packages }, { data: txs }] = await Promise.all([
     supabase
       .from("patient_packages")
-      .select("id, name, kind, total_sessions, sessions_per_week, price_cents, starts_on, expires_on, status, created_at")
+      .select("id, name, kind, total_sessions, sessions_per_week, price_cents, starts_on, expires_on, status, created_at, frozen_from, frozen_until")
       .eq("patient_id", id)
       .order("status")
       .order("created_at", { ascending: false }),
@@ -79,6 +79,9 @@ export default async function PacientePage({
   const paid = (txs ?? []).filter((t) => t.paid_on).slice(-5).reverse();
   const openTotal = open.reduce((a, t) => a + t.amount_cents, 0);
   const showFinance = ctx.role !== "profissional";
+  const { data: credits } = ctx.canManageAgenda
+    ? await supabase.from("makeup_credits").select("expires_on").eq("patient_id", id).eq("status", "disponivel").gte("expires_on", today).order("expires_on")
+    : { data: [] as { expires_on: string }[] };
   const [{ data: docs }, { data: templates }, { data: lastRec }] = await Promise.all([
     supabase.from("patient_documents").select("id, title, status, signed_at, created_at").eq("patient_id", id).neq("status", "cancelado").order("created_at", { ascending: false }),
     supabase.from("document_templates").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
@@ -105,6 +108,12 @@ export default async function PacientePage({
       <div className="space-y-8">
         {salvo && <Alert tone="ok">Paciente cadastrado!</Alert>}
         {vendido && <Alert tone="ok">Venda registrada! As parcelas já estão em Contas a receber.</Alert>}
+        {credits && credits.length > 0 && (
+          <Alert tone="info">
+            {credits.length} reposição{credits.length === 1 ? "" : "ões"} disponível{credits.length === 1 ? "" : "is"} · a primeira vence em{" "}
+            {formatDateShort(credits[0].expires_on)}. Para usar, adicione o paciente numa aula marcando “É reposição de aula”.
+          </Alert>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Section title="Horários fixos">
@@ -258,6 +267,33 @@ export default async function PacientePage({
                             {used} de {p.total_sessions} sessões usadas
                           </p>
                         </div>
+                      )}
+                      {p.frozen_until && p.frozen_until >= today && (
+                        <p className="mt-2 text-sm font-medium text-info">
+                          Congelado de {formatDateShort(p.frozen_from)} a {formatDateShort(p.frozen_until)}
+                        </p>
+                      )}
+                      {ctx.canManageAgenda && active && !(p.frozen_until && p.frozen_until >= today) && (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-sm font-medium text-accent">Congelar (férias, viagem, lesão)</summary>
+                          <div className="mt-3">
+                            <ActionForm action={freezePackage}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <input type="hidden" name="patient_id" value={patient.id} />
+                              <div className="grid grid-cols-2 gap-3">
+                                <Field label="De">
+                                  <Input name="from" type="date" defaultValue={today} required />
+                                </Field>
+                                <Field label="Até">
+                                  <Input name="until" type="date" required />
+                                </Field>
+                              </div>
+                              <SubmitButton size="md" variant="secondary" pendingText="Congelando…">
+                                Congelar
+                              </SubmitButton>
+                            </ActionForm>
+                          </div>
+                        </details>
                       )}
                       {ctx.canManageAgenda && p.status === "ativo" && (
                         <form action={setPackageStatus} className="mt-2 text-right">

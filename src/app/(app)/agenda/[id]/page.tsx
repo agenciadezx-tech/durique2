@@ -10,7 +10,9 @@ import { ChargeForm } from "./charge-form";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDayLong, formatTime, TZ, whatsappLink } from "@/lib/format";
-import { addAttendee, cancelAppointment, removeAttendee, restoreAppointment } from "../actions";
+import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, restoreAppointment } from "../actions";
+import { WaSendButton } from "@/components/wa-send";
+import { firstName } from "@/lib/messages";
 
 type Attendee = {
   id: string;
@@ -62,7 +64,7 @@ export default async function SessaoPage({
   const chargedOf = new Map((charges ?? []).map((c) => [c.attendee_id, c.paid_on]));
 
   let available: { id: string; name: string }[] = [];
-  if (ctx.canManageAgenda && !canceled && free > 0) {
+  if (ctx.canManageAgenda && !canceled) {
     const inSession = new Set(all.map((t) => t.patients?.id));
     const { data } = await supabase
       .from("patients")
@@ -72,7 +74,28 @@ export default async function SessaoPage({
       .order("name")
       .limit(2000);
     available = (data ?? []).filter((p) => !inSession.has(p.id));
+    // Quem tem reposição disponível aparece primeiro e marcado
+    const { data: credits } = await supabase
+      .from("makeup_credits")
+      .select("patient_id")
+      .eq("clinic_id", ctx.clinicId)
+      .eq("status", "disponivel")
+      .gte("expires_on", day);
+    const withCredit = new Map<string, number>();
+    (credits ?? []).forEach((c) => withCredit.set(c.patient_id, (withCredit.get(c.patient_id) ?? 0) + 1));
+    available = available
+      .map((p) => (withCredit.has(p.id) ? { ...p, name: `${p.name} · tem reposição` } : p))
+      .sort((a, b) => Number(withCredit.has(b.id)) - Number(withCredit.has(a.id)));
   }
+  const { data: waitData } = ctx.canManageAgenda
+    ? await supabase
+        .from("waitlist")
+        .select("id, notes, patients(id, name, phone)")
+        .eq("appointment_id", appt.id)
+        .eq("status", "aguardando")
+        .order("created_at")
+    : { data: [] };
+  const waiting = (waitData ?? []) as unknown as { id: string; notes: string | null; patients: { id: string; name: string; phone: string | null } | null }[];
 
   return (
     <>
@@ -201,6 +224,60 @@ export default async function SessaoPage({
                 </SubmitButton>
               </ActionForm>
             </Card>
+          </Section>
+        )}
+
+        {ctx.canManageAgenda && !canceled && (waiting.length > 0 || free <= 0) && (
+          <Section title={free > 0 && waiting.length > 0 ? "Abriu vaga! Lista de espera" : "Lista de espera"}>
+            {waiting.length > 0 && (
+              <Card className={"divide-y divide-line overflow-hidden " + (free > 0 ? "border-ok/40" : "")}>
+                {waiting.map((w, i) => (
+                  <div key={w.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-hover text-sm font-semibold">{i + 1}</span>
+                    <span className="min-w-0 flex-1 font-medium">{w.patients?.name}</span>
+                    <div className="ml-auto flex items-center gap-1">
+                      {free > 0 && w.patients?.phone && (
+                        <WaSendButton
+                          compact
+                          phone={w.patients.phone}
+                          kind="outro"
+                          patientId={w.patients.id}
+                          body={`Olá, ${firstName(w.patients.name)}! Abriu uma vaga em ${service?.name} ${formatDayLong(day).toLowerCase()} às ${formatTime(appt.starts_at)}, na ${ctx.clinicName}. Quer que eu reserve para você?`}
+                        />
+                      )}
+                      {free > 0 && (
+                        <form action={fitFromWaitlist}>
+                          <input type="hidden" name="id" value={w.id} />
+                          <input type="hidden" name="appointment_id" value={appt.id} />
+                          <SubmitButton size="sm" pendingText="…">
+                            Encaixar
+                          </SubmitButton>
+                        </form>
+                      )}
+                      <form action={cancelWaitlist}>
+                        <input type="hidden" name="id" value={w.id} />
+                        <input type="hidden" name="appointment_id" value={appt.id} />
+                        <SubmitButton size="sm" variant="ghost" pendingText="…">
+                          Tirar
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            )}
+            {free <= 0 && (
+              <Card className="p-5">
+                <ActionForm action={addToWaitlist} resetOnSuccess>
+                  <input type="hidden" name="appointment_id" value={appt.id} />
+                  <p className="text-[15px] text-muted">Sessão lotada. Coloque o paciente na fila: quando alguém desmarcar, ele aparece aqui para encaixar.</p>
+                  <PatientPicker key={`w${waiting.length}`} patients={available.filter((p) => !waiting.some((w) => w.patients?.id === p.id))} />
+                  <SubmitButton size="md" variant="secondary" pendingText="Adicionando…">
+                    Colocar na lista de espera
+                  </SubmitButton>
+                </ActionForm>
+              </Card>
+            )}
           </Section>
         )}
 

@@ -148,3 +148,20 @@ export async function saveDocTemplate(_: ActionState, data: FormData): Promise<A
   revalidatePath("/ajustes");
   return { ok: id ? "Modelo atualizado." : "Modelo criado." };
 }
+
+export async function saveRules(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await adminCtx();
+  if (!ctx) return NOT_ADMIN;
+  const hours = Number(data.get("cancel_notice_hours"));
+  const days = Number(data.get("makeup_validity_days"));
+  if (!(hours >= 0 && hours <= 72)) return { error: "Antecedência deve ser entre 0 e 72 horas." };
+  if (!(days >= 1 && days <= 365)) return { error: "Validade da reposição deve ser entre 1 e 365 dias." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("clinic_settings")
+    .update({ cancel_notice_hours: hours, makeup_validity_days: days, updated_at: new Date().toISOString() })
+    .eq("clinic_id", ctx.clinicId);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/ajustes");
+  return { ok: "Regras salvas." };
+}

@@ -8,7 +8,6 @@ import { friendlyError, toTimestamp } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
 
 const NO_PERM = { error: "Você não tem permissão para alterar a agenda." };
-const HOURS_NOTICE = 12; // antecedência mínima para desmarcar sem perder a sessão (configurável na fase 3)
 
 /** Veio / Faltou / Desmarcou / Voltar. "Desmarcou" decide sozinho se foi no prazo. */
 export async function setAttendeeStatus(data: FormData) {
@@ -19,9 +18,13 @@ export async function setAttendeeStatus(data: FormData) {
   const supabase = await createClient();
 
   if (status === "desmarcou") {
-    const { data: appt } = await supabase.from("appointments").select("starts_at").eq("id", appointmentId).single();
+    const { data: appt } = await supabase.from("appointments").select("starts_at, clinic_id").eq("id", appointmentId).single();
+    const { data: rules } = appt
+      ? await supabase.from("clinic_settings").select("cancel_notice_hours").eq("clinic_id", appt.clinic_id).maybeSingle()
+      : { data: null };
+    const notice = rules?.cancel_notice_hours ?? 12;
     const hoursBefore = appt ? (new Date(appt.starts_at).getTime() - Date.now()) / 36e5 : 0;
-    status = hoursBefore >= HOURS_NOTICE ? "desmarcado_no_prazo" : "desmarcado_fora_prazo";
+    status = hoursBefore >= notice ? "desmarcado_no_prazo" : "desmarcado_fora_prazo";
   }
   const allowed = ["agendado", "confirmado", "presente", "falta", "desmarcado_no_prazo", "desmarcado_fora_prazo"];
   if (!allowed.includes(status)) return;
@@ -58,7 +61,9 @@ export async function removeAttendee(data: FormData) {
   if (!ctx.canManageAgenda) return;
   const appointmentId = String(data.get("appointment_id"));
   const supabase = await createClient();
-  await supabase.from("appointment_attendees").delete().eq("id", String(data.get("id"))).is("enrollment_id", null);
+  const id = String(data.get("id"));
+  await supabase.rpc("release_makeup_credit", { p_attendee: id }); // devolve o crédito se era reposição
+  await supabase.from("appointment_attendees").delete().eq("id", id).is("enrollment_id", null);
   revalidatePath(`/agenda/${appointmentId}`);
   revalidatePath("/agenda");
 }
@@ -124,4 +129,56 @@ export async function createAppointment(_: ActionState, data: FormData): Promise
   }
   revalidatePath("/agenda");
   redirect(`/agenda/${appt.id}?nova=1`);
+}
+
+export async function addToWaitlist(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return NO_PERM;
+  const appointmentId = String(data.get("appointment_id"));
+  const patientId = String(data.get("patient_id") ?? "");
+  if (!patientId) return { error: "Escolha um paciente." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("waitlist").insert({
+    clinic_id: ctx.clinicId,
+    patient_id: patientId,
+    appointment_id: appointmentId,
+    notes: String(data.get("notes") ?? "").trim() || null,
+  });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/agenda/${appointmentId}`);
+  return { ok: "Paciente na lista de espera. Avisamos aqui quando abrir vaga." };
+}
+
+/** Encaixa quem estava na lista de espera (entra como reposição se tiver crédito). */
+export async function fitFromWaitlist(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return;
+  const id = String(data.get("id"));
+  const appointmentId = String(data.get("appointment_id"));
+  const supabase = await createClient();
+  const { data: w } = await supabase.from("waitlist").select("patient_id").eq("id", id).single();
+  if (!w) return;
+  const { count } = await supabase
+    .from("makeup_credits")
+    .select("id", { count: "exact", head: true })
+    .eq("patient_id", w.patient_id)
+    .eq("status", "disponivel")
+    .gte("expires_on", new Date().toISOString().slice(0, 10));
+  const { error } = await supabase.from("appointment_attendees").insert({
+    clinic_id: ctx.clinicId,
+    appointment_id: appointmentId,
+    patient_id: w.patient_id,
+    is_makeup: (count ?? 0) > 0,
+  });
+  if (!error) await supabase.from("waitlist").update({ status: "encaixado" }).eq("id", id);
+  revalidatePath(`/agenda/${appointmentId}`);
+  revalidatePath("/agenda");
+}
+
+export async function cancelWaitlist(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return;
+  const supabase = await createClient();
+  await supabase.from("waitlist").update({ status: "cancelado" }).eq("id", String(data.get("id")));
+  revalidatePath(`/agenda/${String(data.get("appointment_id"))}`);
 }

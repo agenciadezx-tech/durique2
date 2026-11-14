@@ -202,3 +202,16 @@ export async function cancelDocument(data: FormData) {
   revalidatePath(`/pacientes/${patientId}`);
   redirect(`/pacientes/${patientId}`);
 }
+
+export async function freezePackage(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
+  const from = String(data.get("from") ?? "");
+  const until = String(data.get("until") ?? "");
+  if (!from || !until) return { error: "Informe o início e o fim." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("freeze_package", { p_package: String(data.get("id")), p_from: from, p_until: until });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/pacientes/${String(data.get("patient_id"))}`);
+  return { ok: "Congelado. A validade foi estendida pelos dias parados e não haverá mensalidade nesse período." };
+}

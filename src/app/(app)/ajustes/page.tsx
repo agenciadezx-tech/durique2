@@ -1,4 +1,4 @@
-import { LogOut, Package, Plus, Stethoscope, UserRound } from "lucide-react";
+import { Download, LogOut, Package, Plus, Stethoscope, UserRound } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { saveTemplates } from "../whatsapp/actions";
 import { TEMPLATE_VARS } from "@/lib/messages";
@@ -6,7 +6,7 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { renameClinic, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
+import { renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
 import { CommissionFields, ProductFields } from "./product-fields";
 
 export const metadata = { title: "Ajustes" };
@@ -61,6 +61,7 @@ export default async function AjustesPage() {
     supabase.from("whatsapp_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle(),
     supabase.from("document_templates").select("id, name, body").eq("clinic_id", ctx.clinicId).order("name"),
   ]);
+  const { data: rules } = await supabase.from("clinic_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle();
   const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
   const admin = ctx.isAdmin;
 
@@ -237,6 +238,22 @@ export default async function AjustesPage() {
           </Card>
         </Section>
 
+        <Section title="Regras da agenda">
+          <Card className="p-5 sm:p-6">
+            <ActionForm action={saveRules}>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Antecedência para desmarcar sem perder a sessão" hint="Em horas. Desmarcou com menos que isso conta como sessão.">
+                  <Input name="cancel_notice_hours" type="number" min={0} max={72} defaultValue={rules?.cancel_notice_hours ?? 12} disabled={!admin} />
+                </Field>
+                <Field label="Validade da reposição" hint="Em dias, a partir da aula desmarcada.">
+                  <Input name="makeup_validity_days" type="number" min={1} max={365} defaultValue={rules?.makeup_validity_days ?? 30} disabled={!admin} />
+                </Field>
+              </div>
+              {admin && <SubmitButton size="md">Salvar regras</SubmitButton>}
+            </ActionForm>
+          </Card>
+        </Section>
+
         <Section title="Pacotes e planos">
           <Card className="divide-y divide-line overflow-hidden">
             {(products ?? []).map((p) => (
@@ -387,6 +404,21 @@ export default async function AjustesPage() {
                 <LogOut size={18} /> Sair
               </button>
             </form>
+          </Card>
+          <Card className="p-5">
+            <p className="font-medium">Seus dados são seus</p>
+            <p className="mt-1 text-sm text-muted">Baixe tudo em planilhas quando quiser, sem pedir a ninguém.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { t: "pacientes", l: "Pacientes" },
+                { t: "sessoes", l: "Sessões e presenças" },
+                ...(ctx.canSeeExpenses ? [{ t: "financeiro", l: "Financeiro" }] : []),
+              ].map((x) => (
+                <a key={x.t} href={`/exportar/${x.t}`} className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-sm font-medium hover:bg-hover">
+                  <Download size={16} /> {x.l}
+                </a>
+              ))}
+            </div>
           </Card>
           <p className="text-[13px] text-faint">Convidar recepção e outros profissionais com login chega na próxima etapa.</p>
         </Section>

@@ -30,6 +30,13 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - RPCs: `sell_package` (gera parcelas), `ensure_plan_charges` (mensalidades até o mês seguinte), `commission_report` (comissão por sessão realizada).
 - Recepção vê e lança só receitas; despesas, resultado e comissões são de `admin`/`financeiro`.
 
+## Prontuário, documentos e regras de estúdio
+- `clinical_records` (avaliação/evolução/adendo, Res. COFFITO 414/2012): só admin e profissional que atende veem (`private.can_see_clinical`); assinatura por `sign_clinical_record` (hash + carimbo); assinado é imutável, correção = adendo; acessos em `record_access_log`. `scale_results` para escalas.
+- `document_templates` / `patient_documents`: termo gerado com dados do paciente, assinatura desenhada na página pública `/assinar/[token]` (RPCs `get_document_by_token`, `sign_document_by_token`).
+- `clinic_settings`: antecedência para desmarcar e validade da reposição. `makeup_credits`: crédito criado ao desmarcar no prazo, consumido ao entrar como reposição (`is_makeup`), devolvido com `release_makeup_credit`.
+- `waitlist` (lista de espera por sessão), `freeze_package` (congelar: estende validade, pula mensalidade), `patients_at_risk` (2+ faltas em 30 dias ou 21+ dias sem vir).
+- Exportação CSV em `/exportar/[tipo]` (pacientes, sessões, financeiro).
+
 ## Conceitos do WhatsApp
 - `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).
 - Modo manual: a Central `/whatsapp` monta a mensagem e abre `wa.me` com o texto; `message_log` registra o envio (`WaSendButton`).
@@ -46,7 +53,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 1. ✅ Fundação: login, clínica, profissionais, serviços, pacientes (importação), agenda, turmas, recorrência
 2. ✅ Pacotes, planos e financeiro (caixa, contas a pagar/receber, comissões, previsão de saldo) + agenda em grade semanal
 3. WhatsApp (lembrete, confirmação 1/2, remarcação, cobrança)
-4. Prontuário + contrato com assinatura + LGPD
+4. ✅ Prontuário + contrato com assinatura + LGPD; reposição com crédito, lista de espera, congelamento, alunos em risco, exportação
 5. Asaas (Pix/cartão com baixa automática), reposição com regras, NFS-e
 6. Virar SaaS (convites de equipe, assinatura, link público)
 
