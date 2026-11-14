@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
-import { friendlyError, normalizeCpf, normalizePhone } from "@/lib/format";
+import { friendlyError, normalizeCpf, normalizePhone, parseMoney, todayISO } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
 
 function readPatient(data: FormData) {
@@ -110,4 +110,55 @@ export async function importPatients(rows: ImportRow[]): Promise<ImportResult & 
   }
   revalidatePath("/pacientes");
   return { inserted, skipped };
+}
+
+export async function sellPackage(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Você não tem permissão para vender pacotes." };
+  const patientId = String(data.get("patient_id"));
+  const productId = String(data.get("product_id") ?? "");
+  const price = parseMoney(String(data.get("price") ?? ""));
+  const paidNow = data.get("paid_now") === "on";
+  const method = String(data.get("payment_method") ?? "") || null;
+  if (!productId) return { error: "Escolha o pacote ou plano." };
+  if (price == null) return { error: "Informe o valor." };
+  if (paidNow && !method) return { error: "Escolha a forma de pagamento." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("sell_package", {
+    p_patient: patientId,
+    p_product: productId,
+    p_price_cents: price,
+    p_starts_on: String(data.get("starts_on") || todayISO()),
+    p_installments: Number(data.get("installments")) || 1,
+    p_first_due: String(data.get("first_due") || todayISO()),
+    p_paid_now: paidNow,
+    p_method: (paidNow ? method : null) as "pix" | null,
+  });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/pacientes/${patientId}`);
+  revalidatePath("/financeiro", "layout");
+  redirect(`/pacientes/${patientId}?vendido=1`);
+}
+
+export async function setPackageStatus(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return;
+  const status = data.get("status") === "cancelado" ? "cancelado" : data.get("status") === "ativo" ? "ativo" : "encerrado";
+  const supabase = await createClient();
+  const id = String(data.get("id"));
+  await supabase
+    .from("patient_packages")
+    .update({ status, ...(status !== "ativo" ? { expires_on: todayISO() } : {}) })
+    .eq("id", id);
+  revalidatePath(`/pacientes/${String(data.get("patient_id"))}`);
+}
+
+export async function extendPackage(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return;
+  const supabase = await createClient();
+  const date = String(data.get("expires_on") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  await supabase.from("patient_packages").update({ expires_on: date, status: "ativo" }).eq("id", String(data.get("id")));
+  revalidatePath(`/pacientes/${String(data.get("patient_id"))}`);
 }

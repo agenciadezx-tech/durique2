@@ -6,6 +6,7 @@ import { PatientPicker } from "@/components/patient-picker";
 import { Alert, Avatar, Card, PageHeader, Section } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
 import { AttendeeStatus } from "./status-buttons";
+import { ChargeForm } from "./charge-form";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDayLong, formatTime, TZ, whatsappLink } from "@/lib/format";
@@ -16,7 +17,9 @@ type Attendee = {
   status: string;
   is_makeup: boolean;
   enrollment_id: string | null;
+  package_id: string | null;
   patients: { id: string; name: string; phone: string | null } | null;
+  patient_packages: { name: string; kind: string; total_sessions: number | null } | null;
 };
 
 export default async function SessaoPage({
@@ -34,13 +37,13 @@ export default async function SessaoPage({
   const { data: appt } = await supabase
     .from("appointments")
     .select(
-      "*, services(name, kind), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, enrollment_id, patients(id, name, phone))",
+      "*, services(name, kind, price_cents), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, enrollment_id, package_id, patients(id, name, phone), patient_packages(name, kind, total_sessions))",
     )
     .eq("id", id)
     .maybeSingle();
   if (!appt) notFound();
 
-  const service = appt.services as unknown as { name: string; kind: string } | null;
+  const service = appt.services as unknown as { name: string; kind: string; price_cents: number | null } | null;
   const pro = appt.professionals as unknown as { name: string } | null;
   const all = (appt.appointment_attendees as unknown as Attendee[]).sort((a, b) =>
     (a.patients?.name ?? "").localeCompare(b.patients?.name ?? ""),
@@ -50,6 +53,13 @@ export default async function SessaoPage({
   const free = appt.capacity - occupied;
   const canceled = appt.status === "cancelado";
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(appt.starts_at));
+
+  // Cobranças avulsas já lançadas nesta sessão
+  const showFinance = ctx.role !== "profissional";
+  const { data: charges } = showFinance && attendees.length
+    ? await supabase.from("transactions").select("attendee_id, paid_on").in("attendee_id", attendees.map((t) => t.id))
+    : { data: [] as { attendee_id: string | null; paid_on: string | null }[] };
+  const chargedOf = new Map((charges ?? []).map((c) => [c.attendee_id, c.paid_on]));
 
   let available: { id: string; name: string }[] = [];
   if (ctx.canManageAgenda && !canceled && free > 0) {
@@ -108,6 +118,12 @@ export default async function SessaoPage({
                         }
                         extra={
                           <>
+                            {t.patient_packages && (
+                              <span className="text-[13px] text-muted">{t.patient_packages.name}</span>
+                            )}
+                            {chargedOf.has(t.id) && (
+                              <span className="text-[13px] text-muted">{chargedOf.get(t.id) ? "Avulsa paga ✓" : "Avulsa a receber"}</span>
+                            )}
                             {t.is_makeup && <span className="text-[13px] text-muted">Reposição</span>}
                             {!t.enrollment_id && !t.is_makeup && appt.series_id && <span className="text-[13px] text-muted">Avulso</span>}
                           </>
@@ -126,6 +142,16 @@ export default async function SessaoPage({
                           )
                         }
                       />
+                      {showFinance && !canceled && t.status === "presente" && !t.package_id && !chargedOf.has(t.id) && t.patients && (
+                        <ChargeForm
+                          attendeeId={t.id}
+                          appointmentId={appt.id}
+                          patientId={t.patients.id}
+                          description={`${service?.name ?? "Sessão"} · ${day.slice(8, 10)}/${day.slice(5, 7)}`}
+                          defaultCents={service?.price_cents ?? null}
+                          dueDate={day}
+                        />
+                      )}
                       {ctx.canManageAgenda && !t.enrollment_id && !canceled && (
                         <form action={removeAttendee} className="mt-2 text-right">
                           <input type="hidden" name="id" value={t.id} />

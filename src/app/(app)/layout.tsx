@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <p className="truncate text-[13px] text-muted">{ROLE_LABEL[ctx.role]}</p>
         </div>
         <div className="mt-6 flex-1">
-          <SideNav />
+          <SideNav showFinance={ctx.role !== "profissional"} />
         </div>
         <form action="/auth/sair" method="post" className="px-1">
           <p className="mb-2 truncate px-2 text-[13px] text-faint">{ctx.email}</p>
@@ -31,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </header>
         <main className="mx-auto w-full max-w-4xl px-5 pt-6 pb-28 lg:px-10 lg:pt-10 lg:pb-16">{children}</main>
       </div>
-      <BottomNav />
+      <BottomNav showFinance={ctx.role !== "profissional"} />
     </div>
   );
 }

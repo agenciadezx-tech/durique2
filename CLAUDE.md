@@ -23,6 +23,13 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - `appointment_attendees` = paciente na sessão com status (`agendado`, `confirmado`, `presente`, `falta`, `desmarcado_no_prazo`, `desmarcado_fora_prazo`, `removido`). Trigger impede passar da capacidade.
 - RPCs: `create_clinic`, `enroll_patient`, `end_enrollment`, `end_series`, `ensure_agenda`.
 
+## Conceitos do financeiro
+- `products` = catálogo (pacote de N sessões com validade, ou plano mensal X vezes/semana). `patient_packages` = pacote/plano vendido ao paciente.
+- Ao marcar Veio / Faltou / Desmarcou em cima da hora, o trigger `assign_package` consome uma sessão do pacote ativo (`appointment_attendees.package_id`); desfazer devolve. Uso em `package_usage`.
+- `transactions` = lançamentos (receita/despesa, `due_date`, `paid_on` nulo = em aberto). `categories` com `system_key` para as automáticas.
+- RPCs: `sell_package` (gera parcelas), `ensure_plan_charges` (mensalidades até o mês seguinte), `commission_report` (comissão por sessão realizada).
+- Recepção vê e lança só receitas; despesas, resultado e comissões são de `admin`/`financeiro`.
+
 ## Interface (padrões)
 - Textos em português simples, sem jargão ("Veio / Faltou / Desmarcou", não "presença/ausência").
 - Componentes em `src/components/ui.tsx` (Card, Field, Input, Select, Badge, EmptyState, PageHeader…) e `forms.tsx` (`ActionForm` com mensagens amigáveis, `SubmitButton`, `ConfirmSubmit` para ações destrutivas).
@@ -32,9 +39,11 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 
 ## Fases (ver especificação)
 1. ✅ Fundação: login, clínica, profissionais, serviços, pacientes (importação), agenda, turmas, recorrência
-2. WhatsApp (lembrete, confirmação 1/2, remarcação)
-3. Venda: pacotes, planos, reposição com regras, Asaas
-4. Financeiro · 5. Prontuário + LGPD · 6. Virar SaaS (convites de equipe, assinatura, link público)
+2. ✅ Pacotes, planos e financeiro (caixa, contas a pagar/receber, comissões, previsão de saldo) + agenda em grade semanal
+3. WhatsApp (lembrete, confirmação 1/2, remarcação, cobrança)
+4. Prontuário + contrato com assinatura + LGPD
+5. Asaas (Pix/cartão com baixa automática), reposição com regras, NFS-e
+6. Virar SaaS (convites de equipe, assinatura, link público)
 
 ## Comandos
 ```bash

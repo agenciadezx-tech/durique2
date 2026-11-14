@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, MessageCircle, Repeat } from "lucide-react";
-import { ActionForm, SubmitButton } from "@/components/forms";
-import { Alert, Badge, buttonClass, Card, PageHeader, Section } from "@/components/ui";
+import { Archive, ArchiveRestore, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
+import { PayButton } from "@/components/finance";
+import { Alert, Badge, buttonClass, Card, cx, LinkButton, PageHeader, Section } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
-import { formatTimestampShort, whatsappLink, WEEKDAYS } from "@/lib/format";
-import { setPatientActive, updatePatient } from "../actions";
+import { formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
+import { setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PatientFields } from "../patient-fields";
 
 export default async function PacientePage({
@@ -15,11 +16,11 @@ export default async function PacientePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvo?: string }>;
+  searchParams: Promise<{ salvo?: string; vendido?: string }>;
 }) {
   const ctx = await getContext();
   const { id } = await params;
-  const { salvo } = await searchParams;
+  const { salvo, vendido } = await searchParams;
   const supabase = await createClient();
 
   const { data: patient } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
@@ -51,6 +52,33 @@ export default async function PacientePage({
     .map((u) => ({ ...u, appt: u.appointments as unknown as Appt }))
     .sort((a, b) => a.appt.starts_at.localeCompare(b.appt.starts_at));
   const wa = whatsappLink(patient.phone);
+  const today = todayISO();
+
+  // Pacotes/planos e parcelas (quem não tem acesso ao financeiro recebe lista vazia pela RLS)
+  const [{ data: packages }, { data: txs }] = await Promise.all([
+    supabase
+      .from("patient_packages")
+      .select("id, name, kind, total_sessions, sessions_per_week, price_cents, starts_on, expires_on, status, created_at")
+      .eq("patient_id", id)
+      .order("status")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("transactions")
+      .select("id, description, amount_cents, due_date, paid_on, payment_method")
+      .eq("patient_id", id)
+      .eq("type", "receita")
+      .order("due_date", { ascending: true })
+      .limit(60),
+  ]);
+  const pkgIds = (packages ?? []).map((p) => p.id);
+  const { data: usage } = pkgIds.length
+    ? await supabase.from("package_usage").select("package_id, used").in("package_id", pkgIds)
+    : { data: [] as { package_id: string; used: number }[] };
+  const usedOf = new Map((usage ?? []).map((u) => [u.package_id, u.used]));
+  const open = (txs ?? []).filter((t) => !t.paid_on);
+  const paid = (txs ?? []).filter((t) => t.paid_on).slice(-5).reverse();
+  const openTotal = open.reduce((a, t) => a + t.amount_cents, 0);
+  const showFinance = ctx.role !== "profissional";
 
   return (
     <>
@@ -69,6 +97,7 @@ export default async function PacientePage({
 
       <div className="space-y-8">
         {salvo && <Alert tone="ok">Paciente cadastrado!</Alert>}
+        {vendido && <Alert tone="ok">Venda registrada! As parcelas já estão em Contas a receber.</Alert>}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Section title="Horários fixos">
@@ -118,6 +147,119 @@ export default async function PacientePage({
             )}
           </Section>
         </div>
+
+        {showFinance && (
+          <Section
+            title="Pacotes e planos"
+            action={
+              ctx.canManageAgenda && (
+                <LinkButton href={`/pacientes/${patient.id}/vender`} size="sm" variant="secondary">
+                  <Plus size={16} /> Vender
+                </LinkButton>
+              )
+            }
+          >
+            {packages?.length ? (
+              <div className="space-y-3">
+                {packages.map((p) => {
+                  const used = usedOf.get(p.id) ?? 0;
+                  const expired = p.expires_on && p.expires_on < today;
+                  const done = p.total_sessions != null && used >= p.total_sessions;
+                  const active = p.status === "ativo" && !expired && !done;
+                  const pct = p.total_sessions ? Math.min(100, Math.round((used / p.total_sessions) * 100)) : 0;
+                  const left = p.total_sessions ? p.total_sessions - used : null;
+                  return (
+                    <Card key={p.id} className={cx("p-4", !active && "opacity-70")}>
+                      <div className="flex items-start gap-3">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                          {p.kind === "plano" ? <Repeat size={18} /> : <Package size={18} />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium">{p.name}</p>
+                          <p className="text-sm text-muted">
+                            {p.kind === "plano"
+                              ? `${formatMoney(p.price_cents)}/mês · desde ${formatDateShort(p.starts_on)}`
+                              : `${formatMoney(p.price_cents)} · ${p.expires_on ? `válido até ${formatDateShort(p.expires_on)}` : "sem validade"}`}
+                          </p>
+                        </div>
+                        {active ? (
+                          <Badge tone={left != null && left <= 2 ? "warn" : "ok"}>
+                            {p.kind === "plano" ? "Ativo" : `${left} ${left === 1 ? "sessão restante" : "sessões restantes"}`}
+                          </Badge>
+                        ) : (
+                          <Badge>{p.status === "cancelado" ? "Cancelado" : done ? "Concluído" : expired ? "Vencido" : "Encerrado"}</Badge>
+                        )}
+                      </div>
+                      {p.total_sessions != null && (
+                        <div className="mt-3">
+                          <div className="h-2 overflow-hidden rounded-full bg-hover" role="progressbar" aria-valuenow={used} aria-valuemin={0} aria-valuemax={p.total_sessions} aria-label="Sessões usadas">
+                            <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                          </div>
+                          <p className="mt-1.5 text-[13px] text-muted">
+                            {used} de {p.total_sessions} sessões usadas
+                          </p>
+                        </div>
+                      )}
+                      {ctx.canManageAgenda && p.status === "ativo" && (
+                        <form action={setPackageStatus} className="mt-2 text-right">
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="patient_id" value={patient.id} />
+                          <input type="hidden" name="status" value="encerrado" />
+                          <ConfirmSubmit
+                            size="sm"
+                            variant="ghost"
+                            question={p.kind === "plano" ? "Encerrar este plano? As próximas mensalidades deixam de ser geradas." : "Encerrar este pacote? As sessões restantes não poderão mais ser usadas."}
+                          >
+                            {p.kind === "plano" ? "Encerrar plano" : "Encerrar pacote"}
+                          </ConfirmSubmit>
+                        </form>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card className="px-4 py-5 text-[15px] text-muted">Nenhum pacote ou plano. Sessões serão cobradas avulsas.</Card>
+            )}
+          </Section>
+        )}
+
+        {showFinance && (txs?.length ?? 0) > 0 && (
+          <Section
+            title="Pagamentos"
+            action={open.length > 0 && <span className="text-sm font-medium text-warn">{formatMoney(openTotal)} em aberto</span>}
+          >
+            <Card className="divide-y divide-line overflow-hidden">
+              {open.map((t) => {
+                const late = t.due_date < today;
+                return (
+                  <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{t.description}</p>
+                      <p className={cx("text-sm", late ? "text-bad" : "text-muted")}>
+                        {late ? "Venceu em " : "Vence em "}
+                        {formatDateShort(t.due_date)}
+                      </p>
+                    </div>
+                    <span className="font-semibold tabular-nums">{formatMoney(t.amount_cents)}</span>
+                    <PayButton id={t.id} type="receita" amountLabel="" back={`/pacientes/${patient.id}`} />
+                  </div>
+                );
+              })}
+              {paid.map((t) => (
+                <div key={t.id} className="flex items-center gap-3 px-4 py-3 text-muted">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate">{t.description}</p>
+                    <p className="text-sm">
+                      Pago em {formatDateShort(t.paid_on)} · {PAY_LABEL[t.payment_method ?? ""] ?? ""}
+                    </p>
+                  </div>
+                  <span className="tabular-nums">{formatMoney(t.amount_cents)}</span>
+                </div>
+              ))}
+            </Card>
+          </Section>
+        )}
 
         <Section title="Dados do paciente">
           <Card className="p-5 sm:p-7">

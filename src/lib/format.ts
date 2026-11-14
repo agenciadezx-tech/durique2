@@ -133,3 +133,42 @@ export function friendlyError(err: { message?: string; code?: string } | null | 
   if (err.code === "P0001") return msg;
   return "Algo deu errado. Tente de novo.";
 }
+
+export const PAY_METHODS = [
+  { value: "pix", label: "Pix" },
+  { value: "dinheiro", label: "Dinheiro" },
+  { value: "cartao_credito", label: "Cartão de crédito" },
+  { value: "cartao_debito", label: "Cartão de débito" },
+  { value: "boleto", label: "Boleto" },
+  { value: "transferencia", label: "Transferência" },
+  { value: "outro", label: "Outro" },
+] as const;
+export const PAY_LABEL: Record<string, string> = Object.fromEntries(PAY_METHODS.map((m) => [m.value, m.label]));
+
+/** "2026-11" do mês de uma data ISO */
+export function monthKey(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+export function monthRange(key: string): { from: string; to: string } {
+  const [y, m] = key.split("-").map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: `${key}-01`, to: `${key}-${String(last).padStart(2, "0")}` };
+}
+
+export function addMonthsKey(key: string, n: number): string {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+export function formatMonth(key: string): string {
+  const s = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", month: "long", year: "numeric" }).format(
+    new Date(`${key}-15T12:00:00Z`),
+  );
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+export function formatMonthShort(key: string): string {
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", month: "short" }).format(new Date(`${key}-15T12:00:00Z`)).replace(".", "");
+}

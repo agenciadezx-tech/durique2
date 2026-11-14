@@ -1,10 +1,11 @@
-import { LogOut, Plus, Stethoscope, UserRound } from "lucide-react";
+import { LogOut, Package, Plus, Stethoscope, UserRound } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select } from "@/components/ui";
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { renameClinic, saveProfessional, saveService, toggleActive } from "./actions";
+import { renameClinic, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
+import { CommissionFields, ProductFields } from "./product-fields";
 
 export const metadata = { title: "Ajustes" };
 
@@ -51,10 +52,12 @@ function ServiceFields({ s }: { s?: { name: string; kind: string; duration_min: 
 export default async function AjustesPage() {
   const ctx = await getContext();
   const supabase = await createClient();
-  const [{ data: pros }, { data: services }] = await Promise.all([
+  const [{ data: pros }, { data: services }, { data: products }] = await Promise.all([
     supabase.from("professionals").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("services").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
+    supabase.from("products").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
   ]);
+  const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
   const admin = ctx.isAdmin;
 
   return (
@@ -82,7 +85,13 @@ export default async function AjustesPage() {
                     <Avatar name={p.name} />
                     <div className="min-w-0">
                       <p className="truncate font-medium">{p.name}</p>
-                      <p className="truncate text-sm text-muted">{formatPhone(p.phone) || p.email || "Sem contato"}</p>
+                      <p className="truncate text-sm text-muted">
+                        {p.commission_percent != null
+                          ? `Comissão ${Number(p.commission_percent)}%`
+                          : p.commission_fixed_cents != null
+                            ? `Comissão ${formatMoney(p.commission_fixed_cents)}/sessão`
+                            : formatPhone(p.phone) || p.email || "Sem contato"}
+                      </p>
                     </div>
                     {!p.active && <Badge>Inativo</Badge>}
                   </>
@@ -103,6 +112,7 @@ export default async function AjustesPage() {
                           <Input name="email" type="email" defaultValue={p.email ?? ""} />
                         </Field>
                       </div>
+                      <CommissionFields percent={p.commission_percent} fixedCents={p.commission_fixed_cents} />
                       <SubmitButton size="md">Salvar</SubmitButton>
                     </ActionForm>
                     <form action={toggleActive}>
@@ -142,6 +152,7 @@ export default async function AjustesPage() {
                       <Input name="email" type="email" />
                     </Field>
                   </div>
+                  <CommissionFields />
                   <SubmitButton size="md">Adicionar</SubmitButton>
                 </ActionForm>
               </Disclosure>
@@ -214,6 +225,72 @@ export default async function AjustesPage() {
               </Disclosure>
             )}
           </Card>
+        </Section>
+
+        <Section title="Pacotes e planos">
+          <Card className="divide-y divide-line overflow-hidden">
+            {(products ?? []).map((p) => (
+              <Disclosure
+                key={p.id}
+                summary={
+                  <>
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                      <Package size={18} />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{p.name}</p>
+                      <p className="truncate text-sm text-muted">
+                        {p.kind === "plano"
+                          ? `Plano mensal · ${p.sessions_per_week}x/semana · ${formatMoney(p.price_cents)}/mês`
+                          : `${p.sessions} sessões · ${formatMoney(p.price_cents)}${p.validity_days ? ` · validade ${p.validity_days} dias` : ""}`}
+                      </p>
+                    </div>
+                    {!p.active && <Badge>Inativo</Badge>}
+                  </>
+                }
+              >
+                {admin ? (
+                  <div className="space-y-4">
+                    <ActionForm action={saveProduct}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <ProductFields p={p} services={activeServices} />
+                      <SubmitButton size="md">Salvar</SubmitButton>
+                    </ActionForm>
+                    <form action={toggleActive}>
+                      <input type="hidden" name="table" value="products" />
+                      <input type="hidden" name="id" value={p.id} />
+                      <input type="hidden" name="active" value={String(!p.active)} />
+                      <SubmitButton variant="ghost" size="sm" className="text-muted" pendingText="Aguarde…">
+                        {p.active ? "Parar de vender" : "Voltar a vender"}
+                      </SubmitButton>
+                    </form>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted">Somente o administrador pode editar.</p>
+                )}
+              </Disclosure>
+            ))}
+            {admin && (
+              <Disclosure
+                summary={
+                  <span className="flex items-center gap-3 font-medium text-accent">
+                    <span className="grid size-10 place-items-center rounded-full bg-accent-soft">
+                      <Plus size={18} />
+                    </span>
+                    Adicionar pacote ou plano
+                  </span>
+                }
+              >
+                <ActionForm action={saveProduct} resetOnSuccess>
+                  <ProductFields services={activeServices} />
+                  <SubmitButton size="md">Adicionar</SubmitButton>
+                </ActionForm>
+              </Disclosure>
+            )}
+          </Card>
+          {!products?.length && (
+            <p className="text-sm text-muted">Cadastre o que a clínica vende (ex.: pacote de 10 sessões, pilates 2x/semana) para vender aos pacientes.</p>
+          )}
         </Section>
 
         <Section title="Sua conta">

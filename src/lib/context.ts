@@ -13,6 +13,7 @@ export type AppContext = {
   role: Role;
   canManageAgenda: boolean; // admin ou recepção
   isAdmin: boolean;
+  canSeeExpenses: boolean; // admin ou financeiro (despesas, resultado, comissões)
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -60,5 +61,6 @@ export const getContext = cache(async (): Promise<AppContext> => {
     role,
     canManageAgenda: role === "admin" || role === "recepcao",
     isAdmin: role === "admin",
+    canSeeExpenses: role === "admin" || role === "financeiro",
   };
 });

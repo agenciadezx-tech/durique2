@@ -2,26 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Repeat, Settings, Users } from "lucide-react";
+import { CalendarDays, Repeat, Settings, Users, Wallet } from "lucide-react";
 import { cx } from "./ui";
 
 const ITEMS = [
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/horarios", label: "Horários fixos", short: "Horários", icon: Repeat },
+  { href: "/financeiro", label: "Financeiro", icon: Wallet, finance: true },
   { href: "/ajustes", label: "Ajustes", icon: Settings },
 ];
+
+function items(showFinance: boolean) {
+  return ITEMS.filter((i) => showFinance || !("finance" in i));
+}
 
 function useActive() {
   const path = usePathname();
   return (href: string) => path === href || path.startsWith(href + "/");
 }
 
-export function SideNav() {
+export function SideNav({ showFinance }: { showFinance: boolean }) {
   const isActive = useActive();
   return (
     <nav className="space-y-1" aria-label="Menu principal">
-      {ITEMS.map(({ href, label, icon: Icon }) => (
+      {items(showFinance).map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
@@ -39,21 +44,22 @@ export function SideNav() {
   );
 }
 
-export function BottomNav() {
+export function BottomNav({ showFinance }: { showFinance: boolean }) {
   const isActive = useActive();
+  const list = items(showFinance);
   return (
     <nav
       aria-label="Menu principal"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
-      <div className="mx-auto grid max-w-md grid-cols-4">
-        {ITEMS.map(({ href, label, short, icon: Icon }) => (
+      <div className={cx("mx-auto grid max-w-lg", list.length === 5 ? "grid-cols-5" : "grid-cols-4")}>
+        {list.map(({ href, label, short, icon: Icon }) => (
           <Link
             key={href}
             href={href}
             aria-current={isActive(href) ? "page" : undefined}
             className={cx(
-              "flex h-16 flex-col items-center justify-center gap-1 text-[12px] font-medium",
+              "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium min-[380px]:text-[12px]",
               isActive(href) ? "text-accent" : "text-muted",
             )}
           >

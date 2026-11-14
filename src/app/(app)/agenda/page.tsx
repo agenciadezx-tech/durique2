@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
 import { buttonClass, Card, cx, EmptyState, LinkButton } from "@/components/ui";
+import { WeekGrid, type GridAppt } from "./week-grid";
 import { isActiveAttendee } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -28,11 +29,12 @@ const DOT: Record<string, string> = {
   falta: "bg-bad",
 };
 
-export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ d?: string; bemvindo?: string }> }) {
+export default async function AgendaPage({ searchParams }: { searchParams: Promise<{ d?: string; bemvindo?: string; v?: string }> }) {
   const ctx = await getContext();
   const sp = await searchParams;
   const today = todayISO();
   const day = sp.d && /^\d{4}-\d{2}-\d{2}$/.test(sp.d) ? sp.d : today;
+  const isWeek = sp.v === "semana";
   const weekStart = addDaysISO(day, 1 - isoWeekday(day));
   const week = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const supabase = await createClient();
@@ -54,11 +56,12 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       .order("starts_at"),
     supabase
       .from("appointments")
-      .select("starts_at")
+      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(name), appointment_attendees(status, patients(name))")
       .eq("clinic_id", ctx.clinicId)
       .eq("status", "agendado")
       .gte("starts_at", weekRange.from)
-      .lt("starts_at", weekRange.to),
+      .lt("starts_at", weekRange.to)
+      .order("starts_at"),
     supabase.from("patients").select("id", { count: "exact", head: true }).eq("clinic_id", ctx.clinicId),
     supabase.from("recurring_series").select("id", { count: "exact", head: true }).eq("clinic_id", ctx.clinicId),
   ]);
@@ -79,14 +82,47 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     <>
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">{day === today ? "Hoje" : formatDayLong(day).split(",")[0]}</h1>
-          <p className="text-[15px] text-muted">{day === today ? formatDayLong(day) : formatDayLong(day).split(", ")[1]}</p>
+          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">
+            {isWeek ? "Semana" : day === today ? "Hoje" : formatDayLong(day).split(",")[0]}
+          </h1>
+          <p className="text-[15px] text-muted">
+            {isWeek
+              ? `${formatDayLong(week[0]).split(", ")[1]} a ${formatDayLong(week[6]).split(", ")[1]}`
+              : day === today
+                ? formatDayLong(day)
+                : formatDayLong(day).split(", ")[1]}
+          </p>
         </div>
-        {ctx.canManageAgenda && (
-          <LinkButton href={`/agenda/nova?d=${day}`}>
-            <Plus size={18} /> Nova sessão
-          </LinkButton>
-        )}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-xl bg-hover p-1" role="tablist" aria-label="Visualização">
+            {[
+              { v: "dia", label: "Dia" },
+              { v: "semana", label: "Semana" },
+            ].map((o) => {
+              const on = (o.v === "semana") === isWeek;
+              return (
+                <Link
+                  key={o.v}
+                  role="tab"
+                  aria-selected={on}
+                  href={`/agenda?d=${day}${o.v === "semana" ? "&v=semana" : ""}`}
+                  className={cx(
+                    "rounded-lg px-3 py-2 text-sm font-medium",
+                    on ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+                  )}
+                >
+                  {o.label}
+                </Link>
+              );
+            })}
+          </div>
+          {ctx.canManageAgenda && (
+            <LinkButton href={`/agenda/nova?d=${day}`}>
+              <Plus size={18} /> <span className="hidden min-[400px]:inline">Nova sessão</span>
+              <span className="min-[400px]:hidden">Nova</span>
+            </LinkButton>
+          )}
+        </div>
       </header>
 
       {showWelcome && (
@@ -118,6 +154,27 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         </Card>
       )}
 
+      {isWeek ? (
+        <>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <Link href={`/agenda?d=${addDaysISO(day, -7)}&v=semana`} className={buttonClass("ghost", "md")} aria-label="Semana anterior">
+              <ChevronLeft size={20} /> <span className="hidden sm:inline">Anterior</span>
+            </Link>
+            {!week.includes(today) ? (
+              <Link href="/agenda?v=semana" className="text-sm font-medium text-accent hover:underline">
+                Voltar para esta semana
+              </Link>
+            ) : (
+              <span className="text-sm text-muted">Toque numa sessão para ver os pacientes</span>
+            )}
+            <Link href={`/agenda?d=${addDaysISO(day, 7)}&v=semana`} className={buttonClass("ghost", "md")} aria-label="Próxima semana">
+              <span className="hidden sm:inline">Próxima</span> <ChevronRight size={20} />
+            </Link>
+          </div>
+          <WeekGrid week={week} appts={(weekAppts ?? []) as unknown as GridAppt[]} today={today} />
+        </>
+      ) : (
+        <>
       {/* Navegação da semana */}
       <div className="mb-6 flex items-center gap-2">
         <Link href={`/agenda?d=${addDaysISO(day, -7)}`} className={buttonClass("ghost", "md")} aria-label="Semana anterior">
@@ -245,6 +302,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             ))}
           </ul>
         </details>
+      )}
+        </>
       )}
     </>
   );
