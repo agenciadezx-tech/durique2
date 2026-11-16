@@ -3,8 +3,9 @@ import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Minus, Plus } from "lucide-
 import { Card, cx, LinkButton, Section } from "@/components/ui";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
-import { addMonthsKey, formatDateShort, formatMoney, formatMonthShort, monthRange, PAY_LABEL, todayISO } from "@/lib/format";
+import { addMonthsKey, formatDateShort, formatMoney, formatMonth, formatMonthShort, monthRange, PAY_LABEL, todayISO } from "@/lib/format";
 import { MonthNav } from "./month-nav";
+import { InOutChart, MonthPaceChart, type MonthFlow } from "@/components/finance-charts";
 
 export const metadata = { title: "Financeiro" };
 
@@ -17,6 +18,7 @@ type Tx = {
   paid_on: string | null;
   payment_method: string | null;
   patients: { name: string } | null;
+  categories?: { name: string } | null;
 };
 
 function Stat({ label, value, hint, tone, href }: { label: string; value: number; hint?: string; tone?: "ok" | "bad" | "warn"; href: string }) {
@@ -51,10 +53,11 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   await supabase.rpc("ensure_plan_charges", { p_clinic: ctx.clinicId });
 
   const horizon = monthRange(addMonthsKey(today.slice(0, 7), 2)).to;
-  const [{ data: monthTx }, { data: openTx }, { data: paidAll }] = await Promise.all([
+  const sixFrom = monthRange(addMonthsKey(month, -5)).from;
+  const [{ data: monthTx }, { data: openTx }, { data: paidAll }, { data: sixTx }] = await Promise.all([
     supabase
       .from("transactions")
-      .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patients(name)")
+      .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patients(name), categories(name)")
       .eq("clinic_id", ctx.clinicId)
       .or(`and(paid_on.gte.${from},paid_on.lte.${to}),and(paid_on.is.null,due_date.gte.${from},due_date.lte.${to})`),
     supabase
@@ -65,6 +68,12 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       .lte("due_date", horizon)
       .order("due_date"),
     supabase.from("transactions").select("type, amount_cents").eq("clinic_id", ctx.clinicId).not("paid_on", "is", null),
+    supabase
+      .from("transactions")
+      .select("type, amount_cents, paid_on")
+      .eq("clinic_id", ctx.clinicId)
+      .gte("paid_on", sixFrom)
+      .lte("paid_on", to),
   ]);
 
   const mtx = (monthTx ?? []) as unknown as Tx[];
@@ -100,6 +109,40 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     .forEach((t) => byMethod.set(t.payment_method ?? "outro", (byMethod.get(t.payment_method ?? "outro") ?? 0) + t.amount_cents));
   const methods = [...byMethod.entries()].sort((a, b) => b[1] - a[1]);
 
+  // Últimos 6 meses (terminando no mês escolhido)
+  const flows: MonthFlow[] = [-5, -4, -3, -2, -1, 0].map((n) => {
+    const k = addMonthsKey(month, n);
+    const list = (sixTx ?? []).filter((t) => t.paid_on?.startsWith(k));
+    return {
+      key: k,
+      label: formatMonthShort(k),
+      full: formatMonth(k),
+      in: list.filter((t) => t.type === "receita").reduce((a, t) => a + t.amount_cents, 0),
+      out: showExp ? list.filter((t) => t.type === "despesa").reduce((a, t) => a + t.amount_cents, 0) : 0,
+    };
+  });
+
+  // Ritmo do mês: quanto já entrou até cada dia
+  const daysInMonth = Number(to.slice(8, 10));
+  const isFuture = month > curKey;
+  const todayIdx = month === curKey ? Number(today.slice(8, 10)) - 1 : daysInMonth - 1;
+  let acc = 0;
+  const pace = Array.from({ length: daysInMonth }, (_, i) => {
+    const day = `${month}-${String(i + 1).padStart(2, "0")}`;
+    acc += mtx.filter((t) => t.type === "receita" && t.paid_on === day).reduce((a, t) => a + t.amount_cents, 0);
+    return { label: String(i + 1), total: acc };
+  });
+
+  // Despesas do mês por categoria
+  const byCat = new Map<string, number>();
+  mtx
+    .filter((t) => t.type === "despesa" && t.paid_on)
+    .forEach((t) => byCat.set(t.categories?.name ?? "Sem categoria", (byCat.get(t.categories?.name ?? "Sem categoria") ?? 0) + t.amount_cents));
+  const cats = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
+
+  const expected = recebido + aReceber;
+  const pct = expected > 0 ? Math.round((recebido / expected) * 100) : 0;
+
   const lanc = (tipo: string) => `/financeiro/lancamentos?tipo=${tipo}&mes=${month}`;
 
   return (
@@ -129,6 +172,31 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           {showExp && <Stat label="Pago" value={pago} href={lanc("pagos")} />}
           {showExp && <Stat label="A pagar" value={aPagar} hint="ainda neste mês" href={lanc("pagar")} />}
         </div>
+
+        {expected > 0 && (
+          <Card className="p-5">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <p className="text-[15px]">
+                <span className="font-semibold">Já entrou {pct}%</span>{" "}
+                <span className="text-muted">do que está previsto para {formatMonth(month).toLowerCase()}</span>
+              </p>
+              <p className="text-sm text-muted tabular-nums">
+                {formatMoney(recebido)} de {formatMoney(expected)}
+              </p>
+            </div>
+            <div className="mt-3 h-3 overflow-hidden rounded-full bg-hover" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full rounded-full bg-chart-in transition-all" style={{ width: `${Math.min(100, pct)}%` }} />
+            </div>
+            {aReceber > 0 && (
+              <p className="mt-2 text-[13px] text-muted">
+                Falta receber {formatMoney(aReceber)}.{" "}
+                <Link href={lanc("receber")} className="font-medium text-accent hover:underline">
+                  Ver quem falta pagar
+                </Link>
+              </p>
+            )}
+          </Card>
+        )}
 
         {showExp && (
           <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -177,6 +245,20 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           </Section>
         )}
 
+        <Section title={showExp ? "Entrou e saiu, mês a mês" : "Recebido mês a mês"}>
+          <Card className="p-5">
+            <InOutChart data={flows} showOut={showExp} />
+          </Card>
+        </Section>
+
+        {!isFuture && (
+          <Section title={`Dinheiro entrando em ${formatMonth(month).toLowerCase()}`}>
+            <Card className="p-5">
+              <MonthPaceChart days={pace} todayIndex={todayIdx} />
+            </Card>
+          </Section>
+        )}
+
         {showExp && (
           <Section title="Previsão de saldo">
             <Card className="p-5">
@@ -185,10 +267,10 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
               </p>
               <div className="mb-4 flex gap-4 text-[13px] text-muted">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-sm bg-accent" /> Entradas previstas
+                  <span className="size-2.5 rounded-sm bg-chart-in" /> Entradas previstas
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-sm bg-faint" /> Saídas previstas
+                  <span className="size-2.5 rounded-sm bg-chart-out" /> Saídas previstas
                 </span>
               </div>
               <ul className="space-y-5">
@@ -199,17 +281,17 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
                     </span>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2" title={`Entradas: ${formatMoney(f.entra)}`}>
-                        <div className="h-3 rounded-r bg-accent" style={{ width: `${Math.max(1, (f.entra / maxBar) * 100)}%` }} />
+                        <div className="h-3 rounded-r bg-chart-in" style={{ width: `${Math.max(1, (f.entra / maxBar) * 100)}%` }} />
                         <span className="text-[13px] whitespace-nowrap text-muted tabular-nums">{formatMoney(f.entra)}</span>
                       </div>
                       <div className="flex items-center gap-2" title={`Saídas: ${formatMoney(f.sai)}`}>
-                        <div className="h-3 rounded-r bg-faint" style={{ width: `${Math.max(1, (f.sai / maxBar) * 100)}%` }} />
+                        <div className="h-3 rounded-r bg-chart-out" style={{ width: `${Math.max(1, (f.sai / maxBar) * 100)}%` }} />
                         <span className="text-[13px] whitespace-nowrap text-muted tabular-nums">{formatMoney(f.sai)}</span>
                       </div>
                     </div>
                     <p className="text-[15px] sm:text-right">
                       <span className="text-[13px] text-muted">Saldo previsto </span>
-                      <span className={cx("font-semibold tabular-nums", f.saldo < 0 && "text-bad")}>{formatMoney(f.saldo)}</span>
+                      <span className={cx("font-semibold whitespace-nowrap tabular-nums", f.saldo < 0 && "text-bad")}>{formatMoney(f.saldo)}</span>
                     </p>
                   </li>
                 ))}
@@ -220,19 +302,56 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Section title="Recebido por forma de pagamento">
-            <Card className="divide-y divide-line">
+            <Card className="p-4">
               {methods.length ? (
-                methods.map(([m, v]) => (
-                  <div key={m} className="flex items-center justify-between px-4 py-3 text-[15px]">
-                    <span>{PAY_LABEL[m] ?? m}</span>
-                    <span className="font-medium tabular-nums">{formatMoney(v)}</span>
-                  </div>
-                ))
+                <ul className="space-y-3">
+                  {methods.map(([m, v]) => (
+                    <li key={m}>
+                      <div className="mb-1 flex justify-between gap-3 text-[15px]">
+                        <span>{PAY_LABEL[m] ?? m}</span>
+                        <span className="tabular-nums">
+                          <span className="font-medium">{formatMoney(v)}</span>{" "}
+                          <span className="text-sm text-muted">{Math.round((v / recebido) * 100)}%</span>
+                        </span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-hover">
+                        <div className="h-full rounded-full bg-chart-in" style={{ width: `${(v / methods[0][1]) * 100}%` }} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <p className="px-4 py-5 text-[15px] text-muted">Nada recebido neste mês ainda.</p>
+                <p className="py-1 text-[15px] text-muted">Nada recebido neste mês ainda.</p>
               )}
             </Card>
           </Section>
+
+          {showExp && (
+            <Section title="Para onde foi o dinheiro">
+              <Card className="p-4">
+                {cats.length ? (
+                  <ul className="space-y-3">
+                    {cats.map(([c, v]) => (
+                      <li key={c}>
+                        <div className="mb-1 flex justify-between gap-3 text-[15px]">
+                          <span className="truncate">{c}</span>
+                          <span className="tabular-nums">
+                            <span className="font-medium">{formatMoney(v)}</span>{" "}
+                            <span className="text-sm text-muted">{Math.round((v / pago) * 100)}%</span>
+                          </span>
+                        </div>
+                        <div className="h-2.5 overflow-hidden rounded-full bg-hover">
+                          <div className="h-full rounded-full bg-chart-out" style={{ width: `${(v / cats[0][1]) * 100}%` }} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="py-1 text-[15px] text-muted">Nenhuma despesa paga neste mês.</p>
+                )}
+              </Card>
+            </Section>
+          )}
 
           <Section title="Próximos vencimentos">
             <Card className="divide-y divide-line">

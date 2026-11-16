@@ -46,6 +46,8 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 ## Agendamento online, exercícios e relatórios
 - Agendamento online: `clinics.booking_slug/booking_enabled/booking_message`, `services.bookable`, `availability` (períodos por profissional e dia). Página pública `/agendar/[slug]`; RPCs `booking_info`, `booking_slots` (individual: horários livres na disponibilidade sem conflito), `booking_classes` (turmas com vaga), `booking_book`, `booking_book_class` (acha/cria paciente pelo WhatsApp; máx. 3 futuros online). `appointment_attendees.booked_online` mostra selo "online" na agenda. Config em `/ajustes/agendamento-online`.
 - Exercícios para casa: `exercises` (biblioteca com vídeo, `/ajustes/exercicios`), `exercise_plans` + `exercise_plan_items` (por paciente, `/pacientes/[id]/exercicios`), `exercise_logs` ("Fiz hoje" + dor 0–10 no portal via `portal_exercises`/`portal_log_exercise`). Visível só para admin/profissional.
+- Agenda no Google: `professionals.calendar_token` → feed `.ics` em `/cal/[token].ics` (RPC `calendar_feed`, só primeiro nome do paciente; `rotate_calendar_token`). Página `/ajustes/agenda-google`. É uma via só (Google lê).
+- Financeiro visual: `src/components/finance-charts.tsx` (entrou × saiu 6 meses, ritmo do mês). Cores de gráfico `--color-chart-in` / `--color-chart-out` (validadas para daltonismo).
 - Relatórios: RPC `report_overview` (admin/financeiro) → `/financeiro/relatorios` com `src/components/charts.tsx` (StatTile, ColumnChart, BarList; uma série por gráfico).
 
 ## Conceitos do WhatsApp

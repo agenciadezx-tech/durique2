@@ -24,6 +24,10 @@
   --color-info: #1d4ed8;
   --color-info-soft: #ebf1fe;
 
+  /* Gráficos (validados para daltonismo): entrou / saiu */
+  --color-chart-in: #0d9488;
+  --color-chart-out: #d97a2b;
+
   --radius-xl: 14px;
   --radius-2xl: 18px;
 }
