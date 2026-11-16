@@ -18,6 +18,7 @@ type Attendee = {
   id: string;
   status: string;
   is_makeup: boolean;
+  booked_online: boolean;
   enrollment_id: string | null;
   package_id: string | null;
   patients: { id: string; name: string; phone: string | null } | null;
@@ -39,7 +40,7 @@ export default async function SessaoPage({
   const { data: appt } = await supabase
     .from("appointments")
     .select(
-      "*, services(name, kind, price_cents), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, enrollment_id, package_id, patients(id, name, phone), patient_packages(name, kind, total_sessions))",
+      "*, services(name, kind, price_cents), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, booked_online, enrollment_id, package_id, patients(id, name, phone), patient_packages(name, kind, total_sessions))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -148,6 +149,7 @@ export default async function SessaoPage({
                               <span className="text-[13px] text-muted">{chargedOf.get(t.id) ? "Avulsa paga ✓" : "Avulsa a receber"}</span>
                             )}
                             {t.is_makeup && <span className="text-[13px] text-muted">Reposição</span>}
+                            {t.booked_online && <span className="text-[13px] text-info">Marcou pelo link</span>}
                             {!t.enrollment_id && !t.is_makeup && appt.series_id && <span className="text-[13px] text-muted">Avulso</span>}
                           </>
                         }

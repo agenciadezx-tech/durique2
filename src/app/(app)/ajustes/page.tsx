@@ -1,4 +1,5 @@
-import { Download, LogOut, Package, Plus, Stethoscope, UserPlus, UserRound } from "lucide-react";
+import Link from "next/link";
+import { CalendarPlus, ChevronRight, Download, Dumbbell, LogOut, Package, Plus, Stethoscope, UserPlus, UserRound } from "lucide-react";
 import { headers } from "next/headers";
 import { CopyButton } from "@/components/copy-button";
 import { ConfirmSubmit } from "@/components/forms";
@@ -97,6 +98,24 @@ export default async function AjustesPage() {
             </ActionForm>
           </Card>
         </Section>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            { href: "/ajustes/agendamento-online", icon: CalendarPlus, t: "Agendamento online", d: "Link para o paciente marcar sozinho" },
+            ...(ctx.canSeeClinical ? [{ href: "/ajustes/exercicios", icon: Dumbbell, t: "Exercícios para casa", d: "Sua biblioteca com vídeos" }] : []),
+          ].map(({ href, icon: Icon, t, d }) => (
+            <Link key={href} href={href} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 transition-colors hover:bg-hover">
+              <span className="grid size-11 place-items-center rounded-xl bg-accent-soft text-accent">
+                <Icon size={22} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{t}</span>
+                <span className="text-sm text-muted">{d}</span>
+              </span>
+              <ChevronRight size={18} className="text-faint" />
+            </Link>
+          ))}
+        </div>
 
         {admin && (
           <Section title="Equipe e acessos">

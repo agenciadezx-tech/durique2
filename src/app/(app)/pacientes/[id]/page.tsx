@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronRight, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, Dumbbell, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -87,13 +87,18 @@ export default async function PacientePage({
   const { data: credits } = ctx.canManageAgenda
     ? await supabase.from("makeup_credits").select("expires_on").eq("patient_id", id).eq("status", "disponivel").gte("expires_on", today).order("expires_on")
     : { data: [] as { expires_on: string }[] };
-  const [{ data: docs }, { data: templates }, { data: lastRec }] = await Promise.all([
+  const [{ data: docs }, { data: templates }, { data: lastRec }, { data: plans }] = await Promise.all([
     supabase.from("patient_documents").select("id, title, status, signed_at, created_at").eq("patient_id", id).neq("status", "cancelado").order("created_at", { ascending: false }),
     supabase.from("document_templates").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     ctx.canSeeClinical
       ? supabase.from("clinical_records").select("record_date, kind").eq("patient_id", id).neq("kind", "adendo").order("record_date", { ascending: false }).limit(1).maybeSingle()
       : Promise.resolve({ data: null as { record_date: string; kind: string } | null }),
+    ctx.canSeeClinical
+      ? supabase.from("exercise_plans").select("id, exercise_logs(done_on)").eq("patient_id", id).eq("active", true)
+      : Promise.resolve({ data: [] as { id: string; exercise_logs: { done_on: string }[] }[] }),
   ]);
+  const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  const doneWeek = new Set((plans ?? []).flatMap((p) => p.exercise_logs.filter((l) => l.done_on > weekAgo).map((l) => l.done_on))).size;
 
   return (
     <>
@@ -205,6 +210,23 @@ export default async function PacientePage({
                 <span className="block font-semibold">Prontuário</span>
                 <span className="text-sm text-muted">
                   {lastRec ? `Último registro: ${lastRec.kind === "avaliacao" ? "avaliação" : "evolução"} em ${formatDateShort(lastRec.record_date)}` : "Avaliação, evoluções e escalas"}
+                </span>
+              </span>
+              <ChevronRight size={20} className="text-faint" />
+            </Card>
+          </Link>
+        )}
+
+        {ctx.canSeeClinical && (
+          <Link href={`/pacientes/${patient.id}/exercicios`} className="block">
+            <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                <Dumbbell size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Exercícios para casa</span>
+                <span className="text-sm text-muted">
+                  {(plans ?? []).length === 0 ? "Passe exercícios com vídeo pelo link do aluno" : `Fez em ${doneWeek} dos últimos 7 dias`}
                 </span>
               </span>
               <ChevronRight size={20} className="text-faint" />

@@ -13,7 +13,7 @@ import { addDaysISO, dayRange, formatDayLong, formatTime, isoWeekday, todayISO, 
 
 export const metadata = { title: "Agenda" };
 
-type Attendee = { id: string; status: string; is_makeup: boolean; patients: { name: string } | null };
+type Attendee = { id: string; status: string; is_makeup: boolean; booked_online: boolean; patients: { name: string } | null };
 type Appt = {
   id: string;
   starts_at: string;
@@ -52,7 +52,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, status, is_makeup, patients(name))",
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, status, is_makeup, booked_online, patients(name))",
       )
       .eq("clinic_id", ctx.clinicId)
       .gte("starts_at", from)
@@ -353,6 +353,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                               <span className={cx("size-2 rounded-full", DOT[t.status] ?? "bg-faint")} aria-hidden />
                               {t.patients?.name}
                               {t.is_makeup && <span className="text-[12px] text-muted">(reposição)</span>}
+                              {t.booked_online && <span className="rounded-full bg-info-soft px-1.5 text-[11px] font-medium text-info">online</span>}
                             </li>
                           ))}
                         </ul>

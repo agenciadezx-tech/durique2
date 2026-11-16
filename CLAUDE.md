@@ -36,11 +36,17 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - `clinic_settings`: antecedência para desmarcar e validade da reposição. `makeup_credits`: crédito criado ao desmarcar no prazo, consumido ao entrar como reposição (`is_makeup`), devolvido com `release_makeup_credit`.
 - `waitlist` (lista de espera por sessão), `freeze_package` (congelar: estende validade, pula mensalidade), `patients_at_risk` (2+ faltas em 30 dias ou 21+ dias sem vir).
 - Exportação CSV em `/exportar/[tipo]` (pacientes, sessões, financeiro).
+- Agendamento online, exercícios para casa com vídeo e relatórios visuais (ver seção abaixo).
 
 ## Portal do aluno e equipe
 - `patients.portal_token`: link pessoal `/p/[token]` (sem login). RPCs `portal_get`, `portal_confirm`, `portal_cancel` (aplica a antecedência da clínica), `portal_book_makeup` (exige crédito). `rotate_portal_token` gera novo link.
 - Convites: tabela `invites` (e-mail, papel, profissional opcional, 14 dias); página pública `/convite/[token]`; `accept_invite` cria o vínculo e liga o profissional; `clinic_members` lista a equipe com e-mail (só admin). Login/cadastro aceitam `?next=`.
 - Cor do profissional (`professionals.color`, paleta em `src/lib/colors.ts`) usada na agenda. Resumo do dia e aniversariantes no topo da agenda de hoje.
+
+## Agendamento online, exercícios e relatórios
+- Agendamento online: `clinics.booking_slug/booking_enabled/booking_message`, `services.bookable`, `availability` (períodos por profissional e dia). Página pública `/agendar/[slug]`; RPCs `booking_info`, `booking_slots` (individual: horários livres na disponibilidade sem conflito), `booking_classes` (turmas com vaga), `booking_book`, `booking_book_class` (acha/cria paciente pelo WhatsApp; máx. 3 futuros online). `appointment_attendees.booked_online` mostra selo "online" na agenda. Config em `/ajustes/agendamento-online`.
+- Exercícios para casa: `exercises` (biblioteca com vídeo, `/ajustes/exercicios`), `exercise_plans` + `exercise_plan_items` (por paciente, `/pacientes/[id]/exercicios`), `exercise_logs` ("Fiz hoje" + dor 0–10 no portal via `portal_exercises`/`portal_log_exercise`). Visível só para admin/profissional.
+- Relatórios: RPC `report_overview` (admin/financeiro) → `/financeiro/relatorios` com `src/components/charts.tsx` (StatTile, ColumnChart, BarList; uma série por gráfico).
 
 ## Conceitos do WhatsApp
 - `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).

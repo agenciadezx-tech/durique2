@@ -31,3 +31,10 @@ export async function portalBook(token: string, appointmentId: string): Promise<
   revalidatePath(`/p/${token}`);
   return error ? { error: msg(error) } : { ok: "Reposição agendada!" };
 }
+
+export async function portalExercise(token: string, planId: string, pain: number | null): Promise<Result> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_log_exercise", { p_token: token, p_plan: planId, p_pain: pain });
+  revalidatePath(`/p/${token}`);
+  return error ? { error: msg(error) } : { ok: "Registrado. Muito bem!" };
+}

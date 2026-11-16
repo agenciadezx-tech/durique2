@@ -1,15 +1,26 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarCheck, FileSignature, Package, RefreshCcw } from "lucide-react";
+import { CalendarCheck, Dumbbell, FileSignature, Package, PlayCircle, RefreshCcw } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Badge, Card, cx } from "@/components/ui";
 import { formatDateShort, TZ } from "@/lib/format";
 import { firstName } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 import { BookButton, SessionButtons } from "./portal-buttons";
+import { ExerciseDone } from "./exercise-done";
+import { safeUrl, youtubeId } from "@/lib/video";
 
 export const metadata = { title: "Minhas aulas", robots: { index: false } };
 export const dynamic = "force-dynamic";
+
+type ExPlan = {
+  plan_id: string;
+  title: string;
+  frequency: string | null;
+  done_today: boolean;
+  days_7: number;
+  items: { name: string; video_url: string | null; instructions: string | null; sets: string | null; notes: string | null }[];
+};
 
 type Portal = {
   patient: { name: string };
@@ -43,6 +54,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const { data } = await supabase.rpc("portal_get", { p_token: token });
   const d = data as Portal | null;
   if (!d) notFound();
+  const plans = ((await supabase.rpc("portal_exercises", { p_token: token })).data ?? []) as ExPlan[];
   const now = Date.now();
   const credits = d.credits.length;
 
@@ -53,7 +65,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         <span className="text-sm font-medium text-muted">{d.clinic.name}</span>
       </header>
       <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Olá, {firstName(d.patient.name)}!</h1>
-      <p className="mt-1 text-[15px] text-muted">Aqui você confirma, desmarca e repõe suas aulas.</p>
+      <p className="mt-1 text-[15px] text-muted">Aqui você confirma, desmarca e repõe suas aulas{plans.length ? " e vê seus exercícios" : ""}.</p>
 
       <div className="mt-6 space-y-8">
         {d.documents.length > 0 && (
@@ -106,6 +118,52 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             Desmarcando com pelo menos {d.notice_hours} horas de antecedência você ganha uma reposição.
           </p>
         </section>
+
+        {plans.map((pl) => (
+          <section key={pl.plan_id}>
+            <h2 className="mb-1 flex items-center gap-2 text-[17px] font-semibold">
+              <Dumbbell size={20} className="text-accent" /> {pl.title}
+            </h2>
+            <p className="mb-3 text-sm text-muted">
+              {pl.frequency ? `${pl.frequency} · ` : ""}fez em {pl.days_7} dos últimos 7 dias
+            </p>
+            <div className="space-y-3">
+              {pl.items.map((it, i) => {
+                const url = safeUrl(it.video_url);
+                const yt = youtubeId(url);
+                return (
+                  <Card key={i} className="overflow-hidden">
+                    {url && (
+                      <a href={url} target="_blank" rel="noreferrer" className="relative block bg-ink/5">
+                        {yt ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={`https://i.ytimg.com/vi/${yt}/hqdefault.jpg`} alt="" className="aspect-video w-full object-cover" />
+                        ) : (
+                          <span className="block aspect-[3/1]" />
+                        )}
+                        <span className="absolute inset-0 grid place-items-center">
+                          <span className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-sm font-medium text-white">
+                            <PlayCircle size={20} /> Ver vídeo
+                          </span>
+                        </span>
+                      </a>
+                    )}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="font-semibold">
+                          {i + 1}. {it.name}
+                        </p>
+                        {it.sets && <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-sm font-medium text-accent">{it.sets}</span>}
+                      </div>
+                      {it.instructions && <p className="mt-1 text-[15px] whitespace-pre-line text-muted">{it.instructions}</p>}
+                    </div>
+                  </Card>
+                );
+              })}
+              <ExerciseDone token={token} planId={pl.plan_id} doneToday={pl.done_today} />
+            </div>
+          </section>
+        ))}
 
         <section>
           <h2 className="mb-3 flex items-center gap-2 text-[17px] font-semibold">

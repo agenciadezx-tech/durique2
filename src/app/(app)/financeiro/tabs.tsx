@@ -9,7 +9,12 @@ export function FinanceTabs({ showCommissions }: { showCommissions: boolean }) {
   const tabs = [
     { href: "/financeiro", label: "Resumo" },
     { href: "/financeiro/lancamentos", label: "Lançamentos" },
-    ...(showCommissions ? [{ href: "/financeiro/comissoes", label: "Comissões" }] : []),
+    ...(showCommissions
+      ? [
+          { href: "/financeiro/comissoes", label: "Comissões" },
+          { href: "/financeiro/relatorios", label: "Relatórios" },
+        ]
+      : []),
   ];
   if (path === "/financeiro/novo") return null;
   return (
