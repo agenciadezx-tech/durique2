@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, CalendarPlus, ChevronRight, Download, Dumbbell, LogOut, Package, Plus, Stethoscope, UserPlus, UserRound } from "lucide-react";
+import { CalendarDays, CalendarPlus, ChevronRight, Download, Dumbbell, LogOut, Plus, UserPlus, UserRound } from "lucide-react";
 import { headers } from "next/headers";
 import { CopyButton } from "@/components/copy-button";
 import { ConfirmSubmit } from "@/components/forms";
@@ -10,60 +10,19 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { saveApps, savePix, createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
-import { ColorField, CommissionFields, ProductFields } from "./product-fields";
+import { saveApps, savePix, createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProfessional, toggleActive } from "./actions";
+import { ColorField, CommissionFields } from "./product-fields";
+import { Disclosure } from "./shared";
 import { proColor } from "@/lib/colors";
 import { PIX_KEY_TYPES } from "@/lib/pix";
 
 export const metadata = { title: "Minha clínica" };
 
-function Disclosure({ summary, children }: { summary: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <details className="group">
-      <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 hover:bg-hover [&::-webkit-details-marker]:hidden">
-        {summary}
-        <span className="ml-auto text-sm text-muted group-open:hidden">Editar</span>
-        <span className="ml-auto hidden text-sm text-muted group-open:inline">Fechar</span>
-      </summary>
-      <div className="border-t border-line bg-bg/60 px-4 py-5">{children}</div>
-    </details>
-  );
-}
-
-function ServiceFields({ s }: { s?: { name: string; kind: string; duration_min: number; default_capacity: number; price_cents: number | null } }) {
-  return (
-    <>
-      <Field label="Nome" htmlFor={`sn-${s?.name ?? "novo"}`}>
-        <Input id={`sn-${s?.name ?? "novo"}`} name="name" required defaultValue={s?.name} placeholder="Ex.: Pilates em turma" />
-      </Field>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Field label="Tipo">
-          <Select name="kind" defaultValue={s?.kind ?? "individual"}>
-            <option value="individual">Individual</option>
-            <option value="turma">Turma</option>
-          </Select>
-        </Field>
-        <Field label="Duração (min)">
-          <Input name="duration_min" type="number" min={5} max={480} step={5} required defaultValue={s?.duration_min ?? 50} />
-        </Field>
-        <Field label="Vagas (turma)">
-          <Input name="default_capacity" type="number" min={1} max={50} defaultValue={s?.default_capacity ?? 4} />
-        </Field>
-        <Field label="Preço (R$)">
-          <Input name="price" inputMode="decimal" placeholder="Opcional" defaultValue={s?.price_cents != null ? (s.price_cents / 100).toFixed(2).replace(".", ",") : ""} />
-        </Field>
-      </div>
-    </>
-  );
-}
-
 export default async function AjustesPage() {
   const ctx = await getContext();
   const supabase = await createClient();
-  const [{ data: pros }, { data: services }, { data: products }, { data: wa }, { data: docTemplates }] = await Promise.all([
+  const [{ data: pros }, { data: wa }, { data: docTemplates }] = await Promise.all([
     supabase.from("professionals").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
-    supabase.from("services").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
-    supabase.from("products").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase.from("whatsapp_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle(),
     supabase.from("document_templates").select("id, name, body").eq("clinic_id", ctx.clinicId).order("name"),
   ]);
@@ -84,7 +43,6 @@ export default async function AjustesPage() {
     : { data: [] as { id: string; email: string; role: string; token: string; expires_at: string }[] };
   const hh = await headers();
   const origin = `${hh.get("x-forwarded-proto") ?? "https"}://${hh.get("host")}`;
-  const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <>
@@ -127,7 +85,7 @@ export default async function AjustesPage() {
         </div>
 
         {admin && (
-          <Section title="Equipe e acessos">
+          <Section id="equipe" title="Equipe e acessos">
             <Card className="divide-y divide-line overflow-hidden">
               {members.map((m) => (
                 <div key={m.member_id} className="flex flex-wrap items-center gap-3 px-4 py-3">
@@ -319,67 +277,6 @@ export default async function AjustesPage() {
           )}
         </Section>
 
-        <Section title="Serviços">
-          <Card className="divide-y divide-line overflow-hidden">
-            {(services ?? []).map((s) => (
-              <Disclosure
-                key={s.id}
-                summary={
-                  <>
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-hover text-muted">
-                      <Stethoscope size={18} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{s.name}</p>
-                      <p className="truncate text-sm text-muted">
-                        {s.kind === "turma" ? `Turma · ${s.default_capacity} vagas` : "Individual"} · {s.duration_min} min
-                        {s.price_cents != null && ` · ${formatMoney(s.price_cents)}`}
-                      </p>
-                    </div>
-                    {!s.active && <Badge>Inativo</Badge>}
-                  </>
-                }
-              >
-                {admin ? (
-                  <div className="space-y-4">
-                    <ActionForm action={saveService}>
-                      <input type="hidden" name="id" value={s.id} />
-                      <ServiceFields s={s} />
-                      <SubmitButton size="md">Salvar</SubmitButton>
-                    </ActionForm>
-                    <form action={toggleActive}>
-                      <input type="hidden" name="table" value="services" />
-                      <input type="hidden" name="id" value={s.id} />
-                      <input type="hidden" name="active" value={String(!s.active)} />
-                      <SubmitButton variant="ghost" size="sm" className="text-muted" pendingText="Aguarde…">
-                        {s.active ? "Desativar serviço" : "Reativar serviço"}
-                      </SubmitButton>
-                    </form>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted">Somente o administrador pode editar.</p>
-                )}
-              </Disclosure>
-            ))}
-            {admin && (
-              <Disclosure
-                summary={
-                  <span className="flex items-center gap-3 font-medium text-accent">
-                    <span className="grid size-10 place-items-center rounded-full bg-accent-soft">
-                      <Plus size={18} />
-                    </span>
-                    Adicionar serviço
-                  </span>
-                }
-              >
-                <ActionForm action={saveService} resetOnSuccess>
-                  <ServiceFields />
-                  <SubmitButton size="md">Adicionar</SubmitButton>
-                </ActionForm>
-              </Disclosure>
-            )}
-          </Card>
-        </Section>
 
         <Section title="Regras da agenda">
           <Card className="p-5 sm:p-6">
@@ -480,71 +377,6 @@ export default async function AjustesPage() {
           </section>
         )}
 
-        <Section title="Pacotes e planos">
-          <Card className="divide-y divide-line overflow-hidden">
-            {(products ?? []).map((p) => (
-              <Disclosure
-                key={p.id}
-                summary={
-                  <>
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
-                      <Package size={18} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{p.name}</p>
-                      <p className="truncate text-sm text-muted">
-                        {p.kind === "plano"
-                          ? `Plano mensal · ${p.sessions_per_week}x/semana · ${formatMoney(p.price_cents)}/mês`
-                          : `${p.sessions} sessões · ${formatMoney(p.price_cents)}${p.validity_days ? ` · validade ${p.validity_days} dias` : ""}`}
-                      </p>
-                    </div>
-                    {!p.active && <Badge>Inativo</Badge>}
-                  </>
-                }
-              >
-                {admin ? (
-                  <div className="space-y-4">
-                    <ActionForm action={saveProduct}>
-                      <input type="hidden" name="id" value={p.id} />
-                      <ProductFields p={p} services={activeServices} />
-                      <SubmitButton size="md">Salvar</SubmitButton>
-                    </ActionForm>
-                    <form action={toggleActive}>
-                      <input type="hidden" name="table" value="products" />
-                      <input type="hidden" name="id" value={p.id} />
-                      <input type="hidden" name="active" value={String(!p.active)} />
-                      <SubmitButton variant="ghost" size="sm" className="text-muted" pendingText="Aguarde…">
-                        {p.active ? "Parar de vender" : "Voltar a vender"}
-                      </SubmitButton>
-                    </form>
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted">Somente o administrador pode editar.</p>
-                )}
-              </Disclosure>
-            ))}
-            {admin && (
-              <Disclosure
-                summary={
-                  <span className="flex items-center gap-3 font-medium text-accent">
-                    <span className="grid size-10 place-items-center rounded-full bg-accent-soft">
-                      <Plus size={18} />
-                    </span>
-                    Adicionar pacote ou plano
-                  </span>
-                }
-              >
-                <ActionForm action={saveProduct} resetOnSuccess>
-                  <ProductFields services={activeServices} />
-                  <SubmitButton size="md">Adicionar</SubmitButton>
-                </ActionForm>
-              </Disclosure>
-            )}
-          </Card>
-          {!products?.length && (
-            <p className="text-sm text-muted">Cadastre o que a clínica vende (ex.: pacote de 10 sessões, pilates 2x/semana) para vender aos pacientes.</p>
-          )}
-        </Section>
 
         <Section title="Modelos de documentos">
           <Card className="divide-y divide-line overflow-hidden">
@@ -619,7 +451,7 @@ export default async function AjustesPage() {
           </Card>
         </section>
 
-        <Section title="Sua conta">
+        <Section id="conta" title="Sua conta">
           <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
             <div className="min-w-0">
               <p className="truncate font-medium">{ctx.email}</p>

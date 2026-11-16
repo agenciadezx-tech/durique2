@@ -90,6 +90,7 @@ export async function saveService(_: ActionState, data: FormData): Promise<Actio
     : await supabase.from("services").insert({ ...values, clinic_id: ctx.clinicId });
   if (error) return { error: friendlyError(error) };
   revalidatePath("/ajustes");
+  revalidatePath("/catalogo");
   return { ok: id ? "Serviço atualizado." : `${name} foi adicionado.` };
 }
 
@@ -103,6 +104,7 @@ export async function toggleActive(data: FormData) {
     .update({ active: data.get("active") === "true" })
     .eq("id", String(data.get("id")));
   revalidatePath("/ajustes");
+  revalidatePath("/catalogo");
 }
 
 export async function saveProduct(_: ActionState, data: FormData): Promise<ActionState> {
@@ -134,6 +136,7 @@ export async function saveProduct(_: ActionState, data: FormData): Promise<Actio
     : await supabase.from("products").insert({ ...values, clinic_id: ctx.clinicId });
   if (error) return { error: friendlyError(error) };
   revalidatePath("/ajustes");
+  revalidatePath("/catalogo");
   return { ok: id ? "Atualizado." : `${name} foi adicionado.` };
 }
 

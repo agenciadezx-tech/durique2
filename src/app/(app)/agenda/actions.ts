@@ -182,3 +182,32 @@ export async function cancelWaitlist(data: FormData) {
   await supabase.from("waitlist").update({ status: "cancelado" }).eq("id", String(data.get("id")));
   revalidatePath(`/agenda/${String(data.get("appointment_id"))}`);
 }
+
+export async function createBlock(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  const date = String(data.get("date") ?? "");
+  const allDay = data.get("all_day") === "on";
+  const from = allDay ? "00:00" : String(data.get("from") ?? "");
+  const to = allDay ? "23:59" : String(data.get("to") ?? "");
+  const pro = String(data.get("professional_id") ?? "") || null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Escolha o dia." };
+  if (!from || !to || to <= from) return { error: "O horário final precisa ser depois do inicial." };
+  if (!pro && !ctx.canManageAgenda) return { error: "Escolha o profissional." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("time_blocks").insert({
+    clinic_id: ctx.clinicId,
+    professional_id: pro,
+    starts_at: toTimestamp(date, from),
+    ends_at: toTimestamp(date, to),
+    reason: String(data.get("reason") ?? "").trim().slice(0, 120) || null,
+  });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/agenda");
+  redirect(`/agenda?d=${date}`);
+}
+
+export async function removeBlock(data: FormData) {
+  const supabase = await createClient();
+  await supabase.from("time_blocks").delete().eq("id", String(data.get("id")));
+  revalidatePath("/agenda");
+}

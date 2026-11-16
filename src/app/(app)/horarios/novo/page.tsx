@@ -22,8 +22,8 @@ export default async function NovoHorarioPage() {
       {!pros?.length || !services?.length ? (
         <EmptyState
           title={!pros?.length ? "Cadastre um profissional primeiro" : "Cadastre um serviço primeiro"}
-          text="Leva 10 segundos, em Minha clínica."
-          action={<LinkButton href="/ajustes">Ir para Minha clínica</LinkButton>}
+          text={!pros?.length ? "Leva 10 segundos, em Minha clínica." : "Leva 10 segundos, no Catálogo."}
+          action={<LinkButton href={!pros?.length ? "/ajustes" : "/catalogo"}>{!pros?.length ? "Ir para Minha clínica" : "Ir para o Catálogo"}</LinkButton>}
         />
       ) : (
         <Card className="p-5 sm:p-7">

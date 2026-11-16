@@ -63,7 +63,8 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Próximo passo: envio automático via Zapster (Edge Function + pg_cron), webhook para respostas 1/2.
 
 ## Interface (padrões)
-- Menus: Agenda, Pacientes, Turmas (rota `/horarios`), Financeiro (abas Resumo, Cobranças, Lançamentos, Comissões, Relatórios), WhatsApp (só computador), Minha clínica (rota `/ajustes`).
+- Menu (igual no celular e no computador): Hoje (`/agenda`), Pacientes, Turmas (`/horarios`), Catálogo (`/catalogo`: serviços + pacotes/planos, Consultas × Aulas, aviso do que falta), Mais (`/mais`: Dinheiro · Pacientes e divulgação · Sua clínica, filtrado por papel). Financeiro (abas Resumo, Cobranças, Lançamentos, Comissões, Relatórios), WhatsApp e Minha clínica (`/ajustes`) ficam dentro de Mais.
+- Tela Hoje: visões Dia / Por profissional (`pro-grid.tsx`, toque no vazio abre `/agenda/nova?pro=&h=`) / Semana; filtros `t=consultas|aulas`, `pro=`, `f=chamada|evolucao|confirmar|risco`; selos Chamada pendente / Evolução pendente / Em risco (< 2h sem confirmar); resumo Consultas × Aulas e "Para fazer hoje". Cores: consultas `chart-in`, aulas `chart-out`. Atalhos: Agendar, Bloquear horário (`time_blocks`, respeitado no agendamento online), Aula experimental e Repor aula (`/agenda/vagas`).
 - Textos em português simples, sem jargão ("Veio / Faltou / Desmarcou", não "presença/ausência").
 - Componentes em `src/components/ui.tsx` (Card, Field, Input, Select, Badge, EmptyState, PageHeader…) e `forms.tsx` (`ActionForm` com mensagens amigáveis, `SubmitButton`, `ConfirmSubmit` para ações destrutivas).
 - Toda lista vazia tem um `EmptyState` que diz o que fazer a seguir. Toda ação irreversível pede confirmação.

@@ -16,7 +16,7 @@ type Product = {
 
 const money = (c?: number | null) => (c != null ? (c / 100).toFixed(2).replace(".", ",") : "");
 
-export function ProductFields({ p, services }: { p?: Product; services: { id: string; name: string }[] }) {
+export function ProductFields({ p, services, defaultServiceId }: { p?: Product; services: { id: string; name: string }[]; defaultServiceId?: string }) {
   const [kind, setKind] = useState(p?.kind ?? "pacote");
   return (
     <>
@@ -69,7 +69,7 @@ export function ProductFields({ p, services }: { p?: Product; services: { id: st
           </>
         )}
         <Field label="Vale para">
-          <Select name="service_id" defaultValue={p?.service_id ?? ""}>
+          <Select name="service_id" defaultValue={p?.service_id ?? defaultServiceId ?? ""}>
             <option value="">Qualquer serviço</option>
             {services.map((s) => (
               <option key={s.id} value={s.id}>
