@@ -13,7 +13,7 @@ export function Disclosure({ summary, children, label = "Editar" }: { summary: R
   );
 }
 
-export function ServiceFields({ s }: { s?: { name: string; kind: string; duration_min: number; default_capacity: number; price_cents: number | null } }) {
+export function ServiceFields({ s }: { s?: { name: string; kind: string; duration_min: number; default_capacity: number; price_cents: number | null; cancel_notice_hours?: number | null } }) {
   return (
     <>
       <Field label="Nome" htmlFor={`sn-${s?.name ?? "novo"}`}>
@@ -36,6 +36,9 @@ export function ServiceFields({ s }: { s?: { name: string; kind: string; duratio
           <Input name="price" inputMode="decimal" placeholder="Opcional" defaultValue={s?.price_cents != null ? (s.price_cents / 100).toFixed(2).replace(".", ",") : ""} />
         </Field>
       </div>
+      <Field label="Antecedência para desmarcar (horas)" hint="Vazio = regra geral da clínica. Desmarcou com menos que isso conta como sessão.">
+        <Input name="cancel_notice_hours" type="number" min={0} max={72} placeholder="Regra da clínica" defaultValue={s?.cancel_notice_hours ?? ""} className="max-w-48" />
+      </Field>
     </>
   );
 }

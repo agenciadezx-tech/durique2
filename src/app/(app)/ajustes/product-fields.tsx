@@ -111,11 +111,11 @@ export function CommissionFields({ percent, fixedCents }: { percent?: number | n
   );
 }
 
-export function ColorField({ value }: { value?: string | null }) {
+export function ColorField({ value, legend = "Cor na agenda" }: { value?: string | null; legend?: string }) {
   const [c, setC] = useState(value ?? "");
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">Cor na agenda</legend>
+      <legend className="text-sm font-medium">{legend}</legend>
       <input type="hidden" name="color" value={c} />
       <div className="flex flex-wrap gap-2">
         {PRO_COLORS.map((p) => (

@@ -4,11 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import { ArrowLeft, CalendarCheck, CheckCircle2, Clock, User } from "lucide-react";
 import { Alert, buttonClass, Card, cx, Field, Input } from "@/components/ui";
 import { addDaysISO, formatMoney, todayISO, TZ } from "@/lib/format";
-import { book, loadClasses, loadSlots, type ClassSlot, type Slot } from "./actions";
+import { book, joinWaitlist, loadClasses, loadFullClasses, loadSlots, type ClassSlot, type FullClass, type Slot } from "./actions";
 
 export type BookingService = { id: string; name: string; kind: string; duration: number; price_cents: number | null };
 
-type Pick = { serviceId: string; professionalId?: string; professionalName: string; startsAt: string; appointmentId?: string };
+type Pick = { serviceId: string; professionalId?: string; professionalName: string; startsAt: string; appointmentId?: string; waitlist?: boolean };
+type Prefill = { name: string; phone: string } | null;
 
 const hour = (ts: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(ts));
 const dayLabel = (ts: string) => {
@@ -17,7 +18,7 @@ const dayLabel = (ts: string) => {
 };
 const chipFmt = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC", weekday: "short" });
 
-export function BookingFlow({ slug, services }: { slug: string; services: BookingService[] }) {
+export function BookingFlow({ slug, services, waitlist = false, prefill = null }: { slug: string; services: BookingService[]; waitlist?: boolean; prefill?: Prefill }) {
   const [service, setService] = useState<BookingService | null>(services.length === 1 ? services[0] : null);
   const [pick, setPick] = useState<Pick | null>(null);
   const [done, setDone] = useState<Pick | null>(null);
@@ -26,13 +27,17 @@ export function BookingFlow({ slug, services }: { slug: string; services: Bookin
     return (
       <Card className="p-6 text-center">
         <CheckCircle2 size={48} className="mx-auto text-ok" />
-        <h2 className="mt-3 text-[20px] font-semibold">Horário agendado!</h2>
+        <h2 className="mt-3 text-[20px] font-semibold">{done.waitlist ? "Você está na lista de espera!" : "Horário agendado!"}</h2>
         <p className="mt-2 text-[15px] text-muted">
           {dayLabel(done.startsAt)}, às {hour(done.startsAt)}
           <br />
           {service?.name} com {done.professionalName}
         </p>
-        <p className="mt-4 text-sm text-muted">A clínica vai confirmar com você pelo WhatsApp. Se não puder ir, avise com antecedência.</p>
+        <p className="mt-4 text-sm text-muted">
+          {done.waitlist
+            ? "Se abrir uma vaga nessa aula, a clínica avisa você pelo WhatsApp."
+            : "A clínica vai confirmar com você pelo WhatsApp. Se não puder ir, avise com antecedência."}
+        </p>
       </Card>
     );
   }
@@ -80,9 +85,9 @@ export function BookingFlow({ slug, services }: { slug: string; services: Bookin
         </div>
       </div>
       {pick ? (
-        <ContactStep slug={slug} pick={pick} onDone={() => setDone(pick)} onTaken={() => setPick(null)} />
+        <ContactStep slug={slug} pick={pick} prefill={prefill} onDone={() => setDone(pick)} onTaken={() => setPick(null)} />
       ) : service.kind === "turma" ? (
-        <ClassStep slug={slug} service={service} onPick={setPick} />
+        <ClassStep slug={slug} service={service} onPick={setPick} waitlist={waitlist} />
       ) : (
         <SlotStep slug={slug} service={service} onPick={setPick} />
       )}
@@ -167,11 +172,13 @@ function SlotStep({ slug, service, onPick }: { slug: string; service: BookingSer
   );
 }
 
-function ClassStep({ slug, service, onPick }: { slug: string; service: BookingService; onPick: (p: Pick) => void }) {
+function ClassStep({ slug, service, onPick, waitlist }: { slug: string; service: BookingService; onPick: (p: Pick) => void; waitlist: boolean }) {
   const [list, setList] = useState<ClassSlot[] | null>(null);
+  const [full, setFull] = useState<FullClass[]>([]);
   useEffect(() => {
     loadClasses(slug, service.id).then(setList);
-  }, [slug, service.id]);
+    if (waitlist) loadFullClasses(slug, service.id).then(setFull);
+  }, [slug, service.id, waitlist]);
   return (
     <div>
       <h2 className="mb-2 text-[17px] font-semibold">2. Escolha a aula</h2>
@@ -203,13 +210,39 @@ function ClassStep({ slug, service, onPick }: { slug: string; service: BookingSe
           ))}
         </Card>
       )}
+      {full.length > 0 && (
+        <div className="mt-6">
+          <h3 className="mb-1 text-[15px] font-semibold">Turmas cheias</h3>
+          <p className="mb-2 text-sm text-muted">Entre na lista de espera: se abrir vaga, a clínica avisa você.</p>
+          <Card className="divide-y divide-line overflow-hidden">
+            {full.map((c) => (
+              <button
+                key={c.appointment_id}
+                type="button"
+                onClick={() =>
+                  onPick({ serviceId: service.id, appointmentId: c.appointment_id, professionalName: c.professional_name, startsAt: c.starts_at, waitlist: true })
+                }
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-hover"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">
+                    {dayLabel(c.starts_at)} · {hour(c.starts_at)}
+                  </span>
+                  <span className="text-sm text-muted">com {c.professional_name} · lotada</span>
+                </span>
+                <span className="shrink-0 rounded-full bg-warn-soft px-2.5 py-0.5 text-sm font-medium text-warn">Lista de espera</span>
+              </button>
+            ))}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
 
-function ContactStep({ slug, pick, onDone, onTaken }: { slug: string; pick: Pick; onDone: () => void; onTaken: () => void }) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+function ContactStep({ slug, pick, prefill, onDone, onTaken }: { slug: string; pick: Pick; prefill: Prefill; onDone: () => void; onTaken: () => void }) {
+  const [name, setName] = useState(prefill?.name ?? "");
+  const [phone, setPhone] = useState(prefill?.phone ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -220,7 +253,7 @@ function ContactStep({ slug, pick, onDone, onTaken }: { slug: string; pick: Pick
         e.preventDefault();
         setError(null);
         start(async () => {
-          const r = await book(slug, pick, name, phone);
+          const r = pick.waitlist && pick.appointmentId ? await joinWaitlist(slug, pick.appointmentId, name, phone) : await book(slug, pick, name, phone);
           if (r.ok) onDone();
           else setError(r.error ?? "Não foi possível agendar.");
         });
@@ -262,7 +295,7 @@ function ContactStep({ slug, pick, onDone, onTaken }: { slug: string; pick: Pick
         />
       </Field>
       <button type="submit" disabled={pending} className={buttonClass("primary", "lg", true)}>
-        {pending ? "Agendando…" : "Confirmar agendamento"}
+        {pending ? "Enviando…" : pick.waitlist ? "Entrar na lista de espera" : "Confirmar agendamento"}
       </button>
     </form>
   );

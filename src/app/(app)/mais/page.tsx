@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CalendarPlus,
   ChevronRight,
+  ClipboardList,
   Download,
   Dumbbell,
   FileText,
@@ -43,7 +44,8 @@ export default async function MaisPage() {
       title: "Pacientes e divulgação",
       items: [
         { href: "/whatsapp", icon: MessageCircle, title: "WhatsApp", text: "Lembretes, renovações e mensagens prontas", show: finance },
-        { href: "/ajustes/agendamento-online", icon: CalendarPlus, title: "Agendamento online", text: "Link para o paciente marcar sozinho", show: ctx.isAdmin },
+        { href: "/ajustes/agendamento-online", icon: CalendarPlus, title: "Página da clínica", text: "Agendamento online e entrada do paciente", show: ctx.isAdmin },
+        { href: "/ajustes/pre-avaliacao", icon: ClipboardList, title: "Pré-avaliação", text: "Perguntas que o paciente responde antes de começar", show: ctx.isAdmin },
         { href: "/ajustes/exercicios", icon: Dumbbell, title: "Exercícios para casa", text: "Biblioteca com vídeos para passar aos pacientes", show: ctx.canSeeClinical },
       ],
     },

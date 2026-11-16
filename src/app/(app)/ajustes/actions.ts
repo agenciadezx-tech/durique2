@@ -83,6 +83,7 @@ export async function saveService(_: ActionState, data: FormData): Promise<Actio
     duration_min: duration,
     default_capacity: capacity,
     price_cents: parseMoney(String(data.get("price") ?? "")),
+    cancel_notice_hours: String(data.get("cancel_notice_hours") ?? "").trim() === "" ? null : Math.max(0, Math.min(72, Number(data.get("cancel_notice_hours")) || 0)),
   };
   const supabase = await createClient();
   const { error } = id

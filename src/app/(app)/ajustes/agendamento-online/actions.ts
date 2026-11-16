@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
-import { friendlyError } from "@/lib/format";
+import { friendlyError, normalizePhone } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
 
 const NOT_ADMIN = { error: "Somente o administrador pode alterar isso." };
@@ -66,4 +66,30 @@ export async function removeAvailability(data: FormData) {
   const supabase = await createClient();
   await supabase.from("availability").delete().eq("id", String(data.get("id"))).eq("clinic_id", ctx.clinicId);
   revalidatePath(PATH);
+}
+
+export async function saveIdentity(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.isAdmin) return NOT_ADMIN;
+  const color = String(data.get("color") ?? "");
+  const waRaw = String(data.get("whatsapp") ?? "").trim();
+  const wa = waRaw ? normalizePhone(waRaw) : null;
+  if (waRaw && !wa) return { error: "WhatsApp inválido. Use DDD + número." };
+  const ig = String(data.get("instagram") ?? "").trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/.*$/, "");
+  if (ig && !/^[A-Za-z0-9._]{1,30}$/.test(ig)) return { error: "Instagram inválido. Ex.: @suaclinica" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("clinics")
+    .update({
+      brand_color: /^#[0-9a-f]{6}$/i.test(color) ? color : null,
+      contact_whatsapp: wa,
+      instagram: ig || null,
+      address: String(data.get("address") ?? "").trim().slice(0, 200) || null,
+      show_prices: data.get("show_prices") === "on",
+      waitlist_public: data.get("waitlist_public") === "on",
+    })
+    .eq("id", ctx.clinicId);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(PATH);
+  return { ok: "Aparência e contato salvos." };
 }

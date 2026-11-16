@@ -18,11 +18,12 @@ export async function setAttendeeStatus(data: FormData) {
   const supabase = await createClient();
 
   if (status === "desmarcou") {
-    const { data: appt } = await supabase.from("appointments").select("starts_at, clinic_id").eq("id", appointmentId).single();
+    const { data: appt } = await supabase.from("appointments").select("starts_at, clinic_id, services(cancel_notice_hours)").eq("id", appointmentId).single();
     const { data: rules } = appt
       ? await supabase.from("clinic_settings").select("cancel_notice_hours").eq("clinic_id", appt.clinic_id).maybeSingle()
       : { data: null };
-    const notice = rules?.cancel_notice_hours ?? 12;
+    const own = (appt?.services as unknown as { cancel_notice_hours: number | null } | null)?.cancel_notice_hours;
+    const notice = own ?? rules?.cancel_notice_hours ?? 12;
     const hoursBefore = appt ? (new Date(appt.starts_at).getTime() - Date.now()) / 36e5 : 0;
     status = hoursBefore >= notice ? "desmarcado_no_prazo" : "desmarcado_fora_prazo";
   }

@@ -7,7 +7,9 @@ import { getContext } from "@/lib/context";
 import { proColor } from "@/lib/colors";
 import { WEEKDAYS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { addAvailability, removeAvailability, saveBooking } from "./actions";
+import { addAvailability, removeAvailability, saveBooking, saveIdentity } from "./actions";
+import { ColorField } from "../product-fields";
+import { formatPhone } from "@/lib/format";
 
 export const metadata = { title: "Agendamento online" };
 
@@ -17,7 +19,7 @@ export default async function BookingSettingsPage() {
   const ctx = await getContext();
   const supabase = await createClient();
   const [{ data: clinic }, { data: services }, { data: pros }, { data: avail }] = await Promise.all([
-    supabase.from("clinics").select("name, booking_slug, booking_enabled, booking_message").eq("id", ctx.clinicId).single(),
+    supabase.from("clinics").select("name, booking_slug, booking_enabled, booking_message, brand_color, contact_whatsapp, instagram, address, show_prices, waitlist_public").eq("id", ctx.clinicId).single(),
     supabase.from("services").select("id, name, kind, bookable").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("professionals").select("id, name, color").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("availability").select("id, professional_id, weekday, start_time, end_time").eq("clinic_id", ctx.clinicId).order("weekday").order("start_time"),
@@ -40,7 +42,7 @@ export default async function BookingSettingsPage() {
     <>
       <PageHeader
         title="Agendamento online"
-        description="Um link para o paciente marcar sozinho, pelo celular, a qualquer hora."
+        description="Um link só: quem ainda não é paciente marca sozinho; quem já é entra no próprio painel."
         back={{ href: "/ajustes", label: "Minha clínica" }}
       />
       <div className="space-y-10">
@@ -93,7 +95,35 @@ export default async function BookingSettingsPage() {
           </Card>
         </Section>
 
-        <Section title="2. Horários de atendimento">
+        <Section title="2. Aparência e contato">
+          <Card className="p-5 sm:p-6">
+            <ActionForm action={saveIdentity}>
+              <ColorField value={clinic?.brand_color} legend="Cor da clínica na página" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="WhatsApp da clínica" hint="Botão de contato na página e no painel do aluno.">
+                  <Input name="whatsapp" type="tel" inputMode="tel" defaultValue={formatPhone(clinic?.contact_whatsapp)} disabled={!admin} placeholder="(11) 99999-8888" />
+                </Field>
+                <Field label="Instagram">
+                  <Input name="instagram" defaultValue={clinic?.instagram ? `@${clinic.instagram}` : ""} disabled={!admin} placeholder="@suaclinica" />
+                </Field>
+              </div>
+              <Field label="Endereço" hint="Aparece com o botão 'Ver no mapa'.">
+                <Input name="address" defaultValue={clinic?.address ?? ""} disabled={!admin} placeholder="Rua, número, bairro, cidade" />
+              </Field>
+              <label className="flex min-h-11 items-center gap-3">
+                <input type="checkbox" name="show_prices" defaultChecked={clinic?.show_prices ?? true} disabled={!admin} className="size-5 accent-[var(--color-accent)]" />
+                <span>Mostrar o preço dos serviços na página</span>
+              </label>
+              <label className="flex min-h-11 items-center gap-3">
+                <input type="checkbox" name="waitlist_public" defaultChecked={clinic?.waitlist_public ?? true} disabled={!admin} className="size-5 accent-[var(--color-accent)]" />
+                <span>Turma cheia: deixar a pessoa entrar na lista de espera pelo link</span>
+              </label>
+              {admin && <SubmitButton size="md">Salvar aparência</SubmitButton>}
+            </ActionForm>
+          </Card>
+        </Section>
+
+        <Section title="3. Horários de atendimento">
           <p className="-mt-1 text-[15px] text-muted">
             Para atendimentos individuais, o sistema mostra só os horários livres dentro destes períodos, sem conflito com a agenda.
             Para aulas em grupo, aparecem as vagas livres das turmas.

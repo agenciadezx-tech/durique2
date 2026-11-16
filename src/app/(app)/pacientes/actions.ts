@@ -230,3 +230,13 @@ export async function updateSummary(id: string, summary: string): Promise<{ ok?:
   revalidatePath("/pacientes");
   return { ok: true };
 }
+
+export async function requestPreAssessment(data: FormData) {
+  const id = String(data.get("patient_id"));
+  const kind = data.get("kind") === "aula" ? "aula" : "consulta";
+  const supabase = await createClient();
+  const { data: token, error } = await supabase.rpc("request_pre_assessment", { p_patient: id, p_kind: kind });
+  if (error || !token) redirect(`/pacientes/${id}?erro=pre`);
+  revalidatePath(`/pacientes/${id}`);
+  redirect(`/pacientes/${id}?pre=${token}`);
+}

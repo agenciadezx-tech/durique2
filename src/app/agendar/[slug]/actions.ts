@@ -44,3 +44,32 @@ export async function book(
       });
   return error ? { error: msg(error) } : { ok: "Agendado!" };
 }
+
+export type FullClass = { appointment_id: string; starts_at: string; professional_name: string };
+
+export async function loadFullClasses(slug: string, serviceId: string): Promise<FullClass[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("booking_full_classes", { p_slug: slug, p_service: serviceId });
+  return (data as FullClass[] | null) ?? [];
+}
+
+export async function joinWaitlist(slug: string, appointmentId: string, name: string, phoneRaw: string): Promise<Result> {
+  const phone = normalizePhone(phoneRaw);
+  if (name.trim().length < 3) return { error: "Informe seu nome completo." };
+  if (!phone) return { error: "Informe seu WhatsApp com DDD." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("booking_join_waitlist", { p_slug: slug, p_appointment: appointmentId, p_name: name, p_phone: phone });
+  return error ? { error: msg(error) } : { ok: "Você entrou na lista de espera!" };
+}
+
+/** Porta 2: quem já é paciente entra no painel com WhatsApp + data de nascimento. */
+export async function patientLogin(slug: string, phoneRaw: string, birth: string): Promise<{ error?: string; token?: string }> {
+  const phone = normalizePhone(phoneRaw);
+  if (!phone) return { error: "Informe seu WhatsApp com DDD." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return { error: "Informe sua data de nascimento." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("portal_login", { p_slug: slug, p_phone: phone, p_birth: birth });
+  if (error) return { error: msg(error) };
+  if (!data) return { error: "Não encontramos seu cadastro com esses dados. Confira ou fale com a clínica." };
+  return { token: String(data) };
+}

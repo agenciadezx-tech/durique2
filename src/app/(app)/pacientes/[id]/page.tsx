@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronRight, Dumbbell, TrendingUp, Users, Stethoscope, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Users, Stethoscope, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -11,7 +11,9 @@ import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
-import { createDocument, freezePackage, setPackageStatus, setPatientActive, updatePatient } from "../actions";
+import { createDocument, freezePackage, requestPreAssessment, setPackageStatus, setPatientActive, updatePatient } from "../actions";
+import { PreAnswers } from "@/components/pre-answers";
+import { CopyButton } from "@/components/copy-button";
 import { PatientFields } from "../patient-fields";
 import { levelLabel } from "@/lib/levels";
 import { SummaryEditor } from "./summary-editor";
@@ -22,11 +24,11 @@ export default async function PacientePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvo?: string; vendido?: string; aba?: string }>;
+  searchParams: Promise<{ salvo?: string; vendido?: string; aba?: string; pre?: string; erro?: string }>;
 }) {
   const ctx = await getContext();
   const { id } = await params;
-  const { salvo, vendido, aba: abaParam } = await searchParams;
+  const { salvo, vendido, aba: abaParam, pre: preToken, erro } = await searchParams;
   const supabase = await createClient();
 
   const { data: patient } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
@@ -126,6 +128,22 @@ export default async function PacientePage({
   const levelSeries = evos.filter((e) => e.level != null).slice(0, 12).reverse();
   const { data: waSettings } = await supabase.from("whatsapp_settings").select("tpl_renovacao").eq("clinic_id", ctx.clinicId).maybeSingle();
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+
+  // ===== Pré-avaliação =====
+  const { data: preStatus } = await supabase.rpc("pre_assessment_status", { p_patient: id });
+  const preList = (preStatus ?? []) as { kind: string; token: string; created_at: string; answered_at: string | null }[];
+  const preAnswered = ctx.canSeeClinical
+    ? (((
+        await supabase
+          .from("pre_assessments")
+          .select("id, kind, answers, config, answered_at")
+          .eq("patient_id", id)
+          .not("answered_at", "is", null)
+          .order("answered_at", { ascending: false })
+          .limit(5)
+      ).data ?? []) as { id: string; kind: string; answers: Record<string, unknown>; config: { questions?: { id: string; label: string }[] }; answered_at: string }[])
+    : [];
+  const preLink = preToken && /^[a-f0-9]{32}$/.test(preToken) ? `${hh.get("x-forwarded-proto") ?? "https"}://${hh.get("host")}/pre/${preToken}` : null;
 
   // ===== Abas =====
   const TABS = [
@@ -425,6 +443,65 @@ export default async function PacientePage({
           </Card>
         )}
 
+          </>
+        )}
+
+        {aba === "geral" && patient.active && ctx.role !== "financeiro" && (
+          <Card className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-info-soft text-info">
+                <ClipboardList size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Pré-avaliação</span>
+                <span className="text-sm text-muted">
+                  {preList[0]
+                    ? preList[0].answered_at
+                      ? `Respondida em ${formatDateShort(preList[0].answered_at.slice(0, 10))}${ctx.canSeeClinical ? " · veja em Clínico" : ""}`
+                      : `Pedida em ${formatDateShort(preList[0].created_at.slice(0, 10))} · aguardando resposta`
+                    : "Queixa, dor e histórico pelo celular antes de começar."}
+                </span>
+              </span>
+              <form action={requestPreAssessment} className="flex gap-2">
+                <input type="hidden" name="patient_id" value={patient.id} />
+                <button name="kind" value="consulta" className={buttonClass("secondary", "sm")}>
+                  Pedir (consulta)
+                </button>
+                <button name="kind" value="aula" className={buttonClass("secondary", "sm")}>
+                  Pedir (aula)
+                </button>
+              </form>
+            </div>
+            {preLink && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-info-soft/60 p-3">
+                <span className="min-w-0 flex-1 text-sm">Link criado. Envie para o paciente:</span>
+                {patient.phone && (
+                  <WaSendButton
+                    phone={patient.phone}
+                    kind="outro"
+                    patientId={patient.id}
+                    label="Enviar no WhatsApp"
+                    body={`Olá, ${firstName(patient.name)}! Para adiantar seu atendimento na ${ctx.clinicName}, responda esta pré-avaliação (leva uns 3 minutos): ${preLink}`}
+                  />
+                )}
+                <CopyButton text={preLink} label="Copiar link" />
+              </div>
+            )}
+            {erro === "pre" && <p className="mt-2 text-sm text-bad">Não foi possível criar o link. Tente de novo.</p>}
+          </Card>
+        )}
+
+        {aba === "clinico" && (
+          <>
+            {preAnswered.map((pa) => (
+              <Card key={pa.id} className="p-5">
+                <p className="mb-3 flex items-center gap-2 font-semibold">
+                  <ClipboardList size={18} className="text-info" /> Pré-avaliação ({pa.kind === "aula" ? "aula" : "consulta"}) · respondida em{" "}
+                  {formatDateShort(pa.answered_at.slice(0, 10))}
+                </p>
+                <PreAnswers answers={pa.answers ?? {}} questions={pa.config?.questions ?? []} />
+              </Card>
+            ))}
           </>
         )}
 
