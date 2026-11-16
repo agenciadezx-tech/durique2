@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
+import { buildCarneLeao, CARNE_LEAO_MAX_LINES } from "@/lib/carne-leao";
+import { monthRange } from "@/lib/format";
 
 // Exporta os dados da clínica em CSV (abre no Excel: separador ; e BOM UTF-8)
 const cell = (v: unknown) => {
@@ -11,11 +13,47 @@ const csv = (header: string[], rows: unknown[][]) =>
   "﻿" + [header, ...rows].map((r) => r.map(cell).join(";")).join("\r\n");
 const brl = (c: number | null) => (c == null ? "" : (c / 100).toFixed(2).replace(".", ","));
 
-export async function GET(_: NextRequest, { params }: { params: Promise<{ tipo: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ tipo: string }> }) {
   const ctx = await getContext();
   const { tipo } = await params;
   const supabase = await createClient();
   let body = "";
+
+  // Carnê-Leão Web: arquivo oficial de importação (ISO-8859-1, ";" e sem cabeçalho)
+  if (tipo === "carne-leao" && ctx.canSeeExpenses) {
+    const mes = req.nextUrl.searchParams.get("mes") ?? "";
+    if (!/^\d{4}-\d{2}$/.test(mes)) return NextResponse.json({ error: "Mês inválido" }, { status: 400 });
+    const { data: st } = await supabase.from("clinic_settings").select("carne_leao_ocupacao").eq("clinic_id", ctx.clinicId).maybeSingle();
+    if (!st?.carne_leao_ocupacao) return NextResponse.json({ error: "Informe o código de ocupação" }, { status: 400 });
+    const { from, to } = monthRange(mes);
+    const { data } = await supabase
+      .from("transactions")
+      .select("paid_on, amount_cents, description, patients!inner(name, cpf)")
+      .eq("clinic_id", ctx.clinicId)
+      .eq("type", "receita")
+      .gte("paid_on", from)
+      .lte("paid_on", to)
+      .order("paid_on");
+    type R = { paid_on: string; amount_cents: number; description: string; patients: { name: string; cpf: string | null } };
+    const { lines } = buildCarneLeao(
+      ((data ?? []) as unknown as R[]).map((r) => ({
+        paid_on: r.paid_on,
+        amount_cents: r.amount_cents,
+        description: r.description,
+        patient_name: r.patients.name,
+        patient_cpf: r.patients.cpf,
+      })),
+      st.carne_leao_ocupacao,
+    );
+    const parts = lines.length ? lines.slice(0, CARNE_LEAO_MAX_LINES) : [];
+    return new NextResponse(Buffer.from(parts.join("\r\n") + (parts.length ? "\r\n" : ""), "latin1"), {
+      headers: {
+        "Content-Type": "text/csv; charset=iso-8859-1",
+        "Content-Disposition": `attachment; filename="carne-leao-${mes}.csv"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
 
   if (tipo === "pacientes" && ctx.role !== "profissional") {
     const { data } = await supabase

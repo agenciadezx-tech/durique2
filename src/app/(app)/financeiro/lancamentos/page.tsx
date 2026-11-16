@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Minus, Plus, Undo2 } from "lucide-react";
+import { Minus, Plus, Undo2, FileText } from "lucide-react";
 import { ConfirmSubmit } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -88,6 +88,11 @@ export default async function LancamentosPage({
           {ctx.canSeeExpenses && (
             <LinkButton href="/financeiro/novo?tipo=despesa" variant="secondary" size="md">
               <Minus size={18} /> Despesa
+            </LinkButton>
+          )}
+          {ctx.canSeeExpenses && (
+            <LinkButton href="/financeiro/carne-leao" variant="secondary" size="md">
+              <FileText size={18} /> Carnê-Leão
             </LinkButton>
           )}
         </div>

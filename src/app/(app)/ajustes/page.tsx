@@ -10,12 +10,12 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { savePix, createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
+import { saveApps, savePix, createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
 import { ColorField, CommissionFields, ProductFields } from "./product-fields";
 import { proColor } from "@/lib/colors";
 import { PIX_KEY_TYPES } from "@/lib/pix";
 
-export const metadata = { title: "Ajustes" };
+export const metadata = { title: "Minha clínica" };
 
 function Disclosure({ summary, children }: { summary: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -88,7 +88,7 @@ export default async function AjustesPage() {
 
   return (
     <>
-      <PageHeader title="Ajustes" description="Sua clínica, equipe e serviços." />
+      <PageHeader title="Minha clínica" description="Sua clínica, equipe e serviços." />
       <div className="space-y-10">
         <Section title="Clínica">
           <Card className="p-5 sm:p-6">
@@ -429,6 +429,52 @@ export default async function AjustesPage() {
                   </Field>
                 </div>
                 {admin && <SubmitButton size="md">Salvar Pix</SubmitButton>}
+              </ActionForm>
+            </Card>
+          </section>
+        )}
+
+        {ctx.role !== "profissional" && (
+          <section id="apps" className="scroll-mt-20 space-y-3">
+            <h2 className="text-[17px] font-semibold">Wellhub e TotalPass</h2>
+            <Card className="p-5 sm:p-6">
+              <ActionForm action={saveApps}>
+                <p className="text-[15px] text-muted">
+                  Ligue o app que sua clínica aceita. Na ficha do aluno, escolha <strong className="text-ink">&quot;Vem por&quot;</strong>: ele aparece
+                  com um selo na agenda (para lembrar de validar o check-in no app) e cada presença entra na conta do que você tem a receber do
+                  app, em Financeiro → Relatórios.
+                </p>
+                {(
+                  [
+                    { k: "wellhub", name: "Wellhub (antigo Gympass)", idLabel: "ID da academia no Wellhub" },
+                    { k: "totalpass", name: "TotalPass", idLabel: "Código do estabelecimento no TotalPass" },
+                  ] as const
+                ).map(({ k, name, idLabel }) => {
+                  const enabled = rules?.[`${k}_enabled`] ?? false;
+                  const idVal = rules?.[k === "wellhub" ? "wellhub_gym_id" : "totalpass_id"] ?? "";
+                  const cents = rules?.[`${k}_value_cents`];
+                  return (
+                    <fieldset key={k} className="space-y-3 rounded-xl border border-line p-4">
+                      <label className="flex min-h-11 items-center gap-3">
+                        <input type="checkbox" name={`${k}_enabled`} defaultChecked={enabled} disabled={!admin} className="size-5 accent-[var(--color-accent)]" />
+                        <span className="font-medium">{name}</span>
+                      </label>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label={idLabel} hint="Opcional por enquanto.">
+                          <Input name={`${k}_id`} defaultValue={idVal} disabled={!admin} />
+                        </Field>
+                        <Field label="Quanto recebe por check-in (R$)" hint="Para estimar o repasse do mês.">
+                          <Input name={`${k}_value`} inputMode="decimal" defaultValue={cents != null ? (cents / 100).toFixed(2).replace(".", ",") : ""} disabled={!admin} placeholder="18,50" />
+                        </Field>
+                      </div>
+                    </fieldset>
+                  );
+                })}
+                <p className="rounded-xl bg-hover px-4 py-3 text-sm text-muted">
+                  A validação automática do check-in (o aluno faz check-in no app e a presença aparece sozinha no Durique) depende de o Durique ser
+                  aprovado como parceiro de tecnologia do Wellhub e do TotalPass. Com o ID já cadastrado aqui, é só ligar quando sair.
+                </p>
+                {admin && <SubmitButton size="md">Salvar</SubmitButton>}
               </ActionForm>
             </Card>
           </section>

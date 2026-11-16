@@ -61,7 +61,7 @@ export default async function HorarioPage({
       <PageHeader
         title={`${WEEKDAYS[s.weekday]} · ${s.start_time.slice(0, 5)}`}
         description={`${service?.name} com ${pro?.name} · ${s.duration_min} min`}
-        back={{ href: "/horarios", label: "Horários fixos" }}
+        back={{ href: "/horarios", label: "Turmas" }}
       />
 
       <div className="space-y-8">

@@ -84,7 +84,7 @@ export function SeriesForm({ services, pros, today }: { services: Service[]; pro
       </div>
 
       <SubmitButton full pendingText="Criando e lançando na agenda…">
-        Criar horário fixo
+        Criar turma
       </SubmitButton>
     </ActionForm>
   );

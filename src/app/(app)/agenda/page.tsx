@@ -13,7 +13,7 @@ import { addDaysISO, dayRange, formatDayLong, formatTime, isoWeekday, todayISO, 
 
 export const metadata = { title: "Agenda" };
 
-type Attendee = { id: string; patient_id: string; status: string; is_makeup: boolean; booked_online: boolean; patients: { name: string } | null };
+type Attendee = { id: string; patient_id: string; status: string; is_makeup: boolean; booked_online: boolean; patients: { name: string; access_via: string | null } | null };
 type Appt = {
   id: string;
   starts_at: string;
@@ -43,7 +43,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const week = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const supabase = await createClient();
 
-  // Mantém sempre as próximas 8 semanas dos horários fixos lançadas
+  // Mantém sempre as próximas 8 semanas das turmas lançadas
   if (ctx.canManageAgenda) await supabase.rpc("ensure_agenda", { p_clinic: ctx.clinicId });
 
   const { from, to } = dayRange(day);
@@ -52,7 +52,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name))",
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name, access_via))",
       )
       .eq("clinic_id", ctx.clinicId)
       .gte("starts_at", from)
@@ -157,7 +157,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           <ol className="mt-4 grid gap-3 sm:grid-cols-3">
             {[
               { href: "/pacientes", icon: Users, title: "1. Pacientes", text: "Cadastre ou importe da planilha.", done: !!patientCount },
-              { href: "/horarios/novo", icon: Repeat, title: "2. Horários fixos", text: "Ex.: Pilates ter/qui 7h.", done: !!seriesCount },
+              { href: "/horarios/novo", icon: Repeat, title: "2. Turmas", text: "Ex.: Pilates ter/qui 7h.", done: !!seriesCount },
               { href: "/agenda", icon: CalendarDays, title: "3. Agenda", text: "Pronto! Marque presença aqui.", done: false },
             ].map((s) => (
               <li key={s.title}>
@@ -378,6 +378,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                               {t.patients?.name}
                               {t.is_makeup && <span className="text-[12px] text-muted">(reposição)</span>}
                               {t.booked_online && <span className="rounded-full bg-info-soft px-1.5 text-[11px] font-medium text-info">online</span>}
+                              {t.patients?.access_via && <span className="rounded-full bg-info-soft px-1.5 text-[11px] font-medium text-info">{t.patients.access_via === "wellhub" ? "Wellhub" : "TotalPass"}</span>}
                               {endingOf.has(t.patient_id) && (
                                 <span className="rounded-full bg-warn-soft px-1.5 text-[11px] font-medium text-warn">{endingLabel(endingOf.get(t.patient_id))}</span>
                               )}

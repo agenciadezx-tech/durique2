@@ -1,4 +1,4 @@
-import { Field, Input, Textarea } from "@/components/ui";
+import { Field, Input, Select, Textarea } from "@/components/ui";
 import { formatCpf, formatPhone } from "@/lib/format";
 
 type Patient = {
@@ -8,6 +8,7 @@ type Patient = {
   cpf?: string | null;
   birth_date?: string | null;
   notes?: string | null;
+  access_via?: string | null;
 };
 
 export function PatientFields({ patient = {}, readOnly = false }: { patient?: Patient; readOnly?: boolean }) {
@@ -37,8 +38,15 @@ export function PatientFields({ patient = {}, readOnly = false }: { patient?: Pa
         <Field label="E-mail" htmlFor="email" hint="Opcional.">
           <Input id="email" name="email" type="email" inputMode="email" defaultValue={patient.email ?? ""} disabled={readOnly} />
         </Field>
+        <Field label="Vem por" htmlFor="access_via" hint="Aluno de Wellhub ou TotalPass aparece com selo na agenda.">
+          <Select id="access_via" name="access_via" defaultValue={patient.access_via ?? ""} disabled={readOnly}>
+            <option value="">Particular</option>
+            <option value="wellhub">Wellhub (Gympass)</option>
+            <option value="totalpass">TotalPass</option>
+          </Select>
+        </Field>
       </div>
-      <Field label="Observações" htmlFor="notes" hint="Informações administrativas. O prontuário vem numa próxima etapa.">
+      <Field label="Observações" htmlFor="notes" hint="Informações administrativas. O que é clínico vai no prontuário.">
         <Textarea id="notes" name="notes" rows={3} defaultValue={patient.notes ?? ""} disabled={readOnly} />
       </Field>
     </>

@@ -236,3 +236,36 @@ export async function savePix(_: ActionState, data: FormData): Promise<ActionSta
   revalidatePath("/", "layout");
   return { ok: "Chave Pix salva. As cobranças já saem com o Pix copia e cola." };
 }
+
+export async function saveApps(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await adminCtx();
+  if (!ctx) return NOT_ADMIN;
+  const read = (k: "wellhub" | "totalpass") => {
+    const raw = String(data.get(`${k}_value`) ?? "").trim();
+    const value = raw ? parseMoney(raw) : null;
+    return {
+      enabled: data.get(`${k}_enabled`) === "on",
+      id: String(data.get(`${k}_id`) ?? "").trim().slice(0, 40) || null,
+      value,
+      bad: !!raw && value == null,
+    };
+  };
+  const w = read("wellhub");
+  const t = read("totalpass");
+  if (w.bad || t.bad) return { error: "Valor por check-in inválido. Ex.: 18,50" };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("clinic_settings")
+    .update({
+      wellhub_enabled: w.enabled,
+      wellhub_gym_id: w.id,
+      wellhub_value_cents: w.value,
+      totalpass_enabled: t.enabled,
+      totalpass_id: t.id,
+      totalpass_value_cents: t.value,
+    })
+    .eq("clinic_id", ctx.clinicId);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/", "layout");
+  return { ok: "Configuração salva." };
+}

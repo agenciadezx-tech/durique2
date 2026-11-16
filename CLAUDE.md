@@ -18,7 +18,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Fuso: `America/Sao_Paulo` (`-03:00`, sem horário de verão). Use os helpers de `src/lib/format.ts`.
 
 ## Conceitos da agenda
-- `recurring_series` = horário fixo semanal (ex.: Pilates ter 7h, 4 vagas). `enrollments` = paciente fixo nele.
+- `recurring_series` = turma fixa semanal (menu "Turmas", rota /horarios) (ex.: Pilates ter 7h, 4 vagas). `enrollments` = paciente fixo nele.
 - `appointments` = cada sessão; geradas por `generate_series_occurrences` / `ensure_agenda` (8 semanas à frente, chamado ao abrir a agenda).
 - `appointment_attendees` = paciente na sessão com status (`agendado`, `confirmado`, `presente`, `falta`, `desmarcado_no_prazo`, `desmarcado_fora_prazo`, `removido`). Trigger impede passar da capacidade.
 - RPCs: `create_clinic`, `enroll_patient`, `end_enrollment`, `end_series`, `ensure_agenda`.
@@ -52,6 +52,9 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Lista de pacientes: view `patient_services` (horário fixo ativo, pacote ativo ou sessão −60/+30 dias) → selos de serviço embaixo do nome e abas `?servico=`. `PatientPicker` mostra e busca por telefone.
 - Renovação: view `packages_ending` (≤ 2 sessões ou vence em 7 dias) → aviso na agenda de hoje, selo na sessão, caixa "Avisar/Vender renovação" na ficha e aviso no portal.
 - Satisfação: tabela `feedback` (0–10 + comentário); pergunta no portal após 3 sessões, 1x a cada 90 dias (`portal_feedback_due`, `portal_feedback`); nota 9–10 vê "Avaliar no Google" (`clinics.review_url`). NPS e comentários em `/financeiro/relatorios`.
+- Evolução da aula: `session_evolutions` (nível 1–5 + o que foi trabalhado) e `patient_evolutions` (por aluno). RPC `save_session_evolution` (admin ou profissional da sessão) replica para quem veio (ou para os agendados, se ninguém foi marcado). Formulário na sessão; "Evolução nas aulas" na ficha (nível atual + histórico). Níveis em `src/lib/levels.ts`.
+- Carnê-Leão: `/financeiro/carne-leao` gera o arquivo oficial de importação (`src/lib/carne-leao.ts`: `data;R01.001.001;ocupação;valor;;histórico;PF;CPF titular;CPF beneficiário`, ISO-8859-1, sem cabeçalho, até 1.000 linhas) via `/exportar/carne-leao?mes=`. Código de ocupação em `clinic_settings.carne_leao_ocupacao`. Recebimento sem CPF fica de fora e é listado.
+- Wellhub/TotalPass: `clinic_settings.wellhub_*/totalpass_*` (ligado, ID, valor por check-in) em Minha clínica; `patients.access_via` ("Vem por"); selo na agenda/sessão; check-ins do mês × valor em Relatórios. Check-in automático depende de homologação como parceiro.
 - Relatórios: RPC `report_overview` (admin/financeiro) → `/financeiro/relatorios` com `src/components/charts.tsx` (StatTile, ColumnChart, BarList; uma série por gráfico).
 
 ## Conceitos do WhatsApp
@@ -60,6 +63,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Próximo passo: envio automático via Zapster (Edge Function + pg_cron), webhook para respostas 1/2.
 
 ## Interface (padrões)
+- Menus: Agenda, Pacientes, Turmas (rota `/horarios`), Financeiro (abas Resumo, Cobranças, Lançamentos, Comissões, Relatórios), WhatsApp (só computador), Minha clínica (rota `/ajustes`).
 - Textos em português simples, sem jargão ("Veio / Faltou / Desmarcou", não "presença/ausência").
 - Componentes em `src/components/ui.tsx` (Card, Field, Input, Select, Badge, EmptyState, PageHeader…) e `forms.tsx` (`ActionForm` com mensagens amigáveis, `SubmitButton`, `ConfirmSubmit` para ações destrutivas).
 - Toda lista vazia tem um `EmptyState` que diz o que fazer a seguir. Toda ação irreversível pede confirmação.

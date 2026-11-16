@@ -5,7 +5,7 @@ import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO, WEEKDAYS } from "@/lib/format";
 
-export const metadata = { title: "Horários fixos" };
+export const metadata = { title: "Turmas" };
 
 export default async function HorariosPage({
   searchParams,
@@ -40,8 +40,8 @@ export default async function HorariosPage({
   return (
     <>
       <PageHeader
-        title="Horários fixos"
-        description="Turmas e atendimentos que se repetem toda semana. A agenda é preenchida sozinha."
+        title="Turmas"
+        description="Aulas e atendimentos que se repetem toda semana. A agenda é preenchida sozinha."
         action={
           ctx.canManageAgenda &&
           rows.length > 0 && (
@@ -57,7 +57,7 @@ export default async function HorariosPage({
       {rows.length === 0 ? (
         <EmptyState
           icon={<Repeat size={22} />}
-          title="Nenhum horário fixo ainda"
+          title="Nenhuma turma ainda"
           text="Ex.: Pilates toda terça e quinta às 7h, com 4 vagas. Você cria uma vez e a agenda das próximas semanas aparece pronta."
           action={
             ctx.canManageAgenda && (

@@ -26,6 +26,7 @@ function readPatient(data: FormData) {
       email: String(data.get("email") ?? "").trim() || null,
       birth_date: String(data.get("birth_date") ?? "") || null,
       notes: String(data.get("notes") ?? "").trim() || null,
+      access_via: ["wellhub", "totalpass"].includes(String(data.get("access_via"))) ? String(data.get("access_via")) : null,
     },
   };
 }

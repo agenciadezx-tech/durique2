@@ -33,7 +33,7 @@ export default async function NovoRegistroPage({
       />
       {!ctx.professionalId ? (
         <Alert tone="info">
-          Para escrever no prontuário, seu usuário precisa estar ligado a um profissional. Em Ajustes → Profissionais, o administrador faz essa ligação.
+          Para escrever no prontuário, seu usuário precisa estar ligado a um profissional. Em Minha clínica → Profissionais, o administrador faz essa ligação.
         </Alert>
       ) : (
         <Card className="p-5 sm:p-7">

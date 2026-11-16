@@ -25,14 +25,14 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
     <>
       <PageHeader
         title="Nova sessão"
-        description="Para um atendimento avulso. Para turmas que se repetem, use Horários fixos."
+        description="Para um atendimento avulso. Para algo que se repete toda semana, crie uma turma em Turmas."
         back={{ href: `/agenda?d=${day}`, label: "Agenda" }}
       />
       {!pros?.length || !services?.length ? (
         <EmptyState
           title={!pros?.length ? "Cadastre um profissional primeiro" : "Cadastre um serviço primeiro"}
-          text="Leva 10 segundos, em Ajustes."
-          action={<LinkButton href="/ajustes">Ir para Ajustes</LinkButton>}
+          text="Leva 10 segundos, em Minha clínica."
+          action={<LinkButton href="/ajustes">Ir para Minha clínica</LinkButton>}
         />
       ) : (
         <Card className="p-5 sm:p-7">

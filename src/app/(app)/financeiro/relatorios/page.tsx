@@ -40,6 +40,37 @@ export default async function ReportsPage() {
   const nps = fb.length ? Math.round(((fans - unhappy) / fb.length) * 100) : null;
   const pctOf = (n: number) => (fb.length ? Math.round((n / fb.length) * 100) : 0);
 
+  // Wellhub / TotalPass: presenças do mês × valor por check-in
+  const { data: appsCfg } = await supabase
+    .from("clinic_settings")
+    .select("wellhub_enabled, wellhub_value_cents, totalpass_enabled, totalpass_value_cents")
+    .eq("clinic_id", ctx.clinicId)
+    .maybeSingle();
+  const monthStart = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 7)}-01T00:00:00-03:00`);
+  const { data: appVisits } =
+    appsCfg?.wellhub_enabled || appsCfg?.totalpass_enabled
+      ? await supabase
+          .from("appointment_attendees")
+          .select("patients!inner(access_via), appointments!inner(starts_at)")
+          .eq("clinic_id", ctx.clinicId)
+          .eq("status", "presente")
+          .not("patients.access_via", "is", null)
+          .gte("appointments.starts_at", monthStart.toISOString())
+          .lte("appointments.starts_at", new Date().toISOString())
+      : { data: [] };
+  const visits = (appVisits ?? []) as unknown as { patients: { access_via: string } }[];
+  const apps = (
+    [
+      { k: "wellhub", name: "Wellhub", on: appsCfg?.wellhub_enabled, cents: appsCfg?.wellhub_value_cents },
+      { k: "totalpass", name: "TotalPass", on: appsCfg?.totalpass_enabled, cents: appsCfg?.totalpass_value_cents },
+    ] as const
+  )
+    .filter((a) => a.on)
+    .map((a) => {
+      const n = visits.filter((v) => v.patients.access_via === a.k).length;
+      return { ...a, n, total: a.cents != null ? n * a.cents : null };
+    });
+
   const cur = r.months[r.months.length - 1];
   const prev = r.months[r.months.length - 2];
   const missRate = cur.done + cur.missed > 0 ? Math.round((cur.missed / (cur.done + cur.missed)) * 100) : null;
@@ -141,6 +172,22 @@ export default async function ReportsPage() {
             </div>
           )}
         </Section>
+
+        {apps.length > 0 && (
+          <Section title="Wellhub e TotalPass neste mês">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {apps.map((a) => (
+                <StatTile
+                  key={a.k}
+                  label={`${a.name}: check-ins`}
+                  value={a.n}
+                  hint={a.total != null ? `≈ ${formatMoney(a.total)} a receber` : "Informe o valor por check-in em Minha clínica"}
+                />
+              ))}
+            </div>
+            <p className="text-[13px] text-muted">Conta as presenças (&quot;Veio&quot;) de alunos marcados como Wellhub ou TotalPass. Confira com o extrato do app.</p>
+          </Section>
+        )}
 
         <Section title="Dinheiro">
           <div className="grid gap-4 lg:grid-cols-2">

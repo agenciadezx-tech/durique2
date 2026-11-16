@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, MessageCircle, Repeat, Settings, Users, Wallet } from "lucide-react";
+import { Building2, CalendarDays, MessageCircle, Repeat, Users, Wallet } from "lucide-react";
 import { cx } from "./ui";
 
 const ITEMS = [
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/pacientes", label: "Pacientes", icon: Users },
-  { href: "/horarios", label: "Horários fixos", short: "Horários", icon: Repeat },
+  { href: "/horarios", label: "Turmas", icon: Repeat },
   { href: "/financeiro", label: "Financeiro", icon: Wallet, finance: true },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, finance: true, desktopOnly: true },
-  { href: "/ajustes", label: "Ajustes", icon: Settings },
+  { href: "/ajustes", label: "Minha clínica", short: "Clínica", icon: Building2 },
 ];
 
 function items(showFinance: boolean) {

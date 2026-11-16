@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronRight, Dumbbell, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, Dumbbell, TrendingUp, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
 import { createDocument, freezePackage, setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PatientFields } from "../patient-fields";
+import { levelLabel } from "@/lib/levels";
 
 export default async function PacientePage({
   params,
@@ -97,6 +98,30 @@ export default async function PacientePage({
       ? supabase.from("exercise_plans").select("id, exercise_logs(done_on)").eq("patient_id", id).eq("active", true)
       : Promise.resolve({ data: [] as { id: string; exercise_logs: { done_on: string }[] }[] }),
   ]);
+  type Evo = {
+    level: number | null;
+    note: string | null;
+    appointments: {
+      id: string;
+      starts_at: string;
+      services: { name: string } | null;
+      professionals: { name: string } | null;
+      session_evolutions: { notes: string | null }[];
+    } | null;
+  };
+  const evos: Evo[] = ctx.canSeeClinical
+    ? ((
+        await supabase
+          .from("patient_evolutions")
+          .select("level, note, appointments(id, starts_at, services(name), professionals(name), session_evolutions(notes))")
+          .eq("patient_id", id)
+          .or("level.not.is.null,note.not.is.null")
+          .limit(60)
+      ).data ?? []) as unknown as Evo[]
+    : [];
+  evos.sort((a, b) => (b.appointments?.starts_at ?? "").localeCompare(a.appointments?.starts_at ?? ""));
+  const lastLevel = evos.find((e) => e.level != null)?.level ?? null;
+  const levelSeries = evos.filter((e) => e.level != null).slice(0, 12).reverse();
   const { data: waSettings } = await supabase.from("whatsapp_settings").select("tpl_renovacao").eq("clinic_id", ctx.clinicId).maybeSingle();
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
   const doneWeek = new Set((plans ?? []).flatMap((p) => p.exercise_logs.filter((l) => l.done_on > weekAgo).map((l) => l.done_on))).size;
@@ -127,7 +152,7 @@ export default async function PacientePage({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Section title="Horários fixos">
+          <Section title="Turmas">
             {series.length ? (
               <Card className="divide-y divide-line">
                 {series.map((s) => (
@@ -146,7 +171,7 @@ export default async function PacientePage({
               </Card>
             ) : (
               <Card className="px-4 py-5 text-[15px] text-muted">
-                Sem horário fixo.{" "}
+                Sem turma fixa.{" "}
                 {ctx.canManageAgenda && (
                   <Link href="/horarios" className="font-medium text-accent hover:underline">
                     Colocar numa turma
@@ -233,6 +258,57 @@ export default async function PacientePage({
               <ChevronRight size={20} className="text-faint" />
             </Card>
           </Link>
+        )}
+
+        {ctx.canSeeClinical && evos.length > 0 && (
+          <Section title="Evolução nas aulas">
+            <Card className="overflow-hidden">
+              <div className="flex flex-wrap items-center gap-4 border-b border-line px-4 py-4 sm:px-5">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                  <TrendingUp size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-muted">Nível atual</p>
+                  <p className="text-[20px] font-semibold">
+                    {lastLevel != null ? (
+                      <>
+                        {lastLevel} <span className="text-[15px] font-normal text-muted">· {levelLabel(lastLevel)}</span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                </div>
+                {levelSeries.length > 1 && (
+                  <div className="flex h-12 items-end gap-1" role="img" aria-label={`Nível nas últimas aulas: ${levelSeries.map((e) => e.level).join(", ")}`}>
+                    {levelSeries.map((e, i) => (
+                      <span
+                        key={i}
+                        title={`${formatDateShort(e.appointments!.starts_at.slice(0, 10))}: nível ${e.level}`}
+                        className={cx("w-3 rounded-t-[3px]", i === levelSeries.length - 1 ? "bg-accent" : "bg-accent/45")}
+                        style={{ height: `${(e.level! / 5) * 100}%` }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+              <ul className="divide-y divide-line">
+                {evos.slice(0, 8).map((e, i) => (
+                  <li key={i} className="px-4 py-3 sm:px-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <Link href={`/agenda/${e.appointments?.id}`} className="text-sm text-muted hover:underline">
+                        {e.appointments ? formatTimestampShort(e.appointments.starts_at) : ""} · {e.appointments?.services?.name}
+                        {e.appointments?.professionals ? ` · ${e.appointments.professionals.name}` : ""}
+                      </Link>
+                      {e.level != null && <Badge tone="info">Nível {e.level}</Badge>}
+                    </div>
+                    {e.appointments?.session_evolutions?.[0]?.notes && <p className="mt-1 text-[15px]">{e.appointments.session_evolutions[0].notes}</p>}
+                    {e.note && <p className="mt-1 text-[15px] font-medium">Obs.: {e.note}</p>}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </Section>
         )}
 
         {ctx.role !== "financeiro" && (

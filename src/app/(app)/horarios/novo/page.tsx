@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/format";
 import { SeriesForm } from "./series-form";
 
-export const metadata = { title: "Novo horário fixo" };
+export const metadata = { title: "Nova turma" };
 
 export default async function NovoHorarioPage() {
   const ctx = await getContext();
@@ -18,12 +18,12 @@ export default async function NovoHorarioPage() {
 
   return (
     <>
-      <PageHeader title="Novo horário fixo" back={{ href: "/horarios", label: "Horários fixos" }} />
+      <PageHeader title="Nova turma" back={{ href: "/horarios", label: "Turmas" }} />
       {!pros?.length || !services?.length ? (
         <EmptyState
           title={!pros?.length ? "Cadastre um profissional primeiro" : "Cadastre um serviço primeiro"}
-          text="Leva 10 segundos, em Ajustes."
-          action={<LinkButton href="/ajustes">Ir para Ajustes</LinkButton>}
+          text="Leva 10 segundos, em Minha clínica."
+          action={<LinkButton href="/ajustes">Ir para Minha clínica</LinkButton>}
         />
       ) : (
         <Card className="p-5 sm:p-7">

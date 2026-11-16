@@ -41,7 +41,7 @@ export default async function BookingSettingsPage() {
       <PageHeader
         title="Agendamento online"
         description="Um link para o paciente marcar sozinho, pelo celular, a qualquer hora."
-        back={{ href: "/ajustes", label: "Ajustes" }}
+        back={{ href: "/ajustes", label: "Minha clínica" }}
       />
       <div className="space-y-10">
         {link && clinic?.booking_enabled && (
@@ -79,7 +79,7 @@ export default async function BookingSettingsPage() {
               </Field>
               <fieldset className="space-y-2">
                 <legend className="mb-1 text-sm font-medium">O que o paciente pode marcar sozinho</legend>
-                {(services ?? []).length === 0 && <p className="text-sm text-muted">Cadastre serviços em Ajustes primeiro.</p>}
+                {(services ?? []).length === 0 && <p className="text-sm text-muted">Cadastre serviços em Minha clínica primeiro.</p>}
                 {(services ?? []).map((s) => (
                   <label key={s.id} className="flex min-h-11 items-center gap-3 rounded-xl border border-line px-3">
                     <input type="checkbox" name="bookable" value={s.id} defaultChecked={s.bookable} disabled={!admin} className="size-5 accent-[var(--color-accent)]" />
@@ -96,13 +96,13 @@ export default async function BookingSettingsPage() {
         <Section title="2. Horários de atendimento">
           <p className="-mt-1 text-[15px] text-muted">
             Para atendimentos individuais, o sistema mostra só os horários livres dentro destes períodos, sem conflito com a agenda.
-            Turmas usam as vagas que já existem nos horários fixos.
+            Para aulas em grupo, aparecem as vagas livres das turmas.
           </p>
           {hasIndividual && (avail ?? []).length === 0 && (
             <Alert tone="info">Sem horários de atendimento, o paciente não vai ver horários livres para os atendimentos individuais.</Alert>
           )}
           {(pros ?? []).length === 0 ? (
-            <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Ajustes para definir os horários." />
+            <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Minha clínica para definir os horários." />
           ) : (
             <div className="space-y-3">
               {(pros ?? []).map((p) => {

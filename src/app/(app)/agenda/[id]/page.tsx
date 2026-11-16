@@ -8,8 +8,9 @@ import { isActiveAttendee } from "@/components/status";
 import { AttendeeStatus } from "./status-buttons";
 import { ChargeForm } from "./charge-form";
 import { getContext } from "@/lib/context";
+import { EvolutionForm } from "./evolution-form";
 import { createClient } from "@/lib/supabase/server";
-import { formatDayLong, formatTime, TZ, whatsappLink } from "@/lib/format";
+import { formatDayLong, formatTime, formatTimestampShort, TZ, whatsappLink } from "@/lib/format";
 import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, restoreAppointment } from "../actions";
 import { WaSendButton } from "@/components/wa-send";
 import { firstName } from "@/lib/messages";
@@ -21,7 +22,7 @@ type Attendee = {
   booked_online: boolean;
   enrollment_id: string | null;
   package_id: string | null;
-  patients: { id: string; name: string; phone: string | null } | null;
+  patients: { id: string; name: string; phone: string | null; access_via: string | null } | null;
   patient_packages: { name: string; kind: string; total_sessions: number | null } | null;
 };
 
@@ -40,7 +41,7 @@ export default async function SessaoPage({
   const { data: appt } = await supabase
     .from("appointments")
     .select(
-      "*, services(name, kind, price_cents), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, booked_online, enrollment_id, package_id, patients(id, name, phone), patient_packages(name, kind, total_sessions))",
+      "*, services(name, kind, price_cents), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, booked_online, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -65,6 +66,27 @@ export default async function SessaoPage({
   const endingOf = new Map((endingData ?? []).map((e) => [e.patient_id, e.sessions_left]));
 
   // Cobranças avulsas já lançadas nesta sessão
+  // Evolução da aula: admin ou o profissional da sessão
+  const canEvolve = !canceled && (ctx.isAdmin || (!!ctx.professionalId && ctx.professionalId === appt.professional_id));
+  const [{ data: sessEvo }, { data: patEvo }] = canEvolve
+    ? await Promise.all([
+        supabase.from("session_evolutions").select("level, notes, updated_at").eq("appointment_id", appt.id).maybeSingle(),
+        supabase.from("patient_evolutions").select("patient_id, level, note").eq("appointment_id", appt.id),
+      ])
+    : [{ data: null }, { data: [] }];
+  const sessLevel = sessEvo?.level ?? null;
+  const anyPresent = attendees.some((t) => t.status === "presente");
+  const evoPeople = attendees
+    .filter((t) => (anyPresent ? t.status === "presente" : ["agendado", "confirmado"].includes(t.status)) && t.patients)
+    .map((t) => {
+      const pe = (patEvo ?? []).find((x) => x.patient_id === t.patients!.id);
+      return {
+        patient_id: t.patients!.id,
+        name: t.patients!.name,
+        level: pe?.level != null && pe.level !== sessLevel ? pe.level : null,
+        note: pe?.note ?? "",
+      };
+    });
   const showFinance = ctx.role !== "profissional";
   const { data: charges } = showFinance && attendees.length
     ? await supabase.from("transactions").select("attendee_id, paid_on").in("attendee_id", attendees.map((t) => t.id))
@@ -118,9 +140,9 @@ export default async function SessaoPage({
         {canceled && <Alert tone="info">Esta sessão foi cancelada.</Alert>}
         {appt.series_id && !canceled && (
           <p className="-mt-3 flex items-center gap-2 text-sm text-muted">
-            <Repeat size={16} /> Faz parte de um{" "}
+            <Repeat size={16} /> Faz parte de uma{" "}
             <Link href={`/horarios/${appt.series_id}`} className="font-medium text-accent hover:underline">
-              horário fixo
+              turma fixa
             </Link>
           </p>
         )}
@@ -157,6 +179,11 @@ export default async function SessaoPage({
                             )}
                             {t.is_makeup && <span className="text-[13px] text-muted">Reposição</span>}
                             {t.booked_online && <span className="text-[13px] text-info">Marcou pelo link</span>}
+                            {t.patients?.access_via && (
+                              <span className="text-[13px] font-medium text-info">
+                                {t.patients.access_via === "wellhub" ? "Wellhub" : "TotalPass"}: validar check-in no app
+                              </span>
+                            )}
                             {t.patients && endingOf.has(t.patients.id) && (
                               <Link href="/whatsapp?aba=renovacoes" className="text-[13px] font-medium text-warn hover:underline">
                                 {(endingOf.get(t.patients.id) ?? 1) <= 0
@@ -224,6 +251,19 @@ export default async function SessaoPage({
             </p>
           )}
         </Section>
+
+        {canEvolve && evoPeople.length > 0 && (
+          <Section title="Evolução">
+            <EvolutionForm
+              appointmentId={appt.id}
+              turma={appt.capacity > 1}
+              initialLevel={sessLevel}
+              initialNotes={sessEvo?.notes ?? ""}
+              people={evoPeople}
+              savedAt={sessEvo ? formatTimestampShort(sessEvo.updated_at) : null}
+            />
+          </Section>
+        )}
 
         {ctx.canManageAgenda && !canceled && free > 0 && (
           <Section title={appt.capacity > 1 ? "Adicionar à sessão" : "Escolher paciente"}>
@@ -311,7 +351,7 @@ export default async function SessaoPage({
             ) : (
               <form action={cancelAppointment}>
                 <input type="hidden" name="id" value={appt.id} />
-                <ConfirmSubmit question="Cancelar esta sessão? Os pacientes continuam no horário fixo para as próximas semanas.">
+                <ConfirmSubmit question="Cancelar esta sessão? Os pacientes continuam na turma para as próximas semanas.">
                   Cancelar esta sessão
                 </ConfirmSubmit>
               </form>

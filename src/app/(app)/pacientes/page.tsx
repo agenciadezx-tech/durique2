@@ -26,7 +26,7 @@ export default async function PacientesPage({
 
   let query = supabase
     .from("patients")
-    .select("id, name, phone, active")
+    .select("id, name, phone, active, access_via")
     .eq("clinic_id", ctx.clinicId)
     .eq("active", !inativos)
     .order("name")
@@ -181,13 +181,18 @@ export default async function PacientesPage({
                     <p className="flex items-center gap-1 truncate text-sm text-muted">
                       <Phone size={13} className="shrink-0" /> {formatPhone(p.phone) || "Sem telefone"}
                     </p>
-                    {(servicesOf.has(p.id) || pkgOf.has(p.id)) && (
+                    {(servicesOf.has(p.id) || pkgOf.has(p.id) || p.access_via) && (
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {(servicesOf.get(p.id) ?? []).map((n) => (
                           <span key={n} className="rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-medium text-accent">
                             {n}
                           </span>
                         ))}
+                        {p.access_via && (
+                          <span className="rounded-full bg-info-soft px-2 py-0.5 text-[12px] font-medium text-info">
+                            {p.access_via === "wellhub" ? "Wellhub" : "TotalPass"}
+                          </span>
+                        )}
                         {pkgOf.has(p.id) && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-hover px-2 py-0.5 text-[12px] text-muted">
                             <Package size={12} /> {pkgOf.get(p.id)}
