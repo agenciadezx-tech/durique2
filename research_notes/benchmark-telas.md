@@ -96,3 +96,9 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 
 ## 16. Convênios e parceiros (modal)
 - Três tipos de pagador: plano de saúde (por sessão, com guia, tabela por código), parceiro por check-in (Wellhub/TotalPass, valor fixo por presença), SUS (produção mensal). No Catálogo liga/desliga por serviço.
+
+## 17. Pré-avaliação (configuração)
+- Dois formulários independentes: Consulta (individual) e Aula (pilates/turma/estúdio). Na ficha, ao pedir, escolhe qual mandar.
+- Cada campo com dois interruptores: Pedir (mostra) e Obrigatória (trava envio sem resposta). "Ligar/Desligar todos" por grupo.
+- Regra: só preenche campos vazios da ficha; divergências ficam para a recepção conferir.
+- Grupos: Seus dados (nome, CPF, nascimento, telefone, estado civil, e-mail, convênio, carteirinha) · Endereço (CEP, número, endereço, complemento, bairro, cidade, UF) — se tudo desligado o passo some · Sua dor agora (queixa principal [obrig.], dor 0–10, local/região, histórico) · Sua saúde (alergias, medicamentos, cirurgias, doenças/comorbidades, histórico familiar …) · Estilo de vida (objetivo, atividade física semanal, hábitos, como conheceu a clínica) · Contato de emergência (nome, parentesco, telefone) · Perguntas próprias (até 10).
