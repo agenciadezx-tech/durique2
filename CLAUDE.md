@@ -48,6 +48,9 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Exercícios para casa: `exercises` (biblioteca com vídeo, `/ajustes/exercicios`), `exercise_plans` + `exercise_plan_items` (por paciente, `/pacientes/[id]/exercicios`), `exercise_logs` ("Fiz hoje" + dor 0–10 no portal via `portal_exercises`/`portal_log_exercise`). Visível só para admin/profissional.
 - Agenda no Google: `professionals.calendar_token` → feed `.ics` em `/cal/[token].ics` (RPC `calendar_feed`, só primeiro nome do paciente; `rotate_calendar_token`). Página `/ajustes/agenda-google`. É uma via só (Google lê).
 - Financeiro visual: `src/components/finance-charts.tsx` (entrou × saiu 6 meses, ritmo do mês). Cores de gráfico `--color-chart-in` / `--color-chart-out` (validadas para daltonismo).
+- Lista de pacientes: view `patient_services` (horário fixo ativo, pacote ativo ou sessão −60/+30 dias) → selos de serviço embaixo do nome e abas `?servico=`. `PatientPicker` mostra e busca por telefone.
+- Renovação: view `packages_ending` (≤ 2 sessões ou vence em 7 dias) → aviso na agenda de hoje, selo na sessão, caixa "Avisar/Vender renovação" na ficha e aviso no portal.
+- Satisfação: tabela `feedback` (0–10 + comentário); pergunta no portal após 3 sessões, 1x a cada 90 dias (`portal_feedback_due`, `portal_feedback`); nota 9–10 vê "Avaliar no Google" (`clinics.review_url`). NPS e comentários em `/financeiro/relatorios`.
 - Relatórios: RPC `report_overview` (admin/financeiro) → `/financeiro/relatorios` com `src/components/charts.tsx` (StatTile, ColumnChart, BarList; uma série por gráfico).
 
 ## Conceitos do WhatsApp

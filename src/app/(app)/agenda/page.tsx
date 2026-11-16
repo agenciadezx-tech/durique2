@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BellRing, Cake, CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
+import { BellRing, Cake, CalendarDays, ChevronLeft, ChevronRight, Package, Plus, Repeat, Users } from "lucide-react";
 import { buttonClass, Card, cx, EmptyState, LinkButton } from "@/components/ui";
 import { WeekGrid, type GridAppt } from "./week-grid";
 import { WaSendButton } from "@/components/wa-send";
@@ -13,7 +13,7 @@ import { addDaysISO, dayRange, formatDayLong, formatTime, isoWeekday, todayISO, 
 
 export const metadata = { title: "Agenda" };
 
-type Attendee = { id: string; status: string; is_makeup: boolean; booked_online: boolean; patients: { name: string } | null };
+type Attendee = { id: string; patient_id: string; status: string; is_makeup: boolean; booked_online: boolean; patients: { name: string } | null };
 type Appt = {
   id: string;
   starts_at: string;
@@ -52,7 +52,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, status, is_makeup, booked_online, patients(name))",
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name))",
       )
       .eq("clinic_id", ctx.clinicId)
       .gte("starts_at", from)
@@ -94,6 +94,14 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     dueToday = (due ?? []).reduce((acc, t) => acc + t.amount_cents, 0);
     birthdays = (bdays ?? []).filter((p) => p.birth_date!.slice(5) === today.slice(5));
   }
+  // Pacotes acabando (≤ 2 sessões ou vencendo em 7 dias)
+  const { data: endingData } =
+    ctx.role !== "profissional"
+      ? await supabase.from("packages_ending").select("patient_id, sessions_left").eq("clinic_id", ctx.clinicId)
+      : { data: [] as { patient_id: string | null; sessions_left: number | null }[] };
+  const endingOf = new Map((endingData ?? []).map((e) => [e.patient_id, e.sessions_left]));
+  const endingLabel = (left: number | null | undefined) =>
+    left != null && left <= 0 ? "pacote acabou" : left != null ? `pacote: falta${left === 1 ? "" : "m"} ${left}` : "pacote vencendo";
   const showWelcome = ctx.canManageAgenda && (sp.bemvindo || (!patientCount && !seriesCount));
 
   return (
@@ -200,6 +208,22 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             </div>
           )}
         </div>
+      )}
+
+      {isTodayView && endingOf.size > 0 && (
+        <Link
+          href="/whatsapp?aba=renovacoes"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-warn/30 bg-warn-soft/50 px-4 py-3 hover:bg-warn-soft"
+        >
+          <Package size={20} className="shrink-0 text-warn" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">
+              {endingOf.size} paciente{endingOf.size === 1 ? "" : "s"} com pacote acabando
+            </span>
+            <span className="text-sm text-muted">Toque para avisar pelo WhatsApp e oferecer a renovação</span>
+          </span>
+          <ChevronRight size={18} className="text-faint" />
+        </Link>
       )}
 
       {isTodayView && birthdays.length > 0 && (
@@ -354,6 +378,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                               {t.patients?.name}
                               {t.is_makeup && <span className="text-[12px] text-muted">(reposição)</span>}
                               {t.booked_online && <span className="rounded-full bg-info-soft px-1.5 text-[11px] font-medium text-info">online</span>}
+                              {endingOf.has(t.patient_id) && (
+                                <span className="rounded-full bg-warn-soft px-1.5 text-[11px] font-medium text-warn">{endingLabel(endingOf.get(t.patient_id))}</span>
+                              )}
                             </li>
                           ))}
                         </ul>

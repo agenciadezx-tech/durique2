@@ -67,6 +67,7 @@ export default async function AjustesPage() {
     supabase.from("document_templates").select("id, name, body").eq("clinic_id", ctx.clinicId).order("name"),
   ]);
   const admin = ctx.isAdmin;
+  const { data: clinicRow } = await supabase.from("clinics").select("review_url").eq("id", ctx.clinicId).single();
   const { data: rules } = await supabase.from("clinic_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle();
   type Member = { member_id: string; user_id: string; email: string; role: string; active: boolean; professional_name: string | null };
   const members: Member[] = admin ? (((await supabase.rpc("clinic_members", { p_clinic: ctx.clinicId })).data ?? []) as Member[]) : [];
@@ -94,7 +95,13 @@ export default async function AjustesPage() {
               <Field label="Nome da clínica" htmlFor="clinic-name">
                 <Input id="clinic-name" name="name" defaultValue={ctx.clinicName} disabled={!admin} required />
               </Field>
-              {admin && <SubmitButton size="md">Salvar nome</SubmitButton>}
+              <Field
+                label="Link para avaliar no Google (opcional)"
+                hint="Quem der nota 9 ou 10 na pesquisa de satisfação é convidado a avaliar a clínica no Google. Pegue o link em Perfil da Empresa no Google → Pedir avaliações."
+              >
+                <Input name="review_url" type="url" inputMode="url" defaultValue={clinicRow?.review_url ?? ""} disabled={!admin} placeholder="https://g.page/r/..." />
+              </Field>
+              {admin && <SubmitButton size="md">Salvar</SubmitButton>}
             </ActionForm>
           </Card>
         </Section>

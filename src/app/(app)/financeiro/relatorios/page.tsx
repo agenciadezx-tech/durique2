@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { BarList, ColumnChart, StatTile } from "@/components/charts";
-import { PageHeader, Section } from "@/components/ui";
+import Link from "next/link";
+import { Badge, Card, cx, PageHeader, Section } from "@/components/ui";
 import { getContext } from "@/lib/context";
-import { formatMoney, formatMonth, formatMonthShort } from "@/lib/format";
+import { formatDateShort, formatMoney, formatMonth, formatMonthShort } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Relatórios" };
@@ -25,6 +26,19 @@ export default async function ReportsPage() {
   const { data } = await supabase.rpc("report_overview", { p_clinic: ctx.clinicId, p_months: 6 });
   const r = data as Report | null;
   if (!r) redirect("/financeiro");
+
+  const { data: fbData } = await supabase
+    .from("feedback")
+    .select("id, score, comment, created_at, patients(id, name)")
+    .eq("clinic_id", ctx.clinicId)
+    .gte("created_at", new Date(Date.now() - 90 * 864e5).toISOString())
+    .order("created_at", { ascending: false });
+  const fb = (fbData ?? []) as unknown as { id: string; score: number; comment: string | null; created_at: string; patients: { id: string; name: string } | null }[];
+  const fans = fb.filter((f) => f.score >= 9).length;
+  const neutral = fb.filter((f) => f.score >= 7 && f.score <= 8).length;
+  const unhappy = fb.filter((f) => f.score <= 6).length;
+  const nps = fb.length ? Math.round(((fans - unhappy) / fb.length) * 100) : null;
+  const pctOf = (n: number) => (fb.length ? Math.round((n / fb.length) * 100) : 0);
 
   const cur = r.months[r.months.length - 1];
   const prev = r.months[r.months.length - 2];
@@ -70,6 +84,62 @@ export default async function ReportsPage() {
               empty="Nenhuma sessão marcada como Veio nos últimos 30 dias."
             />
           </div>
+        </Section>
+
+        <Section title="Satisfação dos pacientes">
+          {fb.length === 0 ? (
+            <Card className="px-4 py-5 text-[15px] text-muted">
+              Ainda sem respostas nos últimos 90 dias. A pergunta &quot;De 0 a 10, o quanto você indicaria a clínica?&quot; aparece no link do aluno depois da
+              3ª sessão, uma vez a cada 3 meses.
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatTile
+                  label="Nota de satisfação (NPS)"
+                  value={`${nps! > 0 ? "+" : ""}${nps}`}
+                  tone={nps! >= 50 ? "ok" : nps! >= 0 ? "warn" : "bad"}
+                  hint={nps! >= 75 ? "Excelente" : nps! >= 50 ? "Muito boa" : nps! >= 0 ? "Pode melhorar" : "Precisa de atenção"}
+                />
+                <StatTile label="Fãs (nota 9–10)" value={fans} hint={`${pctOf(fans)}% das respostas`} />
+                <StatTile label="Neutros (7–8)" value={neutral} hint={`${pctOf(neutral)}% das respostas`} />
+                <StatTile label="Insatisfeitos (0–6)" value={unhappy} hint={`${pctOf(unhappy)}% das respostas`} tone={unhappy ? "bad" : undefined} />
+              </div>
+              <Card className="p-4 sm:p-5">
+                <p className="text-sm text-muted">{fb.length} resposta{fb.length === 1 ? "" : "s"} nos últimos 90 dias</p>
+                <div className="mt-2 flex h-3 gap-[2px] overflow-hidden rounded-full" aria-hidden>
+                  {fans > 0 && <div className="bg-ok" style={{ width: `${pctOf(fans)}%` }} />}
+                  {neutral > 0 && <div className="bg-faint" style={{ width: `${pctOf(neutral)}%` }} />}
+                  {unhappy > 0 && <div className="bg-bad" style={{ width: `${pctOf(unhappy)}%` }} />}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted">
+                  <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-ok" /> Fãs {pctOf(fans)}%</span>
+                  <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-faint" /> Neutros {pctOf(neutral)}%</span>
+                  <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-bad" /> Insatisfeitos {pctOf(unhappy)}%</span>
+                </div>
+              </Card>
+              <Card className="divide-y divide-line overflow-hidden">
+                {fb.slice(0, 20).map((f) => (
+                  <div key={f.id} className={cx("flex gap-3 px-4 py-3", f.score <= 6 && "bg-bad-soft/40")}>
+                    <Badge tone={f.score >= 9 ? "ok" : f.score >= 7 ? "neutral" : "bad"}>{f.score}</Badge>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm">
+                        {f.patients ? (
+                          <Link href={`/pacientes/${f.patients.id}`} className="font-medium hover:underline">
+                            {f.patients.name}
+                          </Link>
+                        ) : (
+                          "Paciente"
+                        )}{" "}
+                        <span className="text-muted">· {formatDateShort(f.created_at.slice(0, 10))}</span>
+                      </p>
+                      <p className={cx("text-[15px]", !f.comment && "text-muted italic")}>{f.comment ?? "Sem comentário"}</p>
+                    </div>
+                  </div>
+                ))}
+              </Card>
+            </div>
+          )}
         </Section>
 
         <Section title="Dinheiro">

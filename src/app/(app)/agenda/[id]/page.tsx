@@ -56,6 +56,13 @@ export default async function SessaoPage({
   const free = appt.capacity - occupied;
   const canceled = appt.status === "cancelado";
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(appt.starts_at));
+  const { data: endingData } = attendees.length
+    ? await supabase
+        .from("packages_ending")
+        .select("patient_id, sessions_left")
+        .in("patient_id", attendees.map((t) => t.patients?.id).filter(Boolean) as string[])
+    : { data: [] as { patient_id: string | null; sessions_left: number | null }[] };
+  const endingOf = new Map((endingData ?? []).map((e) => [e.patient_id, e.sessions_left]));
 
   // Cobranças avulsas já lançadas nesta sessão
   const showFinance = ctx.role !== "profissional";
@@ -69,7 +76,7 @@ export default async function SessaoPage({
     const inSession = new Set(all.map((t) => t.patients?.id));
     const { data } = await supabase
       .from("patients")
-      .select("id, name")
+      .select("id, name, phone")
       .eq("clinic_id", ctx.clinicId)
       .eq("active", true)
       .order("name")
@@ -150,6 +157,15 @@ export default async function SessaoPage({
                             )}
                             {t.is_makeup && <span className="text-[13px] text-muted">Reposição</span>}
                             {t.booked_online && <span className="text-[13px] text-info">Marcou pelo link</span>}
+                            {t.patients && endingOf.has(t.patients.id) && (
+                              <Link href="/whatsapp?aba=renovacoes" className="text-[13px] font-medium text-warn hover:underline">
+                                {(endingOf.get(t.patients.id) ?? 1) <= 0
+                                  ? "Pacote acabou: oferecer renovação"
+                                  : endingOf.get(t.patients.id) != null
+                                    ? `Pacote: falta${endingOf.get(t.patients.id) === 1 ? "" : "m"} ${endingOf.get(t.patients.id)}`
+                                    : "Pacote vencendo"}
+                              </Link>
+                            )}
                             {!t.enrollment_id && !t.is_makeup && appt.series_id && <span className="text-[13px] text-muted">Avulso</span>}
                           </>
                         }

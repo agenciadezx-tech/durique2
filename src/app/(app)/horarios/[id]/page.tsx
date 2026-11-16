@@ -47,7 +47,7 @@ export default async function HorarioPage({
       .order("starts_at")
       .limit(4),
     ctx.canManageAgenda
-      ? supabase.from("patients").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name").limit(2000)
+      ? supabase.from("patients").select("id, name, phone").eq("clinic_id", ctx.clinicId).eq("active", true).order("name").limit(2000)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
   ]);
 

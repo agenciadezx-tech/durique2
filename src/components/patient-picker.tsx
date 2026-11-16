@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { Check, Search } from "lucide-react";
 import { cx } from "./ui";
+import { formatPhone } from "@/lib/format";
 
-type P = { id: string; name: string };
+type P = { id: string; name: string; phone?: string | null };
 
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -14,7 +15,8 @@ export function PatientPicker({ patients, name = "patient_id" }: { patients: P[]
   const [picked, setPicked] = useState<P | null>(null);
   const list = useMemo(() => {
     const t = norm(q.trim());
-    return (t ? patients.filter((p) => norm(p.name).includes(t)) : patients).slice(0, 6);
+    const digits = q.replace(/\D/g, "");
+    return (t ? patients.filter((p) => norm(p.name).includes(t) || (digits.length >= 4 && (p.phone ?? "").includes(digits))) : patients).slice(0, 6);
   }, [q, patients]);
 
   if (!patients.length) return <p className="text-[15px] text-muted">Nenhum paciente disponível. Cadastre em Pacientes.</p>;
@@ -30,7 +32,7 @@ export function PatientPicker({ patients, name = "patient_id" }: { patients: P[]
             setPicked(null);
             setQ(e.target.value);
           }}
-          placeholder="Digite o nome do paciente"
+          placeholder="Digite o nome ou telefone"
           className="h-12 w-full rounded-xl border border-line bg-surface pr-3.5 pl-10 text-[16px] placeholder:text-faint focus:border-accent focus:ring-4 focus:ring-accent-soft focus:outline-none"
           aria-label="Buscar paciente"
         />
@@ -43,9 +45,10 @@ export function PatientPicker({ patients, name = "patient_id" }: { patients: P[]
                 <button
                   type="button"
                   onClick={() => setPicked(p)}
-                  className="flex h-11 w-full items-center px-3.5 text-left text-[15px] hover:bg-hover"
+                  className="flex min-h-11 w-full items-center justify-between gap-3 px-3.5 py-1.5 text-left text-[15px] hover:bg-hover"
                 >
-                  {p.name}
+                  <span className="truncate">{p.name}</span>
+                  {p.phone && <span className="shrink-0 text-sm text-muted tabular-nums">{formatPhone(p.phone)}</span>}
                 </button>
               </li>
             ))

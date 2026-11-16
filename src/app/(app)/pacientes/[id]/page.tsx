@@ -5,12 +5,12 @@ import { Archive, ArchiveRestore, ChevronRight, Dumbbell, ExternalLink, Smartpho
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
-import { firstName } from "@/lib/messages";
+import { firstName, renderTemplate } from "@/lib/messages";
 import { Alert, Badge, buttonClass, Card, cx, Field, Input, LinkButton, PageHeader, Section, Select } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
-import { formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
+import { addDaysISO, formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
 import { createDocument, freezePackage, setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PatientFields } from "../patient-fields";
 
@@ -97,6 +97,7 @@ export default async function PacientePage({
       ? supabase.from("exercise_plans").select("id, exercise_logs(done_on)").eq("patient_id", id).eq("active", true)
       : Promise.resolve({ data: [] as { id: string; exercise_logs: { done_on: string }[] }[] }),
   ]);
+  const { data: waSettings } = await supabase.from("whatsapp_settings").select("tpl_renovacao").eq("clinic_id", ctx.clinicId).maybeSingle();
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
   const doneWeek = new Set((plans ?? []).flatMap((p) => p.exercise_logs.filter((l) => l.done_on > weekAgo).map((l) => l.done_on))).size;
 
@@ -319,6 +320,39 @@ export default async function PacientePage({
                           <p className="mt-1.5 text-[13px] text-muted">
                             {used} de {p.total_sessions} sessões usadas
                           </p>
+                        </div>
+                      )}
+                      {active && p.kind === "pacote" && ((left != null && left <= 2) || (p.expires_on && p.expires_on <= addDaysISO(today, 7))) && (
+                        <div className="mt-3 rounded-xl bg-warn-soft px-3 py-3">
+                          <p className="text-sm font-medium text-warn">
+                            {left != null && left <= 2
+                              ? `Pacote acabando: ${left === 1 ? "falta 1 sessão" : `faltam ${left} sessões`}.`
+                              : `Pacote vence em ${formatDateShort(p.expires_on)}.`}{" "}
+                            Hora de oferecer a renovação.
+                          </p>
+                          {ctx.canManageAgenda && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {patient.phone && (
+                                <WaSendButton
+                                  phone={patient.phone}
+                                  kind="renovacao"
+                                  patientId={patient.id}
+                                  packageId={p.id}
+                                  label="Avisar no WhatsApp"
+                                  body={renderTemplate(waSettings?.tpl_renovacao ?? "", {
+                                    nome: firstName(patient.name),
+                                    restantes: left ?? "",
+                                    pacote: p.name,
+                                    validade: p.expires_on ? formatDateShort(p.expires_on) : "",
+                                    clinica: ctx.clinicName,
+                                  })}
+                                />
+                              )}
+                              <LinkButton href={`/pacientes/${patient.id}/vender`} size="sm" variant="secondary">
+                                Vender renovação
+                              </LinkButton>
+                            </div>
+                          )}
                         </div>
                       )}
                       {p.frozen_until && p.frozen_until >= today && (

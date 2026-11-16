@@ -18,7 +18,7 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
   const [{ data: services }, { data: pros }, { data: patients }] = await Promise.all([
     supabase.from("services").select("id, name, kind").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("professionals").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
-    supabase.from("patients").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name").limit(2000),
+    supabase.from("patients").select("id, name, phone").eq("clinic_id", ctx.clinicId).eq("active", true).order("name").limit(2000),
   ]);
 
   return (

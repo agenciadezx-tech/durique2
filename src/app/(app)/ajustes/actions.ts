@@ -18,11 +18,13 @@ export async function renameClinic(_: ActionState, data: FormData): Promise<Acti
   if (!ctx) return NOT_ADMIN;
   const name = String(data.get("name") ?? "").trim();
   if (!name) return { error: "Informe o nome." };
+  const review = String(data.get("review_url") ?? "").trim();
+  if (review && !/^https:\/\/\S+$/.test(review)) return { error: "O link de avaliação precisa começar com https://" };
   const supabase = await createClient();
-  const { error } = await supabase.from("clinics").update({ name }).eq("id", ctx.clinicId);
+  const { error } = await supabase.from("clinics").update({ name, review_url: review || null }).eq("id", ctx.clinicId);
   if (error) return { error: friendlyError(error) };
   revalidatePath("/", "layout");
-  return { ok: "Nome atualizado." };
+  return { ok: "Dados da clínica salvos." };
 }
 
 export async function saveProfessional(_: ActionState, data: FormData): Promise<ActionState> {

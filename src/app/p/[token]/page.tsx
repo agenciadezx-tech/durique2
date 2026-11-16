@@ -8,6 +8,7 @@ import { firstName } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 import { BookButton, SessionButtons } from "./portal-buttons";
 import { ExerciseDone } from "./exercise-done";
+import { FeedbackCard } from "./feedback-card";
 import { safeUrl, youtubeId } from "@/lib/video";
 
 export const metadata = { title: "Minhas aulas", robots: { index: false } };
@@ -54,7 +55,12 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const { data } = await supabase.rpc("portal_get", { p_token: token });
   const d = data as Portal | null;
   if (!d) notFound();
-  const plans = ((await supabase.rpc("portal_exercises", { p_token: token })).data ?? []) as ExPlan[];
+  const [{ data: plansData }, { data: feedbackDue }, { data: reviewUrl }] = await Promise.all([
+    supabase.rpc("portal_exercises", { p_token: token }),
+    supabase.rpc("portal_feedback_due", { p_token: token }),
+    supabase.rpc("portal_review_url", { p_token: token }),
+  ]);
+  const plans = (plansData ?? []) as ExPlan[];
   const now = Date.now();
   const credits = d.credits.length;
 
@@ -68,6 +74,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
       <p className="mt-1 text-[15px] text-muted">Aqui você confirma, desmarca e repõe suas aulas{plans.length ? " e vê seus exercícios" : ""}.</p>
 
       <div className="mt-6 space-y-8">
+        {feedbackDue === true && <FeedbackCard token={token} clinic={d.clinic.name} reviewUrl={(reviewUrl as string | null) ?? null} />}
         {d.documents.length > 0 && (
           <div className="space-y-2">
             {d.documents.map((doc) => (
@@ -217,6 +224,11 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                       <p className="mt-1.5 text-sm text-muted">
                         {k.total - k.used} de {k.total} sessões restantes{k.expires_on && ` · válido até ${formatDateShort(k.expires_on)}`}
                       </p>
+                      {k.total - k.used <= 2 && (
+                        <p className="mt-2 rounded-xl bg-warn-soft px-3 py-2 text-sm font-medium text-warn">
+                          {k.total - k.used <= 0 ? "Seu pacote acabou." : "Seu pacote está acabando."} Fale com a clínica para renovar e manter seus horários.
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-muted">Plano mensal ativo</p>

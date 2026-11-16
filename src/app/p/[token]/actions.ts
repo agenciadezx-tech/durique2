@@ -38,3 +38,10 @@ export async function portalExercise(token: string, planId: string, pain: number
   revalidatePath(`/p/${token}`);
   return error ? { error: msg(error) } : { ok: "Registrado. Muito bem!" };
 }
+
+export async function portalFeedback(token: string, score: number, comment: string): Promise<Result> {
+  if (!Number.isInteger(score) || score < 0 || score > 10) return { error: "Escolha uma nota de 0 a 10." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_feedback", { p_token: token, p_score: score, p_comment: comment.slice(0, 1000) });
+  return error ? { error: msg(error) } : { ok: "Obrigado pela sua opinião!" };
+}
