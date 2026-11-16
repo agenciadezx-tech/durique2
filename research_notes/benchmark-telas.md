@@ -102,3 +102,8 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Cada campo com dois interruptores: Pedir (mostra) e Obrigatória (trava envio sem resposta). "Ligar/Desligar todos" por grupo.
 - Regra: só preenche campos vazios da ficha; divergências ficam para a recepção conferir.
 - Grupos: Seus dados (nome, CPF, nascimento, telefone, estado civil, e-mail, convênio, carteirinha) · Endereço (CEP, número, endereço, complemento, bairro, cidade, UF) — se tudo desligado o passo some · Sua dor agora (queixa principal [obrig.], dor 0–10, local/região, histórico) · Sua saúde (alergias, medicamentos, cirurgias, doenças/comorbidades, histórico familiar …) · Estilo de vida (objetivo, atividade física semanal, hábitos, como conheceu a clínica) · Contato de emergência (nome, parentesco, telefone) · Perguntas próprias (até 10).
+
+## 18. Fila de espera (configuração)
+- Consultas: quem é avisado tem a vaga por N horas (ex.: 2) — depois passa para o próximo da fila.
+- Aulas · quando abre vaga (avisado tem 30 min para responder): "A recepção escolhe" (ninguém é avisado sozinho) ou "Automático para o 1º da fila" (WhatsApp; recusou/não respondeu → próximo).
+- Interruptor "Aluno entra sozinho na fila pelo app": turma cheia aparece no app com lista de espera (reposição daquela data e vaga fixa); desligado, turma cheia não aparece e a fila é só da recepção.
