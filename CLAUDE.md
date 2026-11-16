@@ -28,7 +28,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Ao marcar Veio / Faltou / Desmarcou em cima da hora, o trigger `assign_package` consome uma sessão do pacote ativo (`appointment_attendees.package_id`); desfazer devolve. Uso em `package_usage`.
 - `transactions` = lançamentos (receita/despesa, `due_date`, `paid_on` nulo = em aberto). `categories` com `system_key` para as automáticas.
 - RPCs: `sell_package` (gera parcelas), `ensure_plan_charges` (mensalidades até o mês seguinte), `commission_report` (comissão por sessão realizada).
-- Cobranças: `/financeiro/cobrancas` (menu lateral + aba do Financeiro): atrasadas, 7 dias, em aberto, pagas no mês; Cobrar (WhatsApp), Copiar Pix, Receber. Pix copia e cola estático gerado em `src/lib/pix.ts` (BR Code + CRC16) com a chave em `clinic_settings.pix_*`; aparece também na mensagem de cobrança e no link do aluno (`portal_charges`). Asaas depois só automatiza a baixa.
+- Cobranças: `/financeiro/cobrancas` (só como aba do Financeiro; a aba Cobranças do WhatsApp redireciona para lá): atrasadas, 7 dias, em aberto, pagas no mês; Cobrar (WhatsApp), Copiar Pix, Receber. Pix copia e cola estático gerado em `src/lib/pix.ts` (BR Code + CRC16) com a chave em `clinic_settings.pix_*`; aparece também na mensagem de cobrança e no link do aluno (`portal_charges`). Asaas depois só automatiza a baixa.
 - Recepção vê e lança só receitas; despesas, resultado e comissões são de `admin`/`financeiro`.
 
 ## Prontuário, documentos e regras de estúdio

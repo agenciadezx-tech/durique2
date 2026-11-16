@@ -6,8 +6,7 @@ import { Card, cx, EmptyState } from "@/components/ui";
 import { WaSendButton } from "@/components/wa-send";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
-import { pixMessage, type PixConfig } from "@/lib/pix";
-import { addDaysISO, dayRange, formatDateShort, formatMoney, formatTime, isoWeekday, todayISO, TZ, WEEKDAYS } from "@/lib/format";
+import { addDaysISO, dayRange, formatDateShort, formatTime, isoWeekday, todayISO, TZ, WEEKDAYS } from "@/lib/format";
 import { firstName, renderTemplate } from "@/lib/messages";
 import { ReminderStatus } from "./reminder-status";
 
@@ -27,6 +26,8 @@ export default async function WhatsappPage({ searchParams }: { searchParams: Pro
   const ctx = await getContext();
   if (ctx.role === "profissional") redirect("/agenda");
   const sp = await searchParams;
+  // Cobranças ficam num lugar só: Financeiro → Cobranças
+  if (sp.aba === "cobrancas") redirect("/financeiro/cobrancas");
   const tab = TABS.find((t) => t.key === sp.aba)?.key ?? "lembretes";
   const today = todayISO();
   const tomorrow = addDaysISO(today, 1);
@@ -66,7 +67,6 @@ export default async function WhatsappPage({ searchParams }: { searchParams: Pro
       </nav>
 
       {tab === "lembretes" && <Lembretes day={day} isToday={day === today} tpl={tpl.tpl_lembrete} clinic={ctx.clinicName} clinicId={ctx.clinicId} />}
-      {tab === "cobrancas" && <Cobrancas today={today} tpl={tpl.tpl_cobranca} clinic={ctx.clinicName} clinicId={ctx.clinicId} />}
       {tab === "renovacoes" && <Renovacoes today={today} tpl={tpl.tpl_renovacao} clinic={ctx.clinicName} clinicId={ctx.clinicId} />}
     </>
   );
@@ -178,73 +178,6 @@ async function Lembretes({ day, isToday, tpl, clinic, clinicId }: { day: string;
         clínica for conectado.
       </p>
     </>
-  );
-}
-
-type Tx = {
-  id: string;
-  description: string;
-  amount_cents: number;
-  due_date: string;
-  patients: { id: string; name: string; phone: string | null } | null;
-};
-
-async function Cobrancas({ today, tpl, clinic, clinicId }: { today: string; tpl: string; clinic: string; clinicId: string }) {
-  const supabase = await createClient();
-  const { data: ps } = await supabase.from("clinic_settings").select("pix_key, pix_name, pix_city").eq("clinic_id", clinicId).maybeSingle();
-  const pix: PixConfig | null = ps?.pix_key && ps.pix_name ? { key: ps.pix_key, name: ps.pix_name, city: ps.pix_city } : null;
-  const { data } = await supabase
-    .from("transactions")
-    .select("id, description, amount_cents, due_date, patients(id, name, phone)")
-    .eq("clinic_id", clinicId)
-    .eq("type", "receita")
-    .is("paid_on", null)
-    .not("patient_id", "is", null)
-    .lte("due_date", addDaysISO(today, 3))
-    .order("due_date");
-  const rows = (data ?? []) as unknown as Tx[];
-  const ids = rows.map((r) => r.id);
-  const { data: logs } = ids.length
-    ? await supabase.from("message_log").select("transaction_id, created_at").in("transaction_id", ids).order("created_at")
-    : { data: [] as { transaction_id: string | null; created_at: string }[] };
-  const sentOf = new Map((logs ?? []).map((l) => [l.transaction_id, l.created_at]));
-
-  if (!rows.length) return <EmptyState icon={<Receipt size={22} />} title="Nenhuma cobrança pendente" text="Aparecem aqui os pagamentos vencidos e os que vencem nos próximos 3 dias." />;
-  return (
-    <Card className="divide-y divide-line overflow-hidden">
-      {rows.map((t) => {
-        const p = t.patients!;
-        const late = t.due_date < today;
-        const body = renderTemplate(tpl, {
-          nome: firstName(p.name),
-          descricao: t.description,
-          valor: formatMoney(t.amount_cents),
-          vencimento: formatDateShort(t.due_date),
-          clinica: clinic,
-        }) + pixMessage(pix, t.amount_cents, t.id.slice(0, 8));
-        return (
-          <div key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5">
-            <div className="min-w-0 flex-1 basis-full sm:basis-0">
-              <Link href={`/pacientes/${p.id}`} className="block truncate font-medium hover:underline">
-                {p.name}
-              </Link>
-              <p className={cx("text-sm", late ? "text-bad" : "text-muted")}>
-                {t.description} · {late ? "venceu" : "vence"} {formatDateShort(t.due_date)}
-                {sentOf.has(t.id) && <span className="text-muted"> · cobrado {sentLabel(sentOf.get(t.id)!)}</span>}
-              </p>
-            </div>
-            <div className="ml-auto flex items-center gap-3">
-              <span className="font-semibold tabular-nums">{formatMoney(t.amount_cents)}</span>
-              {p.phone ? (
-                <WaSendButton phone={p.phone} body={body} kind="cobranca" patientId={p.id} transactionId={t.id} sentAt={sentOf.get(t.id)} label="Cobrar" />
-              ) : (
-                <span className="text-sm text-muted">Sem WhatsApp</span>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </Card>
   );
 }
 
