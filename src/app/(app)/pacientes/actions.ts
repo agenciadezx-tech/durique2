@@ -216,3 +216,17 @@ export async function freezePackage(_: ActionState, data: FormData): Promise<Act
   revalidatePath(`/pacientes/${String(data.get("patient_id"))}`);
   return { ok: "Congelado. A validade foi estendida pelos dias parados e não haverá mensalidade nesse período." };
 }
+
+export async function updateSummary(id: string, summary: string): Promise<{ ok?: boolean; error?: string }> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda && !ctx.canSeeClinical) return { error: "Sem permissão." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("patients")
+    .update({ summary: summary.trim().slice(0, 140) || null })
+    .eq("id", id);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/pacientes/${id}`);
+  revalidatePath("/pacientes");
+  return { ok: true };
+}

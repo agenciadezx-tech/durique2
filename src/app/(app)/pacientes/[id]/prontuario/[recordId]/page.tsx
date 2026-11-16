@@ -6,7 +6,8 @@ import { PrintButton } from "@/components/print-button";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateShort, todayISO, TZ } from "@/lib/format";
-import { ASSESSMENT_FIELDS, EVOLUTION_FIELDS, painColor } from "@/lib/clinical";
+import { ASSESSMENT_FIELDS, bmi, bmiLabel, EVOLUTION_FIELDS, painColor } from "@/lib/clinical";
+import { BodyMap } from "@/components/body-map";
 import { addAddendum, updateRecord } from "../actions";
 import { RecordForm } from "../record-form";
 
@@ -78,6 +79,35 @@ export default async function RegistroPage({
                 Paciente: {patient.name} · {KIND_LABEL[rec.kind]} de {formatDateShort(rec.record_date)}
               </p>
             </div>
+            {(rec.peso_kg != null || rec.altura_cm != null || rec.pressao || rec.freq_cardiaca != null || rec.dor_eva != null) && (
+              <div className="mb-5 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {[
+                  { l: "Dor (EVA)", v: rec.dor_eva != null ? `${rec.dor_eva}/10` : null },
+                  { l: "Peso", v: rec.peso_kg != null ? `${String(rec.peso_kg).replace(".", ",")} kg` : null },
+                  { l: "Altura", v: rec.altura_cm != null ? `${String(rec.altura_cm).replace(".", ",")} cm` : null },
+                  {
+                    l: "IMC",
+                    v: bmi(rec.peso_kg, rec.altura_cm) != null ? bmi(rec.peso_kg, rec.altura_cm)!.toFixed(1).replace(".", ",") : null,
+                    s: bmiLabel(bmi(rec.peso_kg, rec.altura_cm)),
+                  },
+                  { l: "Pressão", v: rec.pressao },
+                  { l: "FC", v: rec.freq_cardiaca != null ? `${rec.freq_cardiaca} bpm` : null },
+                ]
+                  .filter((x) => x.v)
+                  .map((x) => (
+                    <div key={x.l} className="rounded-xl border border-line bg-bg/50 px-3 py-2">
+                      <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">{x.l}</p>
+                      <p className="text-[18px] font-semibold tabular-nums">{x.v}</p>
+                      {"s" in x && x.s && <p className="text-[11px] text-muted">{x.s}</p>}
+                    </div>
+                  ))}
+              </div>
+            )}
+            {regions.length > 0 && (
+              <div className="mb-5 print:hidden">
+                <BodyMap value={regions} readOnly />
+              </div>
+            )}
             <dl className="space-y-4">
               {rec.dor_eva != null && (
                 <div>

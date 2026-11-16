@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronRight, Dumbbell, TrendingUp, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, Dumbbell, TrendingUp, Users, Stethoscope, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
 import { firstName, renderTemplate } from "@/lib/messages";
-import { Alert, Badge, buttonClass, Card, cx, Field, Input, LinkButton, PageHeader, Section, Select } from "@/components/ui";
+import { Alert, Badge, buttonClass, Card, cx, Field, Input, LinkButton, Section, Select } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -14,17 +14,19 @@ import { addDaysISO, formatDateShort, formatMoney, formatTimestampShort, PAY_LAB
 import { createDocument, freezePackage, setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PatientFields } from "../patient-fields";
 import { levelLabel } from "@/lib/levels";
+import { SummaryEditor } from "./summary-editor";
+import { formatPhone } from "@/lib/format";
 
 export default async function PacientePage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvo?: string; vendido?: string }>;
+  searchParams: Promise<{ salvo?: string; vendido?: string; aba?: string }>;
 }) {
   const ctx = await getContext();
   const { id } = await params;
-  const { salvo, vendido } = await searchParams;
+  const { salvo, vendido, aba: abaParam } = await searchParams;
   const supabase = await createClient();
 
   const { data: patient } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
@@ -38,7 +40,7 @@ export default async function PacientePage({
       .or(`ends_on.is.null,ends_on.gte.${new Date().toISOString().slice(0, 10)}`),
     supabase
       .from("appointment_attendees")
-      .select("id, status, appointments!inner(id, starts_at, status, services(name))")
+      .select("id, status, appointments!inner(id, starts_at, status, capacity, services(name, kind))")
       .eq("patient_id", id)
       .gte("appointments.starts_at", new Date().toISOString())
       .eq("appointments.status", "agendado")
@@ -48,7 +50,7 @@ export default async function PacientePage({
   ]);
 
   type Series = { id: string; weekday: number; start_time: string; active: boolean; services: { name: string } | null; professionals: { name: string } | null };
-  type Appt = { id: string; starts_at: string; services: { name: string } | null };
+  type Appt = { id: string; starts_at: string; capacity: number; services: { name: string; kind: string } | null };
   const series = (enrollments ?? [])
     .map((e) => e.recurring_series as unknown as Series | null)
     .filter((s): s is Series => !!s && s.active);
@@ -124,26 +126,223 @@ export default async function PacientePage({
   const levelSeries = evos.filter((e) => e.level != null).slice(0, 12).reverse();
   const { data: waSettings } = await supabase.from("whatsapp_settings").select("tpl_renovacao").eq("clinic_id", ctx.clinicId).maybeSingle();
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+
+  // ===== Abas =====
+  const TABS = [
+    { key: "geral", label: "Geral", show: true },
+    { key: "clinico", label: "Clínico", show: ctx.canSeeClinical },
+    { key: "financeiro", label: "Financeiro", show: showFinance },
+    { key: "documentos", label: "Documentos", show: ctx.role !== "financeiro" },
+    { key: "historico", label: "Linha do tempo", show: true },
+    { key: "cadastro", label: "Cadastro", show: true },
+  ].filter((t) => t.show);
+  const aba = TABS.some((t) => t.key === abaParam) ? abaParam! : "geral";
+
+  // ===== Vínculos: consultas (pacote) × aulas (turma/plano) =====
+  const activePkgs = (packages ?? []).filter((p) => p.status === "ativo" && !(p.expires_on && p.expires_on < today));
+  const consultaPkg = activePkgs.find((p) => p.kind === "pacote" && (p.total_sessions == null || (usedOf.get(p.id) ?? 0) < p.total_sessions));
+  const plano = activePkgs.find((p) => p.kind === "plano");
+  const isAulaAppt = (a: Appt) => a.services?.kind === "turma" || a.capacity > 1;
+  const nextConsulta = sessions.find((x) => !isAulaAppt(x.appt));
+  const nextAula = sessions.find((x) => isAulaAppt(x.appt));
+  const age = patient.birth_date
+    ? Math.floor((Date.parse(today) - Date.parse(patient.birth_date)) / (365.25 * 864e5))
+    : null;
+
+  // ===== Linha do tempo =====
+  type Ev = { at: string; icon: "sessao" | "falta" | "pago" | "doc" | "clin" | "pacote"; text: string; sub?: string; href?: string };
+  let timeline: Ev[] = [];
+  if (aba === "historico") {
+    const [{ data: past }, { data: recs }] = await Promise.all([
+      supabase
+        .from("appointment_attendees")
+        .select("status, appointments!inner(id, starts_at, services(name), professionals(name))")
+        .eq("patient_id", id)
+        .lt("appointments.starts_at", new Date().toISOString())
+        .neq("status", "removido")
+        .limit(200),
+      ctx.canSeeClinical
+        ? supabase.from("clinical_records").select("id, kind, record_date, created_at").eq("patient_id", id).limit(100)
+        : Promise.resolve({ data: [] as { id: string; kind: string; record_date: string; created_at: string }[] }),
+    ]);
+    const ST: Record<string, string> = {
+      presente: "Veio",
+      falta: "Faltou",
+      desmarcado_no_prazo: "Desmarcou no prazo",
+      desmarcado_fora_prazo: "Desmarcou em cima da hora",
+      agendado: "Sem chamada",
+      confirmado: "Confirmado, sem chamada",
+    };
+    type P = { status: string; appointments: { id: string; starts_at: string; services: { name: string } | null; professionals: { name: string } | null } };
+    timeline = [
+      ...((past ?? []) as unknown as P[]).map((x) => ({
+        at: x.appointments.starts_at,
+        icon: (x.status === "presente" ? "sessao" : "falta") as Ev["icon"],
+        text: `${x.appointments.services?.name ?? "Sessão"} · ${ST[x.status] ?? x.status}`,
+        sub: x.appointments.professionals?.name,
+        href: `/agenda/${x.appointments.id}`,
+      })),
+      ...(txs ?? [])
+        .filter((t) => t.paid_on)
+        .map((t) => ({ at: `${t.paid_on}T12:00:00-03:00`, icon: "pago" as const, text: `Pagou ${formatMoney(t.amount_cents)}`, sub: t.description })),
+      ...(packages ?? []).map((k) => ({ at: k.created_at, icon: "pacote" as const, text: `Comprou ${k.name}`, sub: formatMoney(k.price_cents) })),
+      ...(docs ?? []).map((d) => ({
+        at: d.signed_at ?? d.created_at,
+        icon: "doc" as const,
+        text: d.signed_at ? `Assinou: ${d.title}` : `Documento gerado: ${d.title}`,
+        href: `/pacientes/${id}/documentos/${d.id}`,
+      })),
+      ...(recs ?? []).map((r) => ({
+        at: r.created_at,
+        icon: "clin" as const,
+        text: r.kind === "avaliacao" ? "Avaliação no prontuário" : r.kind === "adendo" ? "Adendo no prontuário" : "Evolução no prontuário",
+        href: `/pacientes/${id}/prontuario/${r.id}`,
+      })),
+    ].sort((a, b) => b.at.localeCompare(a.at));
+  }
   const doneWeek = new Set((plans ?? []).flatMap((p) => p.exercise_logs.filter((l) => l.done_on > weekAgo).map((l) => l.done_on))).size;
 
   return (
     <>
-      <PageHeader
-        title={patient.name}
-        description={!patient.active ? <Badge>Arquivado</Badge> : undefined}
-        back={{ href: "/pacientes", label: "Pacientes" }}
-        action={
-          wa && (
-            <a href={wa} target="_blank" rel="noreferrer" className={buttonClass("secondary")}>
+      <Link href="/pacientes" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+        <span aria-hidden>←</span> Pacientes
+      </Link>
+      <header className="mb-4 flex flex-wrap items-center gap-4">
+        <span className="grid size-14 shrink-0 place-items-center rounded-full bg-accent-soft text-[18px] font-semibold text-accent">
+          {patient.name
+            .split(" ")
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((w: string) => w[0])
+            .join("")
+            .toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[24px] leading-tight font-semibold tracking-tight">{patient.name}</h1>
+          <p className="flex flex-wrap items-center gap-x-2 text-[15px] text-muted">
+            {age != null && <span>{age} anos</span>}
+            {age != null && patient.phone && <span aria-hidden>·</span>}
+            {patient.phone && <span>{formatPhone(patient.phone)}</span>}
+            {!patient.active && <Badge>Arquivado</Badge>}
+            {patient.access_via && <Badge tone="info">{patient.access_via === "wellhub" ? "Wellhub" : "TotalPass"}</Badge>}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {wa && (
+            <a href={wa} target="_blank" rel="noreferrer" className={buttonClass("secondary", "md")}>
               <MessageCircle size={18} /> WhatsApp
             </a>
-          )
-        }
-      />
+          )}
+          {ctx.canSeeClinical && (
+            <LinkButton href={`/pacientes/${patient.id}/prontuario/novo`} size="md">
+              <Plus size={18} /> Registrar
+            </LinkButton>
+          )}
+        </div>
+      </header>
+
+      <div className="mb-4">
+        <SummaryEditor id={patient.id} value={patient.summary} canEdit={ctx.canManageAgenda || ctx.canSeeClinical} />
+      </div>
+
+      {/* Vínculos */}
+      <div className="mb-5 grid gap-3 sm:grid-cols-2">
+        <Card className="p-4">
+          <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-muted uppercase">
+            <Stethoscope size={14} /> Consultas
+            {consultaPkg && <Badge tone="ok">Em tratamento</Badge>}
+          </p>
+          {consultaPkg ? (
+            <>
+              <p className="font-semibold">
+                {consultaPkg.name}
+                {consultaPkg.total_sessions != null && (
+                  <span className="font-normal text-muted">
+                    {" "}
+                    · {usedOf.get(consultaPkg.id) ?? 0}/{consultaPkg.total_sessions} · {consultaPkg.total_sessions - (usedOf.get(consultaPkg.id) ?? 0)} restantes
+                  </span>
+                )}
+              </p>
+              {consultaPkg.total_sessions != null && (
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-hover">
+                  <div
+                    className="h-full rounded-full bg-chart-in"
+                    style={{ width: `${Math.min(100, ((usedOf.get(consultaPkg.id) ?? 0) / consultaPkg.total_sessions) * 100)}%` }}
+                  />
+                </div>
+              )}
+              <p className="mt-2 text-sm text-muted">
+                {nextConsulta ? `Próxima: ${formatTimestampShort(nextConsulta.appt.starts_at)}` : "Sem consulta marcada"}
+                {consultaPkg.expires_on && ` · vence ${formatDateShort(consultaPkg.expires_on)}`}
+              </p>
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[15px] text-muted">Sem pacote ativo</p>
+              {ctx.canManageAgenda && patient.active && (
+                <LinkButton href={`/pacientes/${patient.id}/vender`} size="sm" variant="secondary">
+                  Vender pacote
+                </LinkButton>
+              )}
+            </div>
+          )}
+        </Card>
+        <Card className="p-4">
+          <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-muted uppercase">
+            <Users size={14} /> Aulas
+            {plano && <Badge tone="ok">Mensalista</Badge>}
+          </p>
+          {series.length > 0 || plano ? (
+            <>
+              {plano && (
+                <p className="font-semibold">
+                  {plano.name} <span className="font-normal text-muted">· {formatMoney(plano.price_cents)}/mês</span>
+                </p>
+              )}
+              {series.length > 0 ? (
+                <p className="mt-1 text-sm text-muted">
+                  {series.map((x) => `${WEEKDAYS[x.weekday].slice(0, 3).toLowerCase()} ${x.start_time.slice(0, 5)}`).join(" · ")} · {series[0].services?.name}
+                  {nextAula && ` · próxima ${formatTimestampShort(nextAula.appt.starts_at)}`}
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-muted">Sem turma fixa ainda</p>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[15px] text-muted">Sem turma</p>
+              {ctx.canManageAgenda && patient.active && (
+                <LinkButton href="/horarios" size="sm" variant="secondary">
+                  Colocar numa turma
+                </LinkButton>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Abas */}
+      <nav className="-mx-5 mb-6 flex gap-1 overflow-x-auto border-b border-line px-5 lg:mx-0 lg:px-0" aria-label="Seções do paciente">
+        {TABS.map((t) => (
+          <Link
+            key={t.key}
+            href={`/pacientes/${patient.id}${t.key === "geral" ? "" : `?aba=${t.key}`}`}
+            aria-current={aba === t.key ? "page" : undefined}
+            className={cx(
+              "-mb-px border-b-2 px-3 py-3 text-[15px] font-medium whitespace-nowrap transition-colors",
+              aba === t.key ? "border-accent text-accent" : "border-transparent text-muted hover:text-ink",
+            )}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
 
       <div className="space-y-8">
         {salvo && <Alert tone="ok">Paciente cadastrado!</Alert>}
         {vendido && <Alert tone="ok">Venda registrada! As parcelas já estão em Contas a receber.</Alert>}
+        {aba === "geral" && (
+          <>
         {credits && credits.length > 0 && (
           <Alert tone="info">
             {credits.length} reposição{credits.length === 1 ? "" : "ões"} disponível{credits.length === 1 ? "" : "is"} · a primeira vence em{" "}
@@ -226,6 +425,11 @@ export default async function PacientePage({
           </Card>
         )}
 
+          </>
+        )}
+
+        {aba === "clinico" && (
+          <>
         {ctx.canSeeClinical && (
           <Link href={`/pacientes/${patient.id}/prontuario`} className="block">
             <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
@@ -311,6 +515,11 @@ export default async function PacientePage({
           </Section>
         )}
 
+          </>
+        )}
+
+        {aba === "documentos" && (
+          <>
         {ctx.role !== "financeiro" && (
           <Section title="Termos e contratos">
             {docs && docs.length > 0 && (
@@ -346,6 +555,11 @@ export default async function PacientePage({
           </Section>
         )}
 
+          </>
+        )}
+
+        {aba === "financeiro" && (
+          <>
         {showFinance && (
           <Section
             title="Pacotes e planos"
@@ -519,6 +733,47 @@ export default async function PacientePage({
           </Section>
         )}
 
+          </>
+        )}
+
+        {aba === "historico" && (
+          timeline.length === 0 ? (
+            <Card className="px-4 py-5 text-[15px] text-muted">Nada registrado ainda.</Card>
+          ) : (
+            <ol className="relative space-y-1 border-l-2 border-line pl-5">
+              {timeline.slice(0, 80).map((e, i) => {
+                const Icon = { sessao: CheckCircle2, falta: XCircle, pago: Wallet, doc: FileSignature, clin: Lock, pacote: Package }[e.icon];
+                const tone = { sessao: "text-ok", falta: "text-bad", pago: "text-ok", doc: "text-info", clin: "text-accent", pacote: "text-accent" }[e.icon];
+                const body = (
+                  <>
+                    <span className={cx("absolute -left-[31px] grid size-5 place-items-center rounded-full bg-bg", tone)}>
+                      <Icon size={16} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[15px] font-medium">{e.text}</span>
+                      {e.sub && <span className="block text-sm text-muted">{e.sub}</span>}
+                    </span>
+                    <span className="shrink-0 text-sm text-muted tabular-nums">{formatDateShort(e.at.slice(0, 10))}</span>
+                  </>
+                );
+                return (
+                  <li key={i} className="relative">
+                    {e.href ? (
+                      <Link href={e.href} className="flex items-start gap-3 rounded-lg px-2 py-2 hover:bg-hover">
+                        {body}
+                      </Link>
+                    ) : (
+                      <div className="flex items-start gap-3 px-2 py-2">{body}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          )
+        )}
+
+        {aba === "cadastro" && (
+          <>
         <Section title="Dados do paciente">
           <Card className="p-5 sm:p-7">
             <ActionForm action={updatePatient}>
@@ -549,6 +804,9 @@ export default async function PacientePage({
             )}
           </form>
         )}
+          </>
+        )}
+
       </div>
     </>
   );

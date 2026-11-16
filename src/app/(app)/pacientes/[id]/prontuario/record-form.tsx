@@ -5,7 +5,8 @@ import { useFormStatus } from "react-dom";
 import { PenLine } from "lucide-react";
 import { ActionForm, type FormAction } from "@/components/forms";
 import { buttonClass, cx, Field, Input, Textarea } from "@/components/ui";
-import { ASSESSMENT_FIELDS, EVOLUTION_FIELDS, PAIN_REGIONS } from "@/lib/clinical";
+import { ASSESSMENT_FIELDS, bmi, bmiLabel, EVOLUTION_FIELDS, PAIN_REGIONS } from "@/lib/clinical";
+import { BodyMap } from "@/components/body-map";
 
 type Values = Record<string, string | number | string[] | null | undefined>;
 
@@ -48,7 +49,8 @@ function PainScale({ value, onChange }: { value: number | null; onChange: (v: nu
 function PainMap({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">Onde dói?</legend>
+      <legend className="text-sm font-medium">Onde dói? Toque no boneco ou nos nomes</legend>
+      <BodyMap value={value} onToggle={(r) => onChange(value.includes(r) ? value.filter((x) => x !== r) : [...value, r])} />
       <div className="flex flex-wrap gap-1.5">
         {PAIN_REGIONS.map((r) => {
           const on = value.includes(r);
@@ -72,6 +74,37 @@ function PainMap({ value, onChange }: { value: string[]; onChange: (v: string[])
             </label>
           );
         })}
+      </div>
+    </fieldset>
+  );
+}
+
+function Vitals({ initial }: { initial: Values }) {
+  const [peso, setPeso] = useState(initial.peso_kg != null ? String(initial.peso_kg).replace(".", ",") : "");
+  const [altura, setAltura] = useState(initial.altura_cm != null ? String(initial.altura_cm).replace(".", ",") : "");
+  const num = (v: string) => (v.trim() ? Number(v.replace(",", ".")) : null);
+  const imc = bmi(num(peso), num(altura));
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">Sinais vitais (opcional)</legend>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Field label="Peso (kg)">
+          <Input name="peso_kg" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="68" />
+        </Field>
+        <Field label="Altura (cm)">
+          <Input name="altura_cm" inputMode="decimal" value={altura} onChange={(e) => setAltura(e.target.value)} placeholder="165" />
+        </Field>
+        <div className="rounded-xl bg-hover px-3 py-2">
+          <p className="text-sm font-medium">IMC</p>
+          <p className="text-[20px] font-semibold tabular-nums">{imc != null ? imc.toFixed(1).replace(".", ",") : "—"}</p>
+          <p className="text-[12px] text-muted">{imc ? bmiLabel(imc) : "calculado sozinho"}</p>
+        </div>
+        <Field label="Pressão">
+          <Input name="pressao" inputMode="numeric" defaultValue={String(initial.pressao ?? "")} placeholder="120/80" />
+        </Field>
+        <Field label="Freq. cardíaca">
+          <Input name="freq_cardiaca" inputMode="numeric" defaultValue={String(initial.freq_cardiaca ?? "")} placeholder="72" />
+        </Field>
       </div>
     </fieldset>
   );
@@ -125,6 +158,7 @@ export function RecordForm({
       <Field label="Data">
         <Input name="record_date" type="date" defaultValue={String(initial.record_date ?? today)} className="max-w-48" />
       </Field>
+      {kind === "avaliacao" && <Vitals initial={initial} />}
       <PainScale value={eva} onChange={setEva} />
       {kind === "avaliacao" && <PainMap value={regions} onChange={setRegions} />}
       {fields.map((f) => (

@@ -35,6 +35,22 @@ export async function setAttendeeStatus(data: FormData) {
     .eq("id", id);
   revalidatePath(`/agenda/${appointmentId}`);
   revalidatePath("/agenda");
+  revalidatePath("/horarios");
+}
+
+/** Chamada rápida: quem ainda está como agendado/confirmado vira "Veio". */
+export async function markAllPresent(data: FormData) {
+  await getContext();
+  const appointmentId = String(data.get("appointment_id"));
+  const supabase = await createClient();
+  await supabase
+    .from("appointment_attendees")
+    .update({ status: "presente" })
+    .eq("appointment_id", appointmentId)
+    .in("status", ["agendado", "confirmado"]);
+  revalidatePath(`/agenda/${appointmentId}`);
+  revalidatePath("/agenda");
+  revalidatePath("/horarios");
 }
 
 export async function addAttendee(_: ActionState, data: FormData): Promise<ActionState> {

@@ -61,3 +61,18 @@ export function painColor(v: number | null | undefined): string {
   if (v <= 6) return "bg-warn-soft text-warn";
   return "bg-bad-soft text-bad";
 }
+
+/** IMC a partir de peso (kg) e altura (cm). */
+export function bmi(peso?: number | null, altura?: number | null): number | null {
+  if (!peso || !altura) return null;
+  const m = altura / 100;
+  return peso / (m * m);
+}
+
+export function bmiLabel(v: number | null) {
+  if (v == null) return "";
+  if (v < 18.5) return "abaixo do peso";
+  if (v < 25) return "peso adequado";
+  if (v < 30) return "sobrepeso";
+  return "obesidade";
+}

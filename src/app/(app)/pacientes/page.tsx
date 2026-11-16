@@ -26,7 +26,7 @@ export default async function PacientesPage({
 
   let query = supabase
     .from("patients")
-    .select("id, name, phone, active, access_via")
+    .select("id, name, phone, active, access_via, summary")
     .eq("clinic_id", ctx.clinicId)
     .eq("active", !inativos)
     .order("name")
@@ -181,6 +181,7 @@ export default async function PacientesPage({
                     <p className="flex items-center gap-1 truncate text-sm text-muted">
                       <Phone size={13} className="shrink-0" /> {formatPhone(p.phone) || "Sem telefone"}
                     </p>
+                    {p.summary && <p className="truncate text-sm text-ink/80">{p.summary}</p>}
                     {(servicesOf.has(p.id) || pkgOf.has(p.id) || p.access_via) && (
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {(servicesOf.get(p.id) ?? []).map((n) => (

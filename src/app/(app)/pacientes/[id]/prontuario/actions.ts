@@ -16,6 +16,18 @@ function readRecord(data: FormData, kind: string) {
   values.dor_eva = eva === "" ? null : Math.max(0, Math.min(10, Number(eva)));
   const regions = data.getAll("mapa_dor").map(String).filter((r) => (PAIN_REGIONS as readonly string[]).includes(r));
   values.mapa_dor = regions.length ? regions : null;
+  const num = (k: string, min: number, max: number) => {
+    const v = Number(String(data.get(k) ?? "").replace(",", ".").trim() || NaN);
+    return Number.isFinite(v) && v >= min && v <= max ? Math.round(v * 10) / 10 : null;
+  };
+  if (kind === "avaliacao") {
+    values.peso_kg = num("peso_kg", 1, 400);
+    values.altura_cm = num("altura_cm", 30, 250);
+    const fc = num("freq_cardiaca", 20, 250);
+    values.freq_cardiaca = fc == null ? null : Math.round(fc);
+    const pa = String(data.get("pressao") ?? "").replace(/\s|x|X/g, (m) => (m.trim() ? "/" : "")).trim();
+    values.pressao = /^\d{2,3}\/\d{2,3}$/.test(pa) ? pa : null;
+  }
   values.record_date = String(data.get("record_date") || todayISO());
   values.texto = String(data.get("texto") ?? "").trim() || null;
   return values;
