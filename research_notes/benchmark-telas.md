@@ -49,3 +49,16 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Por profissional: realizadas, gera (receita), custa (comissão/custo fixo), sobra; folha do período em % do recebido com selo (Saudável).
 - Reincidentes: mais faltas no mês; pagamento atrasado (dias).
 - No "Mais": seção "A clínica" — Como vai a clínica, Atendimentos realizados (por profissional), Equipe, Wiki & Suporte, Configurações.
+
+## 9. Configurações (só admin)
+- Página de cartões por função, cada um com lista de itens e o estado atual em cinza:
+  - Clínica: dados, identidade (logo, cor, banner, textos — herdados por documentos, app do paciente, página pública, pré-avaliação), horário de funcionamento (Seg–Sex 07–21, Sáb 07–12), salas e recursos, prontuário · campos da clínica.
+  - Agenda: Link da Clínica, lembretes e avisos, fila de espera (aulas: recepção escolhe · aluno entra pelo app · vaga reservada 2h), pré-avaliação (perguntas próprias por consulta/aula).
+  - Financeiro: recebimento (conta própria via Asaas — receber, sacar, cobrar), pagamento online (no agendamento / existente), NFS-e (R$ 0,99 por nota, sem mensalidade), categorias financeiras, convênios e parceiros (planos de saúde e Wellhub/TotalPass — fechamento e prazo).
+  - Conta & plataforma: plano e faturamento (assinatura), termos e privacidade (LGPD), exportar dados (pacientes, agenda, prontuário, aulas, financeiro), integrações (Wellhub check-in automático), segurança.
+
+## 10. CRM · Funil de leads
+- Kanban: Novo → Contato → Avaliação → Efetivado → Perdido (etapas editáveis), arrastar cards; detalhe abre à direita (mover etapa, criar tarefas, mandar WhatsApp).
+- Card: nome, telefone, nota ("Veio pelo anúncio de Pilates"), origem colorida (Instagram, WhatsApp, Indicação, Google), quando entrou, bolinha de temperatura.
+- Topo: "N leads · N tarefas abertas", busca, Filtros, Editar etapas, R$ (valor do funil); chips Todos, Precisa de você, Meus leads, Quentes.
+- Integra com: agendamento online, reativação de inativos (abre lead), "Faça esta semana".
