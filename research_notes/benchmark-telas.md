@@ -80,3 +80,19 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Visão "Por profissional": coluna por profissional com horas; clicar num horário vazio (+) para agendar; item mostra estado (Atendida) e selo "Evol. !".
 - Semana: grade com cores Consultas × Aulas, ocupação no card de aula ("1/7 ocupadas" + mini barra), estado (Confirmado/Atendida), feriado marcado no cabeçalho do dia ("feriado · aberta"), botão Agendar no topo.
 - Resumo da semana à direita (mesmos cartões do dia, no período): sessões, realizadas, a confirmar, atrasadas; aulas, alunos, ocupação; "Ações da semana": Confirmar presença · semana (WhatsApp), Chamadas pendentes, Evoluções pendentes.
+
+## 13. Atendimentos realizados (relatório)
+- Atalhos de período (Este mês, Este ano, Últimos 12 meses, Ano passado) + De/Até + filtros Profissional, Serviço, Tipo (Consultas e aulas).
+- Cartões: atendimentos, consultas (1:1), aulas (turma), pessoas atendidas (sem repetir), recebido no período, valor dos atendimentos (convênio, particular e pacote).
+- Lista: quando, paciente, profissional, serviço, tipo, valor (origem: Pacote/Avulsa). "Baixar planilha".
+
+## 14. Equipe
+- Cartões: pessoas, atendem, admins; filtros Ativos/Inativos/Todos; botão Convidar membro.
+- Lista: membro, papel, repasse %, "Atende"; texto explicando papéis (admin vê tudo; profissional vê a própria agenda e seus pacientes; recepção marca consultas e caixa).
+- Comissões no mesmo lugar: regra por profissional (% do atendimento ou R$ por aula dada), "R$ X a pagar", botão Pagar.
+
+## 15. Categorias financeiras (modal)
+- Lista com bolinha de cor, selo Despesa/Receita, editar; nova categoria com tipo e cor.
+
+## 16. Convênios e parceiros (modal)
+- Três tipos de pagador: plano de saúde (por sessão, com guia, tabela por código), parceiro por check-in (Wellhub/TotalPass, valor fixo por presença), SUS (produção mensal). No Catálogo liga/desliga por serviço.
