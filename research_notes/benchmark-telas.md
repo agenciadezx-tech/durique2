@@ -62,3 +62,15 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Card: nome, telefone, nota ("Veio pelo anúncio de Pilates"), origem colorida (Instagram, WhatsApp, Indicação, Google), quando entrou, bolinha de temperatura.
 - Topo: "N leads · N tarefas abertas", busca, Filtros, Editar etapas, R$ (valor do funil); chips Todos, Precisa de você, Meus leads, Quentes.
 - Integra com: agendamento online, reativação de inativos (abre lead), "Faça esta semana".
+
+## 11. Ficha do paciente
+- Faixa no topo do app: "Teste grátis · faltam 7 dias · Assinar agora →".
+- Master-detail: lista à esquerda, ficha à direita.
+- Cabeçalho: avatar, nome, idade · telefone, sino (avisos do paciente); botões Nova avaliação / Nova evolução (evolução bloqueada sem pacote/sessão).
+- "Resumo" de uma linha (diagnóstico/queixa) editável — aparece também na lista de pacientes.
+- "Vínculos" em 2 cartões lado a lado:
+  - Pacote · Consultas: estado (Em tratamento / Sem pacote), "Sessão de fisioterapia · 2/10 · 8 restantes", barra, "Próxima: Qui 19/11 15:00 · vence 15/04/2027", Gerir ▾; vazio: "Venda um pacote pra abrir sessões e evolução" + Vender pacote.
+  - Matrícula · Aulas: estado (Mensalista), "Pilates · Grupo · 2×/sem", "Próxima: Qua 18/11 07:00 · R$ 480/mês", Gerir ▾; vazio: "Sem matrícula em aulas" + Matricular em aulas.
+- Abas: Avaliação, Evoluções, Escalas, Financeiro, Anexos, Documentos, Cadastro, Linha do tempo.
+- Avaliação: cartão "Pré-avaliação — queixa, dor e histórico pelo celular antes da consulta" + Pedir no WhatsApp; avaliação "Inicial · atual · 17/10/2026 · Dor 6/10" expansível com cartões de sinais (Dor EVA, peso, altura, IMC calculado, PA, FC) e campos (queixa, mobilidade/ADM, força, diagnóstico fisioterapêutico, objetivos, plano/recursos, prognóstico); ações Editar, Imprimir, Ver completa, Enviar ao paciente, Excluir.
+- Mapa de dor ao lado: boneco frente/costas com pontos marcados e legenda (Lombar E 6/10 · Muscular).
