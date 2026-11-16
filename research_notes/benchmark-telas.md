@@ -74,3 +74,9 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Abas: Avaliação, Evoluções, Escalas, Financeiro, Anexos, Documentos, Cadastro, Linha do tempo.
 - Avaliação: cartão "Pré-avaliação — queixa, dor e histórico pelo celular antes da consulta" + Pedir no WhatsApp; avaliação "Inicial · atual · 17/10/2026 · Dor 6/10" expansível com cartões de sinais (Dor EVA, peso, altura, IMC calculado, PA, FC) e campos (queixa, mobilidade/ADM, força, diagnóstico fisioterapêutico, objetivos, plano/recursos, prognóstico); ações Editar, Imprimir, Ver completa, Enviar ao paciente, Excluir.
 - Mapa de dor ao lado: boneco frente/costas com pontos marcados e legenda (Lombar E 6/10 · Muscular).
+
+## 12. Agenda (Dia / Por profissional / Semana)
+- Linha do tempo do dia com selo de pendência por item: "Chamada pendente" (aula), "Evolução pendente" (consulta atendida sem evolução).
+- Visão "Por profissional": coluna por profissional com horas; clicar num horário vazio (+) para agendar; item mostra estado (Atendida) e selo "Evol. !".
+- Semana: grade com cores Consultas × Aulas, ocupação no card de aula ("1/7 ocupadas" + mini barra), estado (Confirmado/Atendida), feriado marcado no cabeçalho do dia ("feriado · aberta"), botão Agendar no topo.
+- Resumo da semana à direita (mesmos cartões do dia, no período): sessões, realizadas, a confirmar, atrasadas; aulas, alunos, ocupação; "Ações da semana": Confirmar presença · semana (WhatsApp), Chamadas pendentes, Evoluções pendentes.
