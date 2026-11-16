@@ -6,6 +6,7 @@ import { Card, cx, EmptyState } from "@/components/ui";
 import { WaSendButton } from "@/components/wa-send";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
+import { pixMessage, type PixConfig } from "@/lib/pix";
 import { addDaysISO, dayRange, formatDateShort, formatMoney, formatTime, isoWeekday, todayISO, TZ, WEEKDAYS } from "@/lib/format";
 import { firstName, renderTemplate } from "@/lib/messages";
 import { ReminderStatus } from "./reminder-status";
@@ -190,6 +191,8 @@ type Tx = {
 
 async function Cobrancas({ today, tpl, clinic, clinicId }: { today: string; tpl: string; clinic: string; clinicId: string }) {
   const supabase = await createClient();
+  const { data: ps } = await supabase.from("clinic_settings").select("pix_key, pix_name, pix_city").eq("clinic_id", clinicId).maybeSingle();
+  const pix: PixConfig | null = ps?.pix_key && ps.pix_name ? { key: ps.pix_key, name: ps.pix_name, city: ps.pix_city } : null;
   const { data } = await supabase
     .from("transactions")
     .select("id, description, amount_cents, due_date, patients(id, name, phone)")
@@ -218,7 +221,7 @@ async function Cobrancas({ today, tpl, clinic, clinicId }: { today: string; tpl:
           valor: formatMoney(t.amount_cents),
           vencimento: formatDateShort(t.due_date),
           clinica: clinic,
-        });
+        }) + pixMessage(pix, t.amount_cents, t.id.slice(0, 8));
         return (
           <div key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5">
             <div className="min-w-0 flex-1 basis-full sm:basis-0">

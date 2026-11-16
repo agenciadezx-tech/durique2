@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, MessageCircle, Repeat, Settings, Users, Wallet } from "lucide-react";
+import { CalendarDays, HandCoins, MessageCircle, Repeat, Settings, Users, Wallet } from "lucide-react";
 import { cx } from "./ui";
 
 const ITEMS = [
@@ -10,6 +10,7 @@ const ITEMS = [
   { href: "/pacientes", label: "Pacientes", icon: Users },
   { href: "/horarios", label: "Horários fixos", short: "Horários", icon: Repeat },
   { href: "/financeiro", label: "Financeiro", icon: Wallet, finance: true },
+  { href: "/financeiro/cobrancas", label: "Cobranças", icon: HandCoins, finance: true, desktopOnly: true },
   { href: "/whatsapp", label: "WhatsApp", icon: MessageCircle, finance: true, desktopOnly: true },
   { href: "/ajustes", label: "Ajustes", icon: Settings },
 ];
@@ -20,7 +21,10 @@ function items(showFinance: boolean) {
 
 function useActive() {
   const path = usePathname();
-  return (href: string) => path === href || path.startsWith(href + "/");
+  const hrefs = ITEMS.map((i) => i.href);
+  // Destaca só o item mais específico (ex.: Cobranças, e não Financeiro, em /financeiro/cobrancas)
+  const best = hrefs.filter((h) => path === h || path.startsWith(h + "/")).sort((a, b) => b.length - a.length)[0];
+  return (href: string) => href === best;
 }
 
 export function SideNav({ showFinance }: { showFinance: boolean }) {

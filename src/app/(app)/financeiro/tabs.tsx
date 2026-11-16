@@ -8,6 +8,7 @@ export function FinanceTabs({ showCommissions }: { showCommissions: boolean }) {
   const path = usePathname();
   const tabs = [
     { href: "/financeiro", label: "Resumo" },
+    { href: "/financeiro/cobrancas", label: "Cobranças" },
     { href: "/financeiro/lancamentos", label: "Lançamentos" },
     ...(showCommissions
       ? [

@@ -10,9 +10,10 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
+import { savePix, createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
 import { ColorField, CommissionFields, ProductFields } from "./product-fields";
 import { proColor } from "@/lib/colors";
+import { PIX_KEY_TYPES } from "@/lib/pix";
 
 export const metadata = { title: "Ajustes" };
 
@@ -395,6 +396,43 @@ export default async function AjustesPage() {
             </ActionForm>
           </Card>
         </Section>
+
+        {ctx.role !== "profissional" && (
+          <section id="pix" className="scroll-mt-20 space-y-3">
+            <h2 className="text-[17px] font-semibold">Recebimento por Pix</h2>
+            <Card className="p-5 sm:p-6">
+              <ActionForm action={savePix}>
+                <p className="text-[15px] text-muted">
+                  Com a chave cadastrada, cada cobrança sai com um <strong className="text-ink">Pix copia e cola com o valor certo</strong>, no WhatsApp e no
+                  link do aluno. O dinheiro cai direto na conta da clínica.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-[12rem_1fr]">
+                  <Field label="Tipo de chave">
+                    <Select name="pix_key_type" defaultValue={rules?.pix_key_type ?? "cnpj"} disabled={!admin}>
+                      {PIX_KEY_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Field label="Chave Pix" hint="Deixe vazio para não usar Pix nas cobranças.">
+                    <Input name="pix_key" defaultValue={rules?.pix_key ?? ""} disabled={!admin} placeholder="Ex.: 12.345.678/0001-90" />
+                  </Field>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Nome de quem recebe" hint="Como aparece no banco (até 25 letras).">
+                    <Input name="pix_name" maxLength={25} defaultValue={rules?.pix_name ?? ctx.clinicName.slice(0, 25)} disabled={!admin} />
+                  </Field>
+                  <Field label="Cidade">
+                    <Input name="pix_city" maxLength={15} defaultValue={rules?.pix_city ?? ""} disabled={!admin} placeholder="Ex.: São Paulo" />
+                  </Field>
+                </div>
+                {admin && <SubmitButton size="md">Salvar Pix</SubmitButton>}
+              </ActionForm>
+            </Card>
+          </section>
+        )}
 
         <Section title="Pacotes e planos">
           <Card className="divide-y divide-line overflow-hidden">

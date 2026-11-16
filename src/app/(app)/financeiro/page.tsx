@@ -190,7 +190,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
             {aReceber > 0 && (
               <p className="mt-2 text-[13px] text-muted">
                 Falta receber {formatMoney(aReceber)}.{" "}
-                <Link href={lanc("receber")} className="font-medium text-accent hover:underline">
+                <Link href="/financeiro/cobrancas?aba=abertas" className="font-medium text-accent hover:underline">
                   Ver quem falta pagar
                 </Link>
               </p>
@@ -217,7 +217,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
           <Section title="Atrasados">
             <Card className="divide-y divide-line overflow-hidden border-bad/20">
               {lateIn.length > 0 && (
-                <Link href="/financeiro/lancamentos?tipo=receber&atrasados=1" className="flex items-center gap-3 px-4 py-3.5 hover:bg-hover">
+                <Link href="/financeiro/cobrancas?aba=atrasadas" className="flex items-center gap-3 px-4 py-3.5 hover:bg-hover">
                   <AlertTriangle size={20} className="text-bad" />
                   <span className="flex-1">
                     <span className="font-medium">{lateIn.length} cobrança{lateIn.length === 1 ? "" : "s"} vencida{lateIn.length === 1 ? "" : "s"}</span>

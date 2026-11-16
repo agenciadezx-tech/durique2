@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarCheck, Dumbbell, FileSignature, Package, PlayCircle, RefreshCcw } from "lucide-react";
+import { CalendarCheck, Dumbbell, Wallet, FileSignature, Package, PlayCircle, RefreshCcw } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Badge, Card, cx } from "@/components/ui";
 import { formatDateShort, TZ } from "@/lib/format";
@@ -10,6 +10,9 @@ import { BookButton, SessionButtons } from "./portal-buttons";
 import { ExerciseDone } from "./exercise-done";
 import { FeedbackCard } from "./feedback-card";
 import { safeUrl, youtubeId } from "@/lib/video";
+import { CopyButton } from "@/components/copy-button";
+import { pixCode } from "@/lib/pix";
+import { formatMoney } from "@/lib/format";
 
 export const metadata = { title: "Minhas aulas", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -55,11 +58,17 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const { data } = await supabase.rpc("portal_get", { p_token: token });
   const d = data as Portal | null;
   if (!d) notFound();
-  const [{ data: plansData }, { data: feedbackDue }, { data: reviewUrl }] = await Promise.all([
+  const [{ data: plansData }, { data: feedbackDue }, { data: reviewUrl }, { data: chargesData }] = await Promise.all([
     supabase.rpc("portal_exercises", { p_token: token }),
     supabase.rpc("portal_feedback_due", { p_token: token }),
     supabase.rpc("portal_review_url", { p_token: token }),
+    supabase.rpc("portal_charges", { p_token: token }),
   ]);
+  const ch = chargesData as {
+    pix: { key: string; name: string; city: string } | null;
+    charges: { id: string; description: string; amount_cents: number; due_date: string }[];
+  } | null;
+  const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
   const plans = (plansData ?? []) as ExPlan[];
   const now = Date.now();
   const credits = d.credits.length;
@@ -87,6 +96,42 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               </Link>
             ))}
           </div>
+        )}
+
+        {ch && ch.charges.length > 0 && (
+          <section>
+            <h2 className="mb-3 flex items-center gap-2 text-[17px] font-semibold">
+              <Wallet size={20} className="text-accent" /> Pagamentos
+            </h2>
+            <div className="space-y-3">
+              {ch.charges.map((c) => {
+                const late = c.due_date < todayKey;
+                return (
+                  <Card key={c.id} className={cx("p-4", late && "border-bad/30")}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{c.description}</p>
+                        <p className={cx("text-sm", late ? "text-bad" : "text-muted")}>
+                          {late ? "Venceu" : "Vence"} em {formatDateShort(c.due_date)}
+                        </p>
+                      </div>
+                      <p className="text-[18px] font-semibold tabular-nums">{formatMoney(c.amount_cents)}</p>
+                    </div>
+                    {ch.pix ? (
+                      <div className="mt-3">
+                        <CopyButton text={pixCode(ch.pix, c.amount_cents, c.id.slice(0, 8))} label="Copiar código Pix" />
+                        <p className="mt-1.5 text-[13px] text-muted">
+                          Abra o app do seu banco, escolha Pix → Copia e cola e cole o código. O valor já vem preenchido.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-[13px] text-muted">Combine o pagamento com a clínica.</p>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
         )}
 
         <section>

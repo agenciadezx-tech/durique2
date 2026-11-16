@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
 import { friendlyError, normalizePhone, parseMoney } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
+import { normalizePixKey } from "@/lib/pix";
 
 const NOT_ADMIN = { error: "Somente o administrador pode alterar isso." };
 
@@ -205,4 +206,33 @@ export async function setMemberActive(data: FormData) {
     .eq("id", String(data.get("id")))
     .neq("user_id", ctx.userId);
   revalidatePath("/ajustes");
+}
+
+export async function savePix(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await adminCtx();
+  if (!ctx) return NOT_ADMIN;
+  const type = String(data.get("pix_key_type") ?? "");
+  const raw = String(data.get("pix_key") ?? "").trim();
+  const name = String(data.get("pix_name") ?? "").trim();
+  const city = String(data.get("pix_city") ?? "").trim();
+  const supabase = await createClient();
+  if (!raw) {
+    const { error } = await supabase
+      .from("clinic_settings")
+      .update({ pix_key_type: null, pix_key: null, pix_name: null, pix_city: null })
+      .eq("clinic_id", ctx.clinicId);
+    if (error) return { error: friendlyError(error) };
+    revalidatePath("/", "layout");
+    return { ok: "Chave Pix removida." };
+  }
+  const key = normalizePixKey(type, raw);
+  if (!key) return { error: "Chave Pix inválida para o tipo escolhido. Confira os números." };
+  if (name.length < 3) return { error: "Informe o nome de quem recebe (como está no banco)." };
+  const { error } = await supabase
+    .from("clinic_settings")
+    .update({ pix_key_type: type, pix_key: key, pix_name: name.slice(0, 25), pix_city: (city || "BRASIL").slice(0, 15) })
+    .eq("clinic_id", ctx.clinicId);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/", "layout");
+  return { ok: "Chave Pix salva. As cobranças já saem com o Pix copia e cola." };
 }
