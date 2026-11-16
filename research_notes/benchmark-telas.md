@@ -37,3 +37,15 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Satisfação: pesquisa (CSAT + NPS), retorno ruim (equipe).
 - Financeiro: cobrança/link de pagamento, renovação de pacote, lembrete 24h após link, lembrete antes do vencimento, aviso de vencimento, cobrança expirada (equipe), link "pagar depois", nota fiscal por WhatsApp, falha na cobrança automática.
 - Documentos e avaliação: consentimento LGPD, contrato, autorização de imagem, declaração de comparecimento (PDF), convite pré-avaliação, avaliação/escala para o paciente preencher.
+
+## 8. Como vai a clínica (metas e diagnóstico)
+- Topo: mês (setas) · Mês/Semestre/Ano · Tudo/Consultas/Aulas · botão "Definir metas".
+- Dois "mundos" com indicadores próprios, cada um com realizado × meta (barra de progresso, cor conforme atingido):
+  - Consultas (episódio finito: pacote → sessão → alta): ticket médio do pacote, ocupação da agenda do fisio, altas no mês ("sucesso", meta de fluxo — alta não é churn), churn clínico (pacote venceu incompleto sem alta nem renovação; meta máx.).
+  - Aulas/Studio (recorrente: matrícula → mensalidade → frequência): ticket médio da mensalidade, lotação das turmas, novas matrículas (meta de fluxo), churn de matrícula (cancelou mensalidade; meta máx.).
+- Diagnóstico mensal gerado por IA: frase-resumo, Foi bem / Travou / Ação, "Faça esta semana" priorizado (a receber, faltas, leads), botão Gerar diagnóstico, aviso "revise antes de compartilhar".
+- Sinais que antecipam (cartões clicáveis): leads novos, taxa de confirmação (alvo 85%), ocupação consultas, lotação aulas, no-show (alvo <5%), satisfação.
+- Resultado do caixa (lagging) com atalho ao Financeiro.
+- Por profissional: realizadas, gera (receita), custa (comissão/custo fixo), sobra; folha do período em % do recebido com selo (Saudável).
+- Reincidentes: mais faltas no mês; pagamento atrasado (dias).
+- No "Mais": seção "A clínica" — Como vai a clínica, Atendimentos realizados (por profissional), Equipe, Wiki & Suporte, Configurações.
