@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cx } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
 import { isoWeekday, TZ, WEEKDAYS_SHORT } from "@/lib/format";
+import { proColor } from "@/lib/colors";
 
 export type GridAppt = {
   id: string;
@@ -9,7 +10,7 @@ export type GridAppt = {
   ends_at: string;
   capacity: number;
   services: { name: string; kind: string } | null;
-  professionals: { name: string } | null;
+  professionals: { id: string; name: string; color: string | null } | null;
   appointment_attendees: { status: string; patients: { name: string } | null }[];
 };
 
@@ -110,26 +111,35 @@ export function WeekGrid({ week, appts, today }: { week: string[]; appts: GridAp
                     key={a.id}
                     href={`/agenda/${a.id}`}
                     title={`${timeFmt.format(new Date(a.starts_at))} · ${a.services?.name} · ${a.professionals?.name}${people.length ? ` · ${people.map((p) => p.patients?.name).join(", ")}` : ""}`}
-                    className={cx(
-                      "absolute overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-left transition-shadow hover:z-10 hover:shadow-md",
-                      people.length === 0 ? "border-faint bg-hover" : "border-accent bg-accent-soft",
-                    )}
-                    style={{ top: top + 1, height: h, left: `calc(${(col / cols) * 100}% + 2px)`, width: `calc(${100 / cols}% - 4px)` }}
+                    className="absolute overflow-hidden rounded-lg border-l-[3px] px-1.5 py-1 text-left transition-shadow hover:z-10 hover:shadow-md"
+                    style={{
+                      top: top + 1,
+                      height: h,
+                      left: `calc(${(col / cols) * 100}% + 2px)`,
+                      width: `calc(${100 / cols}% - 4px)`,
+                      borderLeftColor: proColor(a.professionals?.color, a.professionals?.id),
+                      background: `${proColor(a.professionals?.color, a.professionals?.id)}${people.length === 0 ? "12" : "24"}`,
+                    }}
                   >
-                    <p className="truncate text-[12px] leading-tight font-semibold text-ink">
-                      {timeFmt.format(new Date(a.starts_at))}{" "}
-                      {turma ? (
-                        <span className={cx("font-medium", full ? "text-warn" : "text-muted")}>
+                    <p className={cx("leading-tight font-semibold whitespace-nowrap text-ink", cols > 1 ? "text-[11px]" : "truncate text-[12px]")}>
+                      {timeFmt.format(new Date(a.starts_at))}
+                      {turma && cols === 1 ? (
+                        <span className={cx("ml-1 font-medium", full ? "text-warn" : "text-muted")}>
                           {people.length}/{a.capacity}
                         </span>
                       ) : null}
                     </p>
-                    {h > 34 && (
+                    {turma && cols > 1 && (
+                      <p className={cx("text-[11px] leading-tight font-medium", full ? "text-warn" : "text-muted")}>
+                        {people.length}/{a.capacity}
+                      </p>
+                    )}
+                    {h > 34 && cols === 1 && (
                       <p className="truncate text-[12px] leading-tight text-ink">
                         {turma || people.length !== 1 ? a.services?.name : people[0].patients?.name}
                       </p>
                     )}
-                    {h > 50 && <p className="truncate text-[11px] leading-tight text-muted">{a.professionals?.name}</p>}
+                    {h > 50 && cols === 1 && <p className="truncate text-[11px] leading-tight text-muted">{a.professionals?.name}</p>}
                   </Link>
                 );
               })}

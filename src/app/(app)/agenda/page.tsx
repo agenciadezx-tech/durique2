@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { BellRing, CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
+import { BellRing, Cake, CalendarDays, ChevronLeft, ChevronRight, Plus, Repeat, Users } from "lucide-react";
 import { buttonClass, Card, cx, EmptyState, LinkButton } from "@/components/ui";
 import { WeekGrid, type GridAppt } from "./week-grid";
+import { WaSendButton } from "@/components/wa-send";
+import { firstName } from "@/lib/messages";
+import { formatMoney } from "@/lib/format";
+import { proColor } from "@/lib/colors";
 import { isActiveAttendee } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +22,7 @@ type Appt = {
   status: string;
   series_id: string | null;
   services: { name: string; kind: string } | null;
-  professionals: { name: string } | null;
+  professionals: { id: string; name: string; color: string | null } | null;
   appointment_attendees: Attendee[];
 };
 
@@ -48,7 +52,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(name), appointment_attendees(id, status, is_makeup, patients(name))",
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, status, is_makeup, patients(name))",
       )
       .eq("clinic_id", ctx.clinicId)
       .gte("starts_at", from)
@@ -56,7 +60,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       .order("starts_at"),
     supabase
       .from("appointments")
-      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(name), appointment_attendees(status, patients(name))")
+      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(id, name, color), appointment_attendees(status, patients(name))")
       .eq("clinic_id", ctx.clinicId)
       .eq("status", "agendado")
       .gte("starts_at", weekRange.from)
@@ -76,6 +80,20 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const list = (appts ?? []) as unknown as Appt[];
   const active = list.filter((a) => a.status === "agendado");
   const canceled = list.filter((a) => a.status === "cancelado");
+  // Resumo do dia (só na visão de hoje)
+  const isTodayView = day === today && !isWeek;
+  const peopleToday = active.flatMap((a) => a.appointment_attendees.filter((t) => isActiveAttendee(t.status)));
+  const confirmedToday = peopleToday.filter((t) => ["confirmado", "presente"].includes(t.status)).length;
+  let dueToday = 0;
+  let birthdays: { id: string; name: string; phone: string | null }[] = [];
+  if (isTodayView && ctx.role !== "profissional") {
+    const [{ data: due }, { data: bdays }] = await Promise.all([
+      supabase.from("transactions").select("amount_cents").eq("clinic_id", ctx.clinicId).eq("type", "receita").is("paid_on", null).eq("due_date", today),
+      supabase.from("patients").select("id, name, phone, birth_date").eq("clinic_id", ctx.clinicId).eq("active", true).not("birth_date", "is", null).limit(5000),
+    ]);
+    dueToday = (due ?? []).reduce((acc, t) => acc + t.amount_cents, 0);
+    birthdays = (bdays ?? []).filter((p) => p.birth_date!.slice(5) === today.slice(5));
+  }
   const showWelcome = ctx.canManageAgenda && (sp.bemvindo || (!patientCount && !seriesCount));
 
   return (
@@ -151,6 +169,60 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
               </li>
             ))}
           </ol>
+        </Card>
+      )}
+
+      {isTodayView && (active.length > 0 || birthdays.length > 0 || dueToday > 0) && (
+        <div className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-2xl border border-line bg-surface px-4 py-3">
+            <p className="text-[13px] text-muted">Sessões hoje</p>
+            <p className="text-[22px] font-semibold tabular-nums">{active.length}</p>
+          </div>
+          <div className="rounded-2xl border border-line bg-surface px-4 py-3">
+            <p className="text-[13px] text-muted">Confirmados</p>
+            <p className="text-[22px] font-semibold tabular-nums">
+              {confirmedToday}
+              <span className="text-[15px] font-normal text-muted">/{peopleToday.length}</span>
+            </p>
+          </div>
+          {ctx.role !== "profissional" && (
+            <Link href="/financeiro/lancamentos?tipo=receber" className="rounded-2xl border border-line bg-surface px-4 py-3 hover:border-faint">
+              <p className="text-[13px] text-muted">A receber hoje</p>
+              <p className="text-[22px] font-semibold tabular-nums">{formatMoney(dueToday)}</p>
+            </Link>
+          )}
+          {ctx.role !== "profissional" && (
+            <div className="rounded-2xl border border-line bg-surface px-4 py-3">
+              <p className="flex items-center gap-1 text-[13px] text-muted">
+                <Cake size={14} /> Aniversariantes
+              </p>
+              <p className="text-[22px] font-semibold tabular-nums">{birthdays.length}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isTodayView && birthdays.length > 0 && (
+        <Card className="mb-6 divide-y divide-line overflow-hidden">
+          {birthdays.map((b) => (
+            <div key={b.id} className="flex items-center gap-3 px-4 py-3">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full bg-warn-soft text-warn">
+                <Cake size={18} />
+              </span>
+              <Link href={`/pacientes/${b.id}`} className="min-w-0 flex-1 truncate font-medium hover:underline">
+                {b.name} faz aniversário hoje
+              </Link>
+              {b.phone && (
+                <WaSendButton
+                  phone={b.phone}
+                  kind="outro"
+                  patientId={b.id}
+                  label="Parabéns"
+                  body={`Feliz aniversário, ${firstName(b.name)}! 🎉 Toda a equipe da ${ctx.clinicName} deseja um dia lindo e muita saúde!`}
+                />
+              )}
+            </div>
+          ))}
         </Card>
       )}
 
@@ -257,7 +329,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                       <p className="text-[17px] font-semibold tabular-nums">{formatTime(a.starts_at)}</p>
                       <p className="text-[13px] text-muted tabular-nums">{formatTime(a.ends_at)}</p>
                     </div>
-                    <div className="min-w-0 flex-1 border-l border-line pl-4">
+                    <div className="min-w-0 flex-1 border-l-[3px] pl-4" style={{ borderLeftColor: proColor(a.professionals?.color, a.professionals?.id) }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate font-semibold">{a.services?.name}</p>

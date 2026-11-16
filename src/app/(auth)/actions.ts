@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/forms";
 
+const safeNext = (v: FormDataEntryValue | null) => {
+  const s = String(v ?? "");
+  return s.startsWith("/") && !s.startsWith("//") ? s : null;
+};
+
 export async function signIn(_: ActionState, data: FormData): Promise<ActionState> {
   const email = String(data.get("email") ?? "").trim();
   const password = String(data.get("password") ?? "");
@@ -17,7 +22,7 @@ export async function signIn(_: ActionState, data: FormData): Promise<ActionStat
       return { error: "Confirme seu e-mail antes de entrar. Procure a mensagem na sua caixa de entrada (e no spam)." };
     return { error: "E-mail ou senha incorretos." };
   }
-  redirect("/agenda");
+  redirect(safeNext(data.get("next")) ?? "/agenda");
 }
 
 export async function signUp(_: ActionState, data: FormData): Promise<ActionState> {
@@ -32,7 +37,7 @@ export async function signUp(_: ActionState, data: FormData): Promise<ActionStat
   const { data: res, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/auth/confirm` },
+    options: { emailRedirectTo: `${origin}/auth/confirm${safeNext(data.get("next")) ? `?next=${encodeURIComponent(safeNext(data.get("next"))!)}` : ""}` },
   });
   if (error) {
     if (error.code === "user_already_exists") return { error: "Já existe uma conta com este e-mail. Tente entrar." };
@@ -41,6 +46,6 @@ export async function signUp(_: ActionState, data: FormData): Promise<ActionStat
     if (error.code === "over_email_send_rate_limit" || error.status === 429) return { error: "Muitas tentativas. Aguarde alguns minutos e tente de novo." };
     return { error: "Não foi possível criar a conta. Tente de novo." };
   }
-  if (res.session) redirect("/comecar");
+  if (res.session) redirect(safeNext(data.get("next")) ?? "/comecar");
   return { ok: `Quase lá! Enviamos um link de confirmação para ${email}. Abra o e-mail e toque no link para ativar sua conta.` };
 }

@@ -19,6 +19,7 @@ export const TEMPLATE_VARS: Record<"lembrete" | "cobranca" | "renovacao", { key:
     { key: "hora", label: "horário" },
     { key: "profissional", label: "profissional" },
     { key: "clinica", label: "nome da clínica" },
+    { key: "link", label: "link do aluno para confirmar ou desmarcar" },
   ],
   cobranca: [
     { key: "nome", label: "primeiro nome" },

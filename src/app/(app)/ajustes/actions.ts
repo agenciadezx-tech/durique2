@@ -51,6 +51,7 @@ export async function saveProfessional(_: ActionState, data: FormData): Promise<
     phone,
     email: String(data.get("email") ?? "").trim() || null,
     crefito: String(data.get("crefito") ?? "").trim() || null,
+    color: /^#[0-9a-f]{6}$/i.test(String(data.get("color") ?? "")) ? String(data.get("color")) : null,
     commission_percent,
     commission_fixed_cents,
   };
@@ -164,4 +165,42 @@ export async function saveRules(_: ActionState, data: FormData): Promise<ActionS
   if (error) return { error: friendlyError(error) };
   revalidatePath("/ajustes");
   return { ok: "Regras salvas." };
+}
+
+export async function createInvite(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await adminCtx();
+  if (!ctx) return NOT_ADMIN;
+  const email = String(data.get("email") ?? "").trim().toLowerCase();
+  const role = String(data.get("role") ?? "");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Informe um e-mail válido." };
+  if (!["admin", "recepcao", "profissional", "financeiro"].includes(role)) return { error: "Escolha o papel." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("invites").insert({
+    clinic_id: ctx.clinicId,
+    email,
+    role: role as "admin",
+    professional_id: role === "profissional" ? String(data.get("professional_id") ?? "") || null : null,
+  });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/ajustes");
+  return { ok: "Convite criado. Envie o link abaixo para a pessoa." };
+}
+
+export async function revokeInvite(data: FormData) {
+  if (!(await adminCtx())) return;
+  const supabase = await createClient();
+  await supabase.from("invites").update({ revoked: true }).eq("id", String(data.get("id")));
+  revalidatePath("/ajustes");
+}
+
+export async function setMemberActive(data: FormData) {
+  const ctx = await adminCtx();
+  if (!ctx) return;
+  const supabase = await createClient();
+  await supabase
+    .from("members")
+    .update({ active: data.get("active") === "true" })
+    .eq("id", String(data.get("id")))
+    .neq("user_id", ctx.userId);
+  revalidatePath("/ajustes");
 }

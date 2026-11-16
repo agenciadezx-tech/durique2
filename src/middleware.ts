@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/entrar", "/criar-conta", "/auth", "/assinar"];
+const PUBLIC_PATHS = ["/entrar", "/criar-conta", "/auth", "/assinar", "/p", "/convite"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -38,7 +38,8 @@ export async function middleware(request: NextRequest) {
   }
   if (user && (path === "/entrar" || path === "/criar-conta")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/agenda";
+    const next = request.nextUrl.searchParams.get("next");
+    url.pathname = next && next.startsWith("/") && !next.startsWith("//") ? next : "/agenda";
     url.search = "";
     return NextResponse.redirect(url);
   }

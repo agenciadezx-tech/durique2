@@ -1,4 +1,7 @@
-import { Download, LogOut, Package, Plus, Stethoscope, UserRound } from "lucide-react";
+import { Download, LogOut, Package, Plus, Stethoscope, UserPlus, UserRound } from "lucide-react";
+import { headers } from "next/headers";
+import { CopyButton } from "@/components/copy-button";
+import { ConfirmSubmit } from "@/components/forms";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { saveTemplates } from "../whatsapp/actions";
 import { TEMPLATE_VARS } from "@/lib/messages";
@@ -6,8 +9,9 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
-import { CommissionFields, ProductFields } from "./product-fields";
+import { createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProduct, saveProfessional, saveService, toggleActive } from "./actions";
+import { ColorField, CommissionFields, ProductFields } from "./product-fields";
+import { proColor } from "@/lib/colors";
 
 export const metadata = { title: "Ajustes" };
 
@@ -61,9 +65,23 @@ export default async function AjustesPage() {
     supabase.from("whatsapp_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle(),
     supabase.from("document_templates").select("id, name, body").eq("clinic_id", ctx.clinicId).order("name"),
   ]);
-  const { data: rules } = await supabase.from("clinic_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle();
-  const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
   const admin = ctx.isAdmin;
+  const { data: rules } = await supabase.from("clinic_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle();
+  type Member = { member_id: string; user_id: string; email: string; role: string; active: boolean; professional_name: string | null };
+  const members: Member[] = admin ? (((await supabase.rpc("clinic_members", { p_clinic: ctx.clinicId })).data ?? []) as Member[]) : [];
+  const { data: invites } = admin
+    ? await supabase
+        .from("invites")
+        .select("id, email, role, token, expires_at")
+        .eq("clinic_id", ctx.clinicId)
+        .is("accepted_at", null)
+        .eq("revoked", false)
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+    : { data: [] as { id: string; email: string; role: string; token: string; expires_at: string }[] };
+  const hh = await headers();
+  const origin = `${hh.get("x-forwarded-proto") ?? "https"}://${hh.get("host")}`;
+  const activeServices = (services ?? []).filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <>
@@ -80,6 +98,98 @@ export default async function AjustesPage() {
           </Card>
         </Section>
 
+        {admin && (
+          <Section title="Equipe e acessos">
+            <Card className="divide-y divide-line overflow-hidden">
+              {members.map((m) => (
+                <div key={m.member_id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                  <Avatar name={m.professional_name ?? m.email} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{m.professional_name ?? m.email}</p>
+                    <p className="truncate text-sm text-muted">
+                      {ROLE_LABEL[m.role as keyof typeof ROLE_LABEL]} · {m.email}
+                    </p>
+                  </div>
+                  {!m.active && <Badge>Sem acesso</Badge>}
+                  {m.user_id !== ctx.userId && (
+                    <form action={setMemberActive}>
+                      <input type="hidden" name="id" value={m.member_id} />
+                      <input type="hidden" name="active" value={String(!m.active)} />
+                      <ConfirmSubmit
+                        size="sm"
+                        variant="ghost"
+                        question={m.active ? `Tirar o acesso de ${m.email}? A pessoa não consegue mais entrar nesta clínica.` : `Devolver o acesso de ${m.email}?`}
+                      >
+                        {m.active ? "Tirar acesso" : "Devolver acesso"}
+                      </ConfirmSubmit>
+                    </form>
+                  )}
+                </div>
+              ))}
+              {(invites ?? []).map((i) => (
+                <div key={i.id} className="flex flex-wrap items-center gap-3 bg-bg/50 px-4 py-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-warn-soft text-warn">
+                    <UserPlus size={18} />
+                  </span>
+                  <div className="min-w-0 flex-1 basis-40">
+                    <p className="truncate font-medium">{i.email}</p>
+                    <p className="text-sm text-muted">Convite pendente · {ROLE_LABEL[i.role as keyof typeof ROLE_LABEL]}</p>
+                  </div>
+                  <div className="flex w-full justify-end gap-1 sm:w-auto">
+                    <CopyButton text={`${origin}/convite/${i.token}`} />
+                    <form action={revokeInvite}>
+                      <input type="hidden" name="id" value={i.id} />
+                      <ConfirmSubmit size="sm" variant="ghost" question="Cancelar este convite?">
+                        Cancelar
+                      </ConfirmSubmit>
+                    </form>
+                  </div>
+                </div>
+              ))}
+              <Disclosure
+                summary={
+                  <span className="flex items-center gap-3 font-medium text-accent">
+                    <span className="grid size-10 place-items-center rounded-full bg-accent-soft">
+                      <UserPlus size={18} />
+                    </span>
+                    Convidar pessoa da equipe
+                  </span>
+                }
+              >
+                <ActionForm action={createInvite} resetOnSuccess>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="E-mail da pessoa">
+                      <Input name="email" type="email" required placeholder="recepcao@clinica.com" />
+                    </Field>
+                    <Field label="O que ela vai fazer">
+                      <Select name="role" defaultValue="recepcao">
+                        <option value="recepcao">Recepção (agenda, pacientes, cobranças)</option>
+                        <option value="profissional">Profissional (agenda própria e prontuário)</option>
+                        <option value="financeiro">Financeiro (contas e comissões)</option>
+                        <option value="admin">Administrador (tudo)</option>
+                      </Select>
+                    </Field>
+                    <Field label="Se for profissional, qual é?" hint="Liga o login ao cadastro do profissional.">
+                      <Select name="professional_id" defaultValue="">
+                        <option value="">—</option>
+                        {(pros ?? [])
+                          .filter((p) => p.active && !p.member_id)
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                      </Select>
+                    </Field>
+                  </div>
+                  <SubmitButton size="md">Criar convite</SubmitButton>
+                </ActionForm>
+              </Disclosure>
+            </Card>
+            <p className="text-[13px] text-muted">O link do convite vale 14 dias. Envie pelo WhatsApp ou e-mail.</p>
+          </Section>
+        )}
+
         <Section title="Profissionais">
           <Card className="divide-y divide-line overflow-hidden">
             {(pros ?? []).map((p) => (
@@ -87,7 +197,10 @@ export default async function AjustesPage() {
                 key={p.id}
                 summary={
                   <>
-                    <Avatar name={p.name} />
+                    <span className="relative">
+                      <Avatar name={p.name} />
+                      <span className="absolute -right-0.5 -bottom-0.5 size-3.5 rounded-full border-2 border-surface" style={{ background: proColor(p.color, p.id) }} />
+                    </span>
                     <div className="min-w-0">
                       <p className="truncate font-medium">{p.name}</p>
                       <p className="truncate text-sm text-muted">
@@ -121,6 +234,7 @@ export default async function AjustesPage() {
                         </Field>
                       </div>
                       <CommissionFields percent={p.commission_percent} fixedCents={p.commission_fixed_cents} />
+                      <ColorField value={p.color} />
                       <SubmitButton size="md">Salvar</SubmitButton>
                     </ActionForm>
                     <form action={toggleActive}>
@@ -164,6 +278,7 @@ export default async function AjustesPage() {
                     </Field>
                   </div>
                   <CommissionFields />
+                  <ColorField />
                   <SubmitButton size="md">Adicionar</SubmitButton>
                 </ActionForm>
               </Disclosure>
@@ -420,7 +535,7 @@ export default async function AjustesPage() {
               ))}
             </div>
           </Card>
-          <p className="text-[13px] text-faint">Convidar recepção e outros profissionais com login chega na próxima etapa.</p>
+
         </Section>
       </div>
     </>

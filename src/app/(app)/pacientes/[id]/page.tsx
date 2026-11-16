@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronRight, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronRight, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
+import { WaSendButton } from "@/components/wa-send";
+import { firstName } from "@/lib/messages";
 import { Alert, Badge, buttonClass, Card, cx, Field, Input, LinkButton, PageHeader, Section, Select } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
@@ -79,6 +82,8 @@ export default async function PacientePage({
   const paid = (txs ?? []).filter((t) => t.paid_on).slice(-5).reverse();
   const openTotal = open.reduce((a, t) => a + t.amount_cents, 0);
   const showFinance = ctx.role !== "profissional";
+  const hh = await headers();
+  const portalUrl = `${hh.get("x-forwarded-proto") ?? "https"}://${hh.get("host")}/p/${patient.portal_token}`;
   const { data: credits } = ctx.canManageAgenda
     ? await supabase.from("makeup_credits").select("expires_on").eq("patient_id", id).eq("status", "disponivel").gte("expires_on", today).order("expires_on")
     : { data: [] as { expires_on: string }[] };
@@ -163,6 +168,32 @@ export default async function PacientePage({
             )}
           </Section>
         </div>
+
+        {ctx.canManageAgenda && patient.active && (
+          <Card className="flex flex-wrap items-center gap-3 p-4">
+            <span className="grid size-11 shrink-0 place-items-center rounded-full bg-info-soft text-info">
+              <Smartphone size={20} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold">Link do aluno</span>
+              <span className="text-sm text-muted">Ele confirma, desmarca, repõe aulas e assina termos pelo celular, sem instalar nada.</span>
+            </span>
+            <div className="flex w-full gap-2 sm:w-auto">
+              {patient.phone && (
+                <WaSendButton
+                  phone={patient.phone}
+                  kind="outro"
+                  patientId={patient.id}
+                  label="Enviar link"
+                  body={`Olá, ${firstName(patient.name)}! Este é o seu link da ${ctx.clinicName} para ver suas aulas, confirmar, desmarcar e repor horários: ${portalUrl}`}
+                />
+              )}
+              <a href={portalUrl} target="_blank" rel="noreferrer" className={buttonClass("ghost", "sm")}>
+                <ExternalLink size={16} /> Ver
+              </a>
+            </div>
+          </Card>
+        )}
 
         {ctx.canSeeClinical && (
           <Link href={`/pacientes/${patient.id}/prontuario`} className="block">

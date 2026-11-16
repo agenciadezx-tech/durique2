@@ -37,6 +37,11 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - `waitlist` (lista de espera por sessão), `freeze_package` (congelar: estende validade, pula mensalidade), `patients_at_risk` (2+ faltas em 30 dias ou 21+ dias sem vir).
 - Exportação CSV em `/exportar/[tipo]` (pacientes, sessões, financeiro).
 
+## Portal do aluno e equipe
+- `patients.portal_token`: link pessoal `/p/[token]` (sem login). RPCs `portal_get`, `portal_confirm`, `portal_cancel` (aplica a antecedência da clínica), `portal_book_makeup` (exige crédito). `rotate_portal_token` gera novo link.
+- Convites: tabela `invites` (e-mail, papel, profissional opcional, 14 dias); página pública `/convite/[token]`; `accept_invite` cria o vínculo e liga o profissional; `clinic_members` lista a equipe com e-mail (só admin). Login/cadastro aceitam `?next=`.
+- Cor do profissional (`professionals.color`, paleta em `src/lib/colors.ts`) usada na agenda. Resumo do dia e aniversariantes no topo da agenda de hoje.
+
 ## Conceitos do WhatsApp
 - `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).
 - Modo manual: a Central `/whatsapp` monta a mensagem e abre `wa.me` com o texto; `message_log` registra o envio (`WaSendButton`).
@@ -55,7 +60,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 3. WhatsApp (lembrete, confirmação 1/2, remarcação, cobrança)
 4. ✅ Prontuário + contrato com assinatura + LGPD; reposição com crédito, lista de espera, congelamento, alunos em risco, exportação
 5. Asaas (Pix/cartão com baixa automática), reposição com regras, NFS-e
-6. Virar SaaS (convites de equipe, assinatura, link público)
+6. Virar SaaS: ✅ convites de equipe, ✅ portal do aluno; falta assinatura do SaaS e cadastro self-service com teste grátis
 
 ## Comandos
 ```bash

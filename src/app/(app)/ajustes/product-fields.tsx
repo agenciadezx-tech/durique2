@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cx, Field, Input, Select } from "@/components/ui";
+import { PRO_COLORS } from "@/lib/colors";
 
 type Product = {
   name: string;
@@ -107,5 +108,28 @@ export function CommissionFields({ percent, fixedCents }: { percent?: number | n
         </Field>
       )}
     </div>
+  );
+}
+
+export function ColorField({ value }: { value?: string | null }) {
+  const [c, setC] = useState(value ?? "");
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium">Cor na agenda</legend>
+      <input type="hidden" name="color" value={c} />
+      <div className="flex flex-wrap gap-2">
+        {PRO_COLORS.map((p) => (
+          <button
+            key={p.hex}
+            type="button"
+            aria-label={p.name}
+            aria-pressed={c === p.hex}
+            onClick={() => setC(p.hex)}
+            className={cx("size-9 rounded-full ring-offset-2 transition", c === p.hex ? "ring-2 ring-ink" : "hover:scale-110")}
+            style={{ background: p.hex }}
+          />
+        ))}
+      </div>
+    </fieldset>
   );
 }

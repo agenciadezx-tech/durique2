@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { BellRing, CalendarClock, Package, Receipt, Settings2 } from "lucide-react";
 import { Card, cx, EmptyState } from "@/components/ui";
@@ -73,7 +74,7 @@ export default async function WhatsappPage({ searchParams }: { searchParams: Pro
 type Att = {
   id: string;
   status: string;
-  patients: { id: string; name: string; phone: string | null } | null;
+  patients: { id: string; name: string; phone: string | null; portal_token: string } | null;
   appointments: { id: string; starts_at: string; services: { name: string } | null; professionals: { name: string } | null };
 };
 
@@ -82,7 +83,7 @@ async function Lembretes({ day, isToday, tpl, clinic, clinicId }: { day: string;
   const { from, to } = dayRange(day);
   const { data } = await supabase
     .from("appointment_attendees")
-    .select("id, status, patients(id, name, phone), appointments!inner(id, starts_at, status, services(name), professionals(name))")
+    .select("id, status, patients(id, name, phone, portal_token), appointments!inner(id, starts_at, status, services(name), professionals(name))")
     .eq("clinic_id", clinicId)
     .gte("appointments.starts_at", from)
     .lt("appointments.starts_at", to)
@@ -98,6 +99,8 @@ async function Lembretes({ day, isToday, tpl, clinic, clinicId }: { day: string;
     ? await supabase.from("message_log").select("attendee_id, created_at").in("attendee_id", ids).order("created_at")
     : { data: [] as { attendee_id: string | null; created_at: string }[] };
   const sentOf = new Map((logs ?? []).map((l) => [l.attendee_id, l.created_at]));
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const withPhone = rows.filter((r) => r.patients?.phone);
   const sentCount = withPhone.filter((r) => sentOf.has(r.id)).length;
   const confirmed = rows.filter((r) => r.status === "confirmado").length;
@@ -140,6 +143,7 @@ async function Lembretes({ day, isToday, tpl, clinic, clinicId }: { day: string;
               hora: formatTime(r.appointments.starts_at),
               profissional: r.appointments.professionals?.name,
               clinica: clinic,
+              link: `${origin}/p/${p.portal_token}`,
             });
             return (
               <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5">
