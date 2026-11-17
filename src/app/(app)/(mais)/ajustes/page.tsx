@@ -82,7 +82,7 @@ export default async function ConfiguracoesPage({ searchParams }: { searchParams
           href: "/ajustes/apps",
           show: admin,
         },
-        { title: "Carnê-Leão", state: "Arquivo do mês para a Receita", href: "/financeiro/carne-leao", show: ctx.canSeeExpenses },
+        { title: "Notas fiscais e contador", state: "Planilha do mês e Carnê-Leão", href: "/financeiro/notas", show: ctx.canSeeExpenses },
         { title: "Recebimento automático e nota fiscal", state: "Pix e cartão com baixa sozinha, NFS-e", show: admin, soon: true },
       ],
     },

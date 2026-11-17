@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 export function cx(...c: (string | false | null | undefined)[]) {
@@ -53,6 +54,10 @@ export function Card({ className, children, ...rest }: ComponentProps<"div">) {
   );
 }
 
+/**
+ * Cabeçalho da página. Quando é o primeiro item da tela vira uma faixa branca de ponta a ponta,
+ * separada do conteúdo por uma linha (o pai precisa de overflow-x: clip, já presente nos layouts).
+ */
 export function PageHeader({
   title,
   description,
@@ -65,19 +70,28 @@ export function PageHeader({
   back?: { href: string; label: string };
 }) {
   return (
-    <header className="mb-6">
+    <header
+      className={cx(
+        "relative isolate mb-6 flex flex-wrap items-start gap-x-4 gap-y-3",
+        "first:-mt-6 first:pt-5 first:pb-5 lg:first:-mt-10 lg:first:mb-8 lg:first:pt-7 lg:first:pb-6",
+        "before:absolute before:inset-y-0 before:-inset-x-[100vmax] before:-z-10 before:border-b before:border-line before:bg-surface not-first:before:hidden",
+      )}
+    >
       {back && (
-        <Link href={back.href} className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
-          <span aria-hidden>←</span> {back.label}
+        <Link
+          href={back.href}
+          aria-label={`Voltar para ${back.label}`}
+          title={back.label}
+          className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-surface text-muted shadow-sm transition-colors hover:bg-hover hover:text-ink"
+        >
+          <ChevronLeft size={20} />
         </Link>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-[26px] font-semibold tracking-tight leading-tight">{title}</h1>
-          {description && <p className="mt-1 text-[15px] text-muted">{description}</p>}
-        </div>
-        {action && <div className="flex shrink-0 gap-2">{action}</div>}
+      <div className="min-w-0 flex-1">
+        <h1 className="text-[26px] leading-tight font-semibold tracking-tight">{title}</h1>
+        {description && <p className="mt-1 text-[15px] text-muted">{description}</p>}
       </div>
+      {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
     </header>
   );
 }

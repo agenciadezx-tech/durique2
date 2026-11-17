@@ -143,6 +143,14 @@ export default async function PacientesPage({
             </details>
           )}
 
+          <div className="hidden min-h-[50vh] flex-col items-center justify-center text-center lg:flex">
+            <span className="grid size-16 place-items-center rounded-2xl border border-line bg-surface text-muted">
+              <Users size={28} />
+            </span>
+            <p className="mt-4 text-lg font-semibold">Escolha um paciente na lista</p>
+            <p className="mt-1 max-w-sm text-[15px] text-muted">A ficha completa abre aqui: sessões, pacote, avaliação, financeiro e documentos.</p>
+          </div>
+          <div className="lg:hidden">
           <form className="relative mb-4" role="search">
             <Search size={18} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-faint" />
             <Input name="q" defaultValue={q} placeholder="Buscar por nome, telefone ou CPF" className="pl-10" type="search" />
@@ -227,6 +235,7 @@ export default async function PacientesPage({
                 Importar planilha
               </Link>
             )}
+          </div>
           </div>
         </>
       )}

@@ -15,6 +15,7 @@ export function FinanceTabs({ showCommissions }: { showCommissions: boolean }) {
           { href: "/financeiro/saude", label: "Saúde do negócio" },
           { href: "/financeiro/comissoes", label: "Comissões" },
           { href: "/financeiro/relatorios", label: "Relatórios" },
+          { href: "/financeiro/notas", label: "Notas fiscais" },
         ]
       : []),
   ];

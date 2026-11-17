@@ -20,3 +20,14 @@ export function proColor(color: string | null | undefined, id?: string): string 
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return PRO_COLORS[h % PRO_COLORS.length].hex;
 }
+
+/** Texto claro ou escuro sobre uma cor de fundo (contraste pela luminância). */
+export function textOn(hex: string | null | undefined): "light" | "dark" {
+  const h = hex && /^#[0-9a-f]{6}$/i.test(hex) ? hex : "#0f766e";
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.4 ? "dark" : "light";
+}

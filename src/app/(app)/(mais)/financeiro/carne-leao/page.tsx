@@ -53,7 +53,7 @@ export default async function CarneLeaoPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title="Carnê-Leão"
         description="Gera o arquivo do mês para importar no Carnê-Leão Web da Receita, sem digitar recibo por recibo."
-        back={{ href: "/financeiro/lancamentos", label: "Lançamentos" }}
+        back={{ href: "/financeiro/notas", label: "Notas fiscais" }}
       />
       <div className="space-y-8">
         <Card className="p-5 sm:p-6">

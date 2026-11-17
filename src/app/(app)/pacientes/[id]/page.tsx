@@ -236,7 +236,7 @@ export default async function PacientePage({
 
   return (
     <>
-      <Link href="/pacientes" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+      <Link href="/pacientes" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden">
         <span aria-hidden>←</span> Pacientes
       </Link>
       <header className="mb-4 flex flex-wrap items-center gap-4">

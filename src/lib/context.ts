@@ -9,6 +9,8 @@ export type AppContext = {
   email: string;
   clinicId: string;
   clinicName: string;
+  brandColor: string | null; // cor escolhida pela clínica (menu e topo)
+  clinicLogo: string | null;
   unitId: string;
   role: Role;
   canManageAgenda: boolean; // admin ou recepção
@@ -36,7 +38,7 @@ export const getContext = cache(async (): Promise<AppContext> => {
 
   const { data: member } = await supabase
     .from("members")
-    .select("id, clinic_id, role, clinics(name)")
+    .select("id, clinic_id, role, clinics(name, brand_color, logo_url)")
     .eq("user_id", user.id)
     .eq("active", true)
     .order("created_at")
@@ -62,12 +64,14 @@ export const getContext = cache(async (): Promise<AppContext> => {
     .maybeSingle();
 
   const role = member.role as Role;
-  const clinic = member.clinics as unknown as { name: string } | null;
+  const clinic = member.clinics as unknown as { name: string; brand_color: string | null; logo_url: string | null } | null;
   return {
     userId: user.id,
     email: user.email ?? "",
     clinicId: member.clinic_id,
-    clinicName: clinic?.name ?? "Configurações",
+    clinicName: clinic?.name ?? "Sua clínica",
+    brandColor: clinic?.brand_color ?? null,
+    clinicLogo: clinic?.logo_url ?? null,
     unitId: unit?.id ?? "",
     role,
     canManageAgenda: role === "admin" || role === "recepcao",

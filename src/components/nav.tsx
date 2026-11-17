@@ -19,8 +19,10 @@ function useActive() {
   return (match: string[]) => match.some((m) => path === m || path.startsWith(m + "/"));
 }
 
-export function SideNav() {
+export function SideNav({ tone = "light" }: { tone?: "light" | "dark" }) {
   const isActive = useActive();
+  const on = tone === "light" ? "bg-white/20 text-white" : "bg-black/10 text-black";
+  const off = tone === "light" ? "text-white/75 hover:bg-white/10 hover:text-white" : "text-black/60 hover:bg-black/5 hover:text-black";
   return (
     <nav className="space-y-1.5" aria-label="Menu principal">
       {ITEMS.map(({ href, label, icon: Icon, match }) => (
@@ -30,7 +32,7 @@ export function SideNav() {
           aria-current={isActive(match) ? "page" : undefined}
           className={cx(
             "flex flex-col items-center gap-1 rounded-xl py-2.5 text-[12px] font-medium transition-colors",
-            isActive(match) ? "bg-accent-soft text-accent" : "text-muted hover:bg-hover hover:text-ink",
+            isActive(match) ? on : off,
           )}
         >
           <Icon size={22} strokeWidth={isActive(match) ? 2.2 : 1.8} />

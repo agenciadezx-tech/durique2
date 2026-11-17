@@ -13,7 +13,7 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
         { href: "/financeiro", icon: "wallet", title: "Financeiro", text: "Quanto entrou, o que falta receber e as contas", show: finance },
         { href: "/financeiro/cobrancas", icon: "coins", title: "Cobranças", text: "Quem está devendo, cobrar e dar baixa", show: finance },
         { href: "/financeiro/comissoes", icon: "percent", title: "Comissões", text: "Quanto cada profissional tem a receber", show: ctx.canSeeExpenses },
-        { href: "/financeiro/carne-leao", icon: "file", title: "Carnê-Leão", text: "Arquivo do mês para a Receita", show: ctx.canSeeExpenses },
+        { href: "/financeiro/notas", icon: "file", title: "Notas fiscais", text: "Planilha do contador e Carnê-Leão", show: ctx.canSeeExpenses },
       ],
     },
     {

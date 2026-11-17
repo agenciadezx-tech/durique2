@@ -19,7 +19,7 @@ export default async function MaisLayout({ children }: { children: React.ReactNo
           <MaisNav groups={maisGroups(ctx)} compact />
         </nav>
       </aside>
-      <div className="min-w-0 flex-1 px-5 pt-6 pb-28 lg:px-10 lg:pt-10 lg:pb-16">
+      <div className="min-w-0 flex-1 overflow-x-clip px-5 pt-6 pb-28 lg:px-10 lg:pt-10 lg:pb-16">
         <div className="mx-auto w-full max-w-4xl has-[[data-wide]]:max-w-6xl">{children}</div>
       </div>
     </div>
