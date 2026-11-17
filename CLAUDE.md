@@ -81,7 +81,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 
 ## Inteligência artificial
 - `src/lib/ai.ts` → `askClaude({system, prompt, schema, effort})`: SDK `@anthropic-ai/sdk`, modelo `claude-opus-5-5`, saída estruturada com zod (`betaZodOutputFormat`), fallbacks do servidor ligados, erros em português. Chave em `ANTHROPIC_API_KEY` (env da Vercel; sem ela `aiEnabled()` é falso e as telas avisam). Nunca mandar nome/CPF de paciente para a IA.
-- Resumo da semana com IA: cartão no topo de `/financeiro/saude` (`saude/ai-actions.ts` → `generateWeeklySummary`, números de `business_health` 7d × 7d anteriores + metas), guardado em `ai_summaries` (admin/financeiro, 1 por semana).
+- Resumo da semana com IA: cartão no topo de `/financeiro/saude` (`saude/ai-actions.ts` → `generateWeeklySummary`, números de `business_health` 7d × 7d anteriores + metas), guardado em `ai_summaries` (admin/financeiro, 1 por semana). Sem chave o cartão fica escondido.
 - Prontuário por voz: `prontuario/voice-note.tsx` (ditado do navegador, pt-BR) + `prontuario/ai-actions.ts` → `organizeNote(kind, texto)` distribui nos campos da avaliação/evolução e na dor; sem IA, "Colocar no prontuário" cola o texto. Campos do `RecordForm` são controlados.
 
 ## Equipe

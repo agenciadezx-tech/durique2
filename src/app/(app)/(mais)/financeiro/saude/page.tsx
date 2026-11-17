@@ -10,6 +10,7 @@ import { GOALS, goalMap, type GoalKey } from "@/lib/goals";
 import { createClient } from "@/lib/supabase/server";
 import { saveGoals } from "../actions";
 import { MonthNav } from "../month-nav";
+import { aiEnabled } from "@/lib/ai";
 import { AiSummaryCard } from "./ai-summary";
 import type { WeeklySummary } from "./ai-actions";
 import { addDaysISO, isoWeekday } from "@/lib/format";
@@ -143,7 +144,7 @@ export default async function SaudePage({ searchParams }: { searchParams: Promis
       </header>
 
       <div className="space-y-8">
-        <AiSummaryCard summary={(aiRow?.content as WeeklySummary | undefined) ?? null} createdAt={aiRow?.created_at ?? null} />
+        {aiEnabled() && <AiSummaryCard summary={(aiRow?.content as WeeklySummary | undefined) ?? null} createdAt={aiRow?.created_at ?? null} />}
         <div className="grid gap-3 sm:grid-cols-3">
           <Card className="p-4">
             <p className="text-sm text-muted">Entrou</p>
