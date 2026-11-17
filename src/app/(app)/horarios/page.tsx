@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DragMove } from "../agenda/move";
+import { AgendaFab } from "../agenda/fab";
 import { CalendarDays, ChevronLeft, ChevronRight, Columns3, List, Plus, Repeat, Search, Sparkles, UserPlus } from "lucide-react";
 import { Alert, Card, cx, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { WeekColumns, type ClassOcc } from "./week-columns";
@@ -254,6 +255,7 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
           </div>
         </>
       )}
+      {ctx.canManageAgenda && <AgendaFab day={today} full variant="turmas" />}
     </div>
   );
 }

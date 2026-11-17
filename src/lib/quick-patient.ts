@@ -26,3 +26,19 @@ export async function resolvePatient(
   revalidatePath("/pacientes", "layout");
   return { id: row.id, created: true };
 }
+
+/** Tempo do atendimento: o do profissional para aquele serviço, senão o do serviço. */
+export async function durationFor(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  professionalId: string,
+  serviceId: string,
+  serviceDefault: number,
+): Promise<number> {
+  const { data } = await supabase
+    .from("professional_service_durations")
+    .select("duration_min")
+    .eq("professional_id", professionalId)
+    .eq("service_id", serviceId)
+    .maybeSingle();
+  return data?.duration_min ?? serviceDefault;
+}

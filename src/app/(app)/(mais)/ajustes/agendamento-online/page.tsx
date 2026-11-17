@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { Clock, ExternalLink, Trash2 } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Alert, Avatar, Card, cx, EmptyState, Field, Input, PageHeader, Section, Select, Textarea } from "@/components/ui";
@@ -7,7 +7,7 @@ import { getContext } from "@/lib/context";
 import { proColor } from "@/lib/colors";
 import { WEEKDAYS } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { addAvailability, removeAvailability, saveBooking, saveIdentity } from "./actions";
+import { addAvailability, removeAvailability, saveBooking, saveDurations, saveIdentity } from "./actions";
 import { ColorField } from "../product-fields";
 import { formatPhone } from "@/lib/format";
 
@@ -18,12 +18,14 @@ const DAYS = [1, 2, 3, 4, 5, 6, 7];
 export default async function BookingSettingsPage() {
   const ctx = await getContext();
   const supabase = await createClient();
-  const [{ data: clinic }, { data: services }, { data: pros }, { data: avail }] = await Promise.all([
+  const [{ data: clinic }, { data: services }, { data: pros }, { data: avail }, { data: durs }] = await Promise.all([
     supabase.from("clinics").select("name, booking_slug, booking_enabled, booking_message, brand_color, contact_whatsapp, instagram, address, show_prices, waitlist_public").eq("id", ctx.clinicId).single(),
-    supabase.from("services").select("id, name, kind, bookable").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
+    supabase.from("services").select("id, name, kind, bookable, duration_min").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("professionals").select("id, name, color").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("availability").select("id, professional_id, weekday, start_time, end_time").eq("clinic_id", ctx.clinicId).order("weekday").order("start_time"),
+    supabase.from("professional_service_durations").select("professional_id, service_id, duration_min").eq("clinic_id", ctx.clinicId),
   ]);
+  const durOf = (pro: string, svc: string) => (durs ?? []).find((d) => d.professional_id === pro && d.service_id === svc)?.duration_min;
   const hh = await headers();
   const origin = `${hh.get("x-forwarded-proto") ?? "https"}://${hh.get("host")}`;
   const suggested = (clinic?.name ?? "")
@@ -126,7 +128,7 @@ export default async function BookingSettingsPage() {
         <Section title="3. Horários de atendimento">
           <p className="-mt-1 text-[15px] text-muted">
             Para atendimentos individuais, o sistema mostra só os horários livres dentro destes períodos, sem conflito com a agenda.
-            Para aulas em grupo, aparecem as vagas livres das turmas.
+            Para aulas em grupo, aparecem as vagas livres das turmas. Em “Tempo de cada atendimento” cada profissional diz quantos minutos leva em cada serviço.
           </p>
           {hasIndividual && (avail ?? []).length === 0 && (
             <Alert tone="info">Sem horários de atendimento, o paciente não vai ver horários livres para os atendimentos individuais.</Alert>
@@ -165,6 +167,49 @@ export default async function BookingSettingsPage() {
                           </li>
                         ))}
                       </ul>
+                    )}
+                    {(services ?? []).length > 0 && (admin || ctx.professionalId === p.id) && (
+                      <details className="group border-t border-line">
+                        <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
+                          <Clock size={17} className="text-muted" /> Tempo de cada atendimento
+                          <span className="ml-auto truncate text-sm font-normal text-muted">
+                            {(services ?? [])
+                              .slice(0, 3)
+                              .map((sv) => `${sv.name} ${durOf(p.id, sv.id) ?? sv.duration_min}min`)
+                              .join(" · ")}
+                          </span>
+                        </summary>
+                        <ActionForm action={saveDurations} className="space-y-3 border-t border-line bg-bg/50 px-4 py-4">
+                          <input type="hidden" name="professional_id" value={p.id} />
+                          <p className="text-sm text-muted">
+                            Quanto tempo {p.name.split(" ")[0]} leva em cada um. A agenda e o link de agendamento reservam esses minutos. Deixe vazio para usar o tempo padrão do serviço.
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {(services ?? []).map((sv) => (
+                              <label key={sv.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2">
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate font-medium">{sv.name}</span>
+                                  <span className="text-[12px] text-muted">{sv.kind === "turma" ? "Turma" : "Individual"} · padrão {sv.duration_min} min</span>
+                                </span>
+                                <input
+                                  name={`dur_${sv.id}`}
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={10}
+                                  max={300}
+                                  step={5}
+                                  defaultValue={durOf(p.id, sv.id) ?? ""}
+                                  placeholder={String(sv.duration_min)}
+                                  aria-label={`Minutos de ${sv.name}`}
+                                  className="h-11 w-20 rounded-lg border border-line bg-surface px-2 text-center text-[16px] tabular-nums"
+                                />
+                                <span className="text-sm text-muted">min</span>
+                              </label>
+                            ))}
+                          </div>
+                          <SubmitButton size="md">Salvar tempos</SubmitButton>
+                        </ActionForm>
+                      </details>
                     )}
                   </Card>
                 );

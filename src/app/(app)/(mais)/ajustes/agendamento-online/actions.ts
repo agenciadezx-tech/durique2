@@ -93,3 +93,28 @@ export async function saveIdentity(_: ActionState, data: FormData): Promise<Acti
   revalidatePath(PATH);
   return { ok: "Aparência e contato salvos." };
 }
+
+/** Tempo de cada atendimento de um profissional. Vazio = usa o tempo do serviço. */
+export async function saveDurations(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  const professional_id = String(data.get("professional_id") ?? "");
+  if (!ctx.isAdmin && ctx.professionalId !== professional_id) return { error: "Só o administrador ou o próprio profissional muda os tempos." };
+  const supabase = await createClient();
+  const upserts: { clinic_id: string; professional_id: string; service_id: string; duration_min: number }[] = [];
+  const clear: string[] = [];
+  for (const [k, v] of data.entries()) {
+    if (!k.startsWith("dur_")) continue;
+    const service_id = k.slice(4);
+    const n = Number(String(v).trim());
+    if (!String(v).trim()) clear.push(service_id);
+    else if (!Number.isFinite(n) || n < 10 || n > 300) return { error: "Use um tempo entre 10 e 300 minutos." };
+    else upserts.push({ clinic_id: ctx.clinicId, professional_id, service_id, duration_min: Math.round(n) });
+  }
+  if (upserts.length) {
+    const { error } = await supabase.from("professional_service_durations").upsert(upserts, { onConflict: "professional_id,service_id" });
+    if (error) return { error: friendlyError(error) };
+  }
+  if (clear.length) await supabase.from("professional_service_durations").delete().eq("professional_id", professional_id).in("service_id", clear);
+  revalidatePath(PATH);
+  return { ok: "Tempos salvos. Os próximos agendamentos já usam esses minutos." };
+}

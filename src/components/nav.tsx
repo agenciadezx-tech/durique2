@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, LayoutGrid, Repeat, Tags, Users } from "lucide-react";
+import { CalendarDays, Dumbbell, LayoutGrid, Tags, Users } from "lucide-react";
 import { cx } from "./ui";
 
 /** Menu principal: os mesmos 5 itens no celular e no computador. O resto fica em "Mais". */
 const ITEMS = [
   { href: "/agenda", label: "Hoje", icon: CalendarDays, match: ["/agenda"] },
   { href: "/pacientes", label: "Pacientes", icon: Users, match: ["/pacientes"] },
-  { href: "/horarios", label: "Turmas", icon: Repeat, match: ["/horarios"] },
+  { href: "/horarios", label: "Turmas", icon: Dumbbell, match: ["/horarios"] },
   { href: "/catalogo", label: "Catálogo", icon: Tags, match: ["/catalogo"], desktopOnly: true },
   { href: "/mais", label: "Mais", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes", "/contatos", "/atendimentos", "/equipe"] },
 ];

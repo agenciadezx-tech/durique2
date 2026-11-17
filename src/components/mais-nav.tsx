@@ -18,6 +18,7 @@ import {
   ListChecks,
   MessageCircle,
   Percent,
+  PlayCircle,
   Wallet,
   Settings,
   Tags,
@@ -30,6 +31,7 @@ import { cx } from "./ui";
 const ICONS: Record<string, LucideIcon> = {
   users: Users,
   tag: Tags,
+  play: PlayCircle,
   wallet: Wallet,
   coins: Coins,
   percent: Percent,

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
 import { friendlyError, toTimestamp } from "@/lib/format";
-import { resolvePatient } from "@/lib/quick-patient";
+import { durationFor, resolvePatient } from "@/lib/quick-patient";
 import { formatTime } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
 
@@ -126,7 +126,7 @@ export async function createAppointment(_: ActionState, data: FormData): Promise
   const patientId = who.id;
   const { data: service } = await supabase.from("services").select("duration_min, default_capacity, kind").eq("id", serviceId).single();
   if (!service) return { error: "Serviço não encontrado." };
-  const duration = Number(data.get("duration_min")) || service.duration_min;
+  const duration = Number(data.get("duration_min")) || (await durationFor(supabase, professionalId, serviceId, service.duration_min));
   const startsAt = toTimestamp(date, time);
   const endsAt = new Date(new Date(startsAt).getTime() + duration * 60000).toISOString();
 

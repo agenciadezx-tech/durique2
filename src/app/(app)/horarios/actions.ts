@@ -1,6 +1,6 @@
 "use server";
 
-import { resolvePatient } from "@/lib/quick-patient";
+import { durationFor, resolvePatient } from "@/lib/quick-patient";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -30,7 +30,7 @@ export async function createSeries(_: ActionState, data: FormData): Promise<Acti
   const { data: service } = await supabase.from("services").select("duration_min, default_capacity, kind").eq("id", serviceId).single();
   if (!service) return { error: "Serviço não encontrado." };
   const capacity = service.kind === "turma" ? Math.max(1, Number(data.get("capacity")) || service.default_capacity) : 1;
-  const duration = Number(data.get("duration_min")) || service.duration_min;
+  const duration = Number(data.get("duration_min")) || (await durationFor(supabase, professionalId, serviceId, service.duration_min));
 
   const { data: created, error } = await supabase
     .from("recurring_series")

@@ -6,9 +6,15 @@ import { CalendarPlus, Lock, Plus, RefreshCcw, Sparkles, Users, X } from "lucide
 import { cx } from "@/components/ui";
 
 /** Botão + do celular: abre os atalhos da agenda em cima do botão. */
-export function AgendaFab({ day, full }: { day: string; full: boolean }) {
+export function AgendaFab({ day, full, variant = "agenda" }: { day: string; full: boolean; variant?: "agenda" | "turmas" }) {
   const [open, setOpen] = useState(false);
-  const items = full
+  const items = variant === "turmas"
+    ? [
+        { href: "/horarios/novo", icon: Users, label: "Nova turma", main: true },
+        { href: "/agenda/vagas?motivo=experimental", icon: Sparkles, label: "Aula experimental" },
+        { href: "/agenda/vagas?motivo=reposicao", icon: RefreshCcw, label: "Repor aula" },
+      ]
+    : full
     ? [
         { href: `/agenda/nova?d=${day}`, icon: CalendarPlus, label: "Nova consulta", main: true },
         { href: "/horarios/novo", icon: Users, label: "Nova turma", main: true },

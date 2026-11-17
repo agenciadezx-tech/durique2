@@ -24,7 +24,7 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
         { href: "/whatsapp/avisos", icon: "bell", title: "Avisos automáticos", text: "Mensagens de WhatsApp: lembrete, cobrança, aniversário", show: finance },
         { href: "/whatsapp", icon: "message", title: "Central do WhatsApp", text: "Mensagens prontas para mandar agora", show: finance },
         { href: "/ajustes/pre-avaliacao", icon: "clipboard", title: "Pré-avaliação", text: "Perguntas antes da primeira sessão", show: ctx.isAdmin },
-        { href: "/ajustes/exercicios", icon: "dumbbell", title: "Exercícios para casa", text: "Biblioteca com vídeos para os pacientes", show: ctx.canSeeClinical },
+        { href: "/ajustes/exercicios", icon: "play", title: "Exercícios para casa", text: "Biblioteca com vídeos para os pacientes", show: ctx.canSeeClinical },
       ],
     },
     {
