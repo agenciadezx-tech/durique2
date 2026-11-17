@@ -20,6 +20,7 @@ import {
   Percent,
   Wallet,
   Settings,
+  Tags,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -28,6 +29,7 @@ import { cx } from "./ui";
 
 const ICONS: Record<string, LucideIcon> = {
   users: Users,
+  tag: Tags,
   wallet: Wallet,
   coins: Coins,
   percent: Percent,
@@ -58,7 +60,7 @@ export function MaisNav({ groups, compact }: { groups: MaisGroup[]; compact?: bo
         <section key={g.title}>
           <h2 className="mb-2 px-1 text-[12px] font-semibold tracking-wide text-muted uppercase">{g.title}</h2>
           <div className={compact ? "space-y-1" : "grid gap-2 sm:grid-cols-2"}>
-            {g.items.map(({ href, icon, title, text }) => {
+            {g.items.map(({ href, icon, title, text, mobileOnly }) => {
               const Icon = ICONS[icon] ?? FileText;
               const on = href === active;
               return (
@@ -68,6 +70,7 @@ export function MaisNav({ groups, compact }: { groups: MaisGroup[]; compact?: bo
                   aria-current={on ? "page" : undefined}
                   className={cx(
                     "flex items-center gap-3 rounded-2xl transition-colors",
+                    mobileOnly && "lg:hidden",
                     compact ? "p-2.5" : "border border-line bg-surface p-4",
                     on ? "bg-accent-soft" : "hover:bg-hover",
                   )}

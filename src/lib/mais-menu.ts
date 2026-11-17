@@ -1,7 +1,7 @@
 import type { AppContext } from "@/lib/context";
 
 /** Itens do "Mais" agrupados por assunto e filtrados pelo papel de quem está logado. */
-export type MaisItem = { href: string; icon: string; title: string; text: string };
+export type MaisItem = { href: string; icon: string; title: string; text: string; mobileOnly?: boolean };
 export type MaisGroup = { title: string; items: MaisItem[] };
 
 export function maisGroups(ctx: AppContext): MaisGroup[] {
@@ -30,6 +30,7 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
     {
       title: "A clínica",
       items: [
+        { href: "/catalogo", icon: "tag", title: "Catálogo", text: "Serviços, pacotes e planos que a clínica vende", show: true, mobileOnly: true },
         { href: "/financeiro/saude", icon: "activity", title: "Saúde do negócio", text: "Metas do mês e o que fazer esta semana", show: ctx.canSeeExpenses },
         { href: "/atendimentos", icon: "check", title: "Atendimentos realizados", text: "Quantos no período, por profissional", show: finance },
         { href: "/financeiro/relatorios", icon: "chart", title: "Relatórios", text: "Sessões, faltas e satisfação por mês", show: ctx.canSeeExpenses },
@@ -38,5 +39,5 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
       ],
     },
   ];
-  return groups.map((g) => ({ title: g.title, items: g.items.filter((i) => i.show).map((i) => ({ href: i.href, icon: i.icon, title: i.title, text: i.text })) })).filter((g) => g.items.length);
+  return groups.map((g) => ({ title: g.title, items: g.items.filter((i) => i.show).map((i) => ({ href: i.href, icon: i.icon, title: i.title, text: i.text, mobileOnly: i.mobileOnly })) })).filter((g) => g.items.length);
 }

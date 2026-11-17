@@ -10,8 +10,8 @@ const ITEMS = [
   { href: "/agenda", label: "Hoje", icon: CalendarDays, match: ["/agenda"] },
   { href: "/pacientes", label: "Pacientes", icon: Users, match: ["/pacientes"] },
   { href: "/horarios", label: "Turmas", icon: Repeat, match: ["/horarios"] },
-  { href: "/catalogo", label: "Catálogo", icon: Tags, match: ["/catalogo"] },
-  { href: "/mais", label: "Mais", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes", "/contatos", "/atendimentos"] },
+  { href: "/catalogo", label: "Catálogo", icon: Tags, match: ["/catalogo"], desktopOnly: true },
+  { href: "/mais", label: "Mais", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes", "/contatos", "/atendimentos", "/equipe"] },
 ];
 
 function useActive() {
@@ -45,13 +45,15 @@ export function SideNav({ tone = "light" }: { tone?: "light" | "dark" }) {
 
 export function BottomNav() {
   const isActive = useActive();
+  // No celular o Catálogo fica dentro do Mais
+  const items = ITEMS.filter((i) => !i.desktopOnly).map((i) => (i.href === "/mais" ? { ...i, match: [...i.match, "/catalogo"] } : i));
   return (
     <nav
       aria-label="Menu principal"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur print:hidden lg:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5">
-        {ITEMS.map(({ href, label, icon: Icon, match }) => (
+      <div className="mx-auto grid max-w-lg grid-cols-4">
+        {items.map(({ href, label, icon: Icon, match }) => (
           <Link
             key={href}
             href={href}
