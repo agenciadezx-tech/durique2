@@ -17,33 +17,53 @@ export async function createSeries(_: ActionState, data: FormData): Promise<Acti
 
   const serviceId = String(data.get("service_id") ?? "");
   const professionalId = String(data.get("professional_id") ?? "");
-  const weekdays = data.getAll("weekday").map(Number).filter((n) => n >= 1 && n <= 7);
-  const time = String(data.get("start_time") ?? "");
   const startsOn = String(data.get("starts_on") ?? "") || todayISO();
   const name = String(data.get("name") ?? "").trim().slice(0, 60) || null;
   if (!serviceId) return { error: "Escolha o serviço." };
-  if (!professionalId) return { error: "Escolha o profissional." };
-  if (!weekdays.length) return { error: "Marque pelo menos um dia da semana." };
-  if (!/^\d{2}:\d{2}$/.test(time)) return { error: "Informe o horário." };
+  if (!professionalId) return { error: "Escolha o professor." };
 
   const supabase = await createClient();
   const { data: service } = await supabase.from("services").select("duration_min, default_capacity, kind").eq("id", serviceId).single();
   if (!service) return { error: "Serviço não encontrado." };
-  const capacity = service.kind === "turma" ? Math.max(1, Number(data.get("capacity")) || service.default_capacity) : 1;
-  const duration = Number(data.get("duration_min")) || (await durationFor(supabase, professionalId, serviceId, service.duration_min));
+  const capacity = Math.max(1, Math.min(60, Number(data.get("capacity")) || service.default_capacity || 1));
+  const fallback = Number(data.get("duration_min")) || (await durationFor(supabase, professionalId, serviceId, service.duration_min));
+
+  // Grade de horários: cada "slot" = dia|início|fim. (Formato antigo: weekday[] + start_time.)
+  type Slot = { weekday: number; time: string; duration: number };
+  const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  let slots: Slot[] = data
+    .getAll("slot")
+    .map(String)
+    .map((v) => {
+      const [d, ini, fim] = v.split("|");
+      const dur = /^\d{2}:\d{2}$/.test(fim ?? "") ? mins(fim) - mins(ini) : fallback;
+      return { weekday: Number(d), time: ini, duration: dur };
+    })
+    .filter((x) => x.weekday >= 1 && x.weekday <= 7 && /^\d{2}:\d{2}$/.test(x.time));
+  if (!slots.length) {
+    const time = String(data.get("start_time") ?? "");
+    slots = data
+      .getAll("weekday")
+      .map(Number)
+      .filter((n) => n >= 1 && n <= 7)
+      .map((weekday) => ({ weekday, time, duration: fallback }));
+  }
+  if (!slots.length) return { error: "Marque pelo menos um dia na grade de horários." };
+  if (slots.some((x) => !/^\d{2}:\d{2}$/.test(x.time))) return { error: "Informe o horário." };
+  if (slots.some((x) => x.duration < 10 || x.duration > 300)) return { error: "O horário final precisa ser depois do inicial (entre 10 minutos e 5 horas)." };
 
   const { data: created, error } = await supabase
     .from("recurring_series")
     .insert(
-      weekdays.map((weekday) => ({
+      slots.map((x) => ({
         clinic_id: ctx.clinicId,
         unit_id: ctx.unitId,
         service_id: serviceId,
         professional_id: professionalId,
-        weekday,
+        weekday: x.weekday,
         name,
-        start_time: time,
-        duration_min: duration,
+        start_time: x.time,
+        duration_min: x.duration,
         capacity,
         starts_on: startsOn,
       })),
@@ -109,4 +129,15 @@ export async function renameSeries(_: ActionState, data: FormData): Promise<Acti
   revalidatePath("/horarios", "layout");
   revalidatePath("/agenda");
   return { ok: name ? "Nome salvo." : "Nome removido." };
+}
+
+/** Nova matrícula a partir de Turmas: acha/cadastra o aluno e abre os passos de plano e turma. */
+export async function startEnrollment(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return NO_PERM;
+  const supabase = await createClient();
+  const who = await resolvePatient(supabase, ctx.clinicId, data);
+  if (who.error) return { error: who.error };
+  if (!who.id) return { error: "Escolha o aluno ou cadastre um novo." };
+  redirect(`/pacientes/${who.id}/vender?tipo=plano`);
 }

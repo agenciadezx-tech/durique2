@@ -11,7 +11,7 @@ import { addDaysISO, dayRange, formatDayLong, isoWeekday, todayISO, TZ, WEEKDAYS
 
 export const metadata = { title: "Turmas" };
 
-type Sp = { criados?: string; encerrado?: string; v?: string; d?: string; dia?: string; servico?: string; q?: string };
+type Sp = { criados?: string; encerrado?: string; v?: string; d?: string; dia?: string; servico?: string; q?: string; sel?: string };
 
 export default async function HorariosPage({ searchParams }: { searchParams: Promise<Sp> }) {
   const ctx = await getContext();
@@ -57,7 +57,7 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
   if (view !== "fixos" && ctx.canManageAgenda) await supabase.rpc("ensure_agenda", { p_clinic: ctx.clinicId });
   let occQ = supabase
     .from("appointments")
-    .select("id, starts_at, ends_at, capacity, service_id, services!inner(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(id, status, patients(name))")
+    .select("id, starts_at, ends_at, capacity, service_id, series_id, services!inner(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(id, status, patients(name))")
     .eq("clinic_id", ctx.clinicId)
     .eq("status", "agendado")
     .eq("services.kind", "turma")
@@ -73,6 +73,11 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
   );
   const hasWeekend = occ.some((a) => isoWeekday(dayOf(a.starts_at)) >= 6);
   const shownWeek = diaF ? week.filter((d) => isoWeekday(d) === diaF) : hasWeekend ? week : week.slice(0, 5);
+  // Celular: dia escolhido nos botões (padrão: hoje, se estiver na semana)
+  const selDay = sp.sel === "semana" || week.includes(sp.sel ?? "") ? sp.sel! : week.includes(today) ? today : "semana";
+  const weekPeople = occ.flatMap((a) => a.appointment_attendees);
+  const weekConfirmed = weekPeople.filter((t) => t.status === "confirmado").length;
+  const weekPending = weekPeople.filter((t) => t.status === "agendado").length;
   const byDay = new Map<number, Row[]>();
   rows.forEach((r) => byDay.set(r.weekday, [...(byDay.get(r.weekday) ?? []), r]));
 
@@ -93,17 +98,17 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
         description={`${allRows.length} turma${allRows.length === 1 ? "" : "s"} · aulas que se repetem toda semana`}
         action={
           ctx.canManageAgenda && (
-            <>
-              <LinkButton href="/agenda/vagas?motivo=experimental" variant="secondary" className="hidden sm:inline-flex">
+            <span className="hidden gap-2 lg:flex">
+              <LinkButton href="/agenda/vagas?motivo=experimental" variant="secondary">
                 <Sparkles size={17} /> Aula experimental
               </LinkButton>
-              <LinkButton href="/horarios?v=fixos" variant="secondary" className="hidden sm:inline-flex">
+              <LinkButton href="/horarios/matricula" variant="secondary">
                 <UserPlus size={17} /> Nova matrícula
               </LinkButton>
               <LinkButton href="/horarios/novo">
                 <Plus size={18} /> Nova turma
               </LinkButton>
-            </>
+            </span>
           )
         }
       />
@@ -118,8 +123,48 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
+      {/* Celular: semana, resumo e dias em botões */}
+      {view !== "fixos" && allRows.length > 0 && (
+        <div className="mb-4 space-y-3 lg:hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-xl bg-hover p-1">
+              <Link href={href({ d: addDaysISO(weekStart, -7), sel: undefined })} className="grid size-10 place-items-center rounded-lg hover:bg-surface" aria-label="Semana anterior">
+                <ChevronLeft size={18} />
+              </Link>
+              <span className="px-1 text-[15px] font-semibold">
+                {Number(week[0].slice(8))}–{Number(week[6].slice(8))} {formatDayLong(week[6]).split(" de ")[1]?.slice(0, 3)}
+              </span>
+              <Link href={href({ d: addDaysISO(weekStart, 7), sel: undefined })} className="grid size-10 place-items-center rounded-lg hover:bg-surface" aria-label="Próxima semana">
+                <ChevronRight size={18} />
+              </Link>
+            </div>
+            <Link href={href({ v: "fixos", sel: undefined })} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium">
+              <List size={16} /> Turmas fixas
+            </Link>
+          </div>
+          <p className="text-[15px] text-muted">
+            <strong className="text-ok">{weekConfirmed}</strong> confirmados · <strong className="text-warn">{weekPending}</strong> a confirmar · {allRows.length} turma{allRows.length === 1 ? "" : "s"}
+          </p>
+          <nav className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1" aria-label="Dias">
+            {[{ k: "semana", l: "Semana", n: occ.length }, ...week.map((d) => ({ k: d, l: `${d === today ? "Hoje" : WEEKDAYS_SHORT[isoWeekday(d)]} ${d.slice(8)}/${d.slice(5, 7)}`, n: occ.filter((a) => dayOf(a.starts_at) === d).length }))].map((c) => (
+              <Link
+                key={c.k}
+                href={href({ sel: c.k })}
+                aria-current={selDay === c.k ? "true" : undefined}
+                className={cx(
+                  "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-[15px] font-semibold whitespace-nowrap capitalize",
+                  selDay === c.k ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface text-ink",
+                )}
+              >
+                {c.l} <span className="text-[13px] font-normal text-muted">{c.n}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
+
       {/* Barra: semana, busca, filtros e visualização */}
-      <div className="mb-5 flex flex-wrap items-center gap-2">
+      <div className="mb-5 hidden flex-wrap items-center gap-2 lg:flex">
         {view !== "fixos" && (
           <div className="flex items-center gap-1 rounded-xl bg-hover p-1">
             <Link href={href({ d: addDaysISO(weekStart, -7) })} className="grid size-8 place-items-center rounded-lg hover:bg-surface" aria-label="Semana anterior">
@@ -158,7 +203,7 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
           </Link>
         </div>
       </div>
-      <div className="mb-5 flex flex-wrap gap-x-6 gap-y-3">
+      <div className="mb-5 hidden flex-wrap gap-x-6 gap-y-3 lg:flex">
         <div>
           <p className="mb-1 text-[12px] font-semibold text-muted">Dias</p>
           <div className="flex flex-wrap rounded-xl bg-hover p-1">
@@ -250,8 +295,19 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
               </DragMove>
             </div>
           )}
-          <div className={view === "calendario" ? "lg:hidden" : undefined}>
-            <WeekColumns week={shownWeek} today={today} items={occ} canEdit={ctx.canManageAgenda || !!ctx.professionalId} />
+          {view === "colunas" && (
+            <div className="hidden lg:block">
+              <WeekColumns week={shownWeek} today={today} items={occ} canEdit={ctx.canManageAgenda || !!ctx.professionalId} />
+            </div>
+          )}
+          <div className="lg:hidden">
+            <WeekColumns
+              stack
+              week={selDay === "semana" ? week.filter((d) => occ.some((a) => dayOf(a.starts_at) === d)) : [selDay]}
+              today={today}
+              items={occ}
+              canEdit={ctx.canManageAgenda || !!ctx.professionalId}
+            />
           </div>
         </>
       )}

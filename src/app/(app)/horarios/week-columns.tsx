@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, CheckCheck, ChevronRight, Plus, X } from "lucide-react";
+import { ArrowRight, Check, CheckCheck, ChevronRight, Pencil, Plus, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
 import { formatTime, isoWeekday, TZ, WEEKDAYS_SHORT } from "@/lib/format";
@@ -13,6 +13,7 @@ export type ClassOcc = {
   capacity: number;
   services: { name: string } | null;
   professionals: { id: string; name: string; color: string | null } | null;
+  series_id?: string | null;
   recurring_series?: { name: string | null } | null;
   appointment_attendees: { id: string; status: string; patients: { name: string } | null }[];
 };
@@ -20,14 +21,19 @@ export type ClassOcc = {
 const dayKey = (ts: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(ts));
 
 /** Semana de aulas em colunas, com a chamada feita no próprio card. */
-export function WeekColumns({ week, today, items, canEdit }: { week: string[]; today: string; items: ClassOcc[]; canEdit: boolean }) {
+export function WeekColumns({ week, today, items, canEdit, stack = false }: { week: string[]; today: string; items: ClassOcc[]; canEdit: boolean; stack?: boolean }) {
   const now = Date.now();
   return (
-    <div className="-mx-5 flex snap-x scroll-px-5 gap-3 overflow-x-auto px-5 pb-3 lg:mx-0 lg:scroll-px-0 lg:px-0">
+    <div className={stack ? "space-y-6" : "-mx-5 flex snap-x scroll-px-5 gap-3 overflow-x-auto px-5 pb-3 lg:mx-0 lg:scroll-px-0 lg:px-0"}>
       {week.map((d) => {
         const list = items.filter((a) => dayKey(a.starts_at) === d);
         return (
-          <section key={d} className="w-[17rem] shrink-0 snap-start">
+          <section key={d} className={stack ? "" : "w-[17rem] shrink-0 snap-start"}>
+            {stack ? (
+              <h2 className="mb-2 px-1 text-[13px] font-semibold tracking-wide text-muted uppercase">
+                {d === today ? "Hoje" : WEEKDAYS_SHORT[isoWeekday(d)]} · {d.slice(8)}/{d.slice(5, 7)} · {list.length} turma{list.length === 1 ? "" : "s"}
+              </h2>
+            ) : (
             <h2
               className={cx(
                 "mb-2 flex items-baseline gap-2 rounded-xl px-3 py-2 text-[15px] font-semibold",
@@ -41,6 +47,7 @@ export function WeekColumns({ week, today, items, canEdit }: { week: string[]; t
                 {list.length} aula{list.length === 1 ? "" : "s"}
               </span>
             </h2>
+            )}
             <div className="space-y-3">
               {list.length === 0 && <p className="px-3 py-4 text-center text-sm text-faint">Sem aulas</p>}
               {list.map((a) => {
@@ -51,8 +58,31 @@ export function WeekColumns({ week, today, items, canEdit }: { week: string[]; t
                 const confirmed = people.filter((t) => t.status === "confirmado").length;
                 const color = proColor(a.professionals?.color, a.professionals?.id);
                 return (
-                  <article key={a.id} className="overflow-hidden rounded-2xl border border-line bg-surface" style={{ borderTop: `3px solid ${color}` }}>
-                    <Link href={`/agenda/${a.id}`} className="flex items-start gap-2 px-3 pt-3 hover:opacity-80">
+                  <article
+                    key={a.id}
+                    className="overflow-hidden rounded-2xl border border-line bg-surface"
+                    style={stack ? { borderLeft: `4px solid var(--color-chart-out)` } : { borderTop: `3px solid ${color}` }}
+                  >
+                    {stack && (
+                      <div className="flex items-start gap-2 px-4 pt-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[18px] font-semibold tabular-nums">
+                            {formatTime(a.starts_at)} <span className="text-[14px] font-normal text-muted">{formatTime(a.ends_at)}</span>
+                          </p>
+                          <p className="truncate text-[16px] font-medium">{a.recurring_series?.name ?? a.services?.name}</p>
+                          <p className="truncate text-[13px] text-muted">{a.professionals?.name}</p>
+                        </div>
+                        <Link href={`/agenda/${a.id}`} className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-line px-3 text-sm font-medium hover:bg-hover">
+                          <ArrowRight size={15} /> Abrir
+                        </Link>
+                        {canEdit && a.series_id && (
+                          <Link href={`/horarios/${a.series_id}`} className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-line px-3 text-sm font-medium hover:bg-hover">
+                            <Pencil size={14} /> Editar
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                    <Link href={`/agenda/${a.id}`} className={cx("flex items-start gap-2 px-3 pt-3 hover:opacity-80", stack && "hidden")}>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold tabular-nums">
                           {formatTime(a.starts_at)} <span className="text-[13px] font-normal text-muted">– {formatTime(a.ends_at)}</span>
@@ -77,6 +107,7 @@ export function WeekColumns({ week, today, items, canEdit }: { week: string[]; t
                         <div className={cx("h-full rounded-full", free <= 0 ? "bg-warn" : "bg-chart-out")} style={{ width: `${Math.min(100, (people.length / a.capacity) * 100)}%` }} />
                       </div>
                     </div>
+                    {stack && people.length === 0 && <p className="mx-4 mt-3 border-t border-line pt-3 text-center text-sm text-muted">Ninguém marcado nesta aula.</p>}
                     {people.length > 0 && (
                       <ul className="mt-2 divide-y divide-line border-t border-line">
                         {people.map((t) => (
@@ -127,8 +158,8 @@ export function WeekColumns({ week, today, items, canEdit }: { week: string[]; t
                       )}
                       {!started && free > 0 && canEdit && (
                         <Link
-                          href={`/agenda/${a.id}`}
-                          className="flex min-h-10 items-center justify-center gap-2 rounded-xl bg-hover text-sm font-medium text-muted hover:text-ink"
+                          href={`/agenda/${a.id}#adicionar`}
+                          className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-hover text-sm font-medium text-muted hover:text-ink"
                         >
                           <Plus size={16} /> Preencher vaga · {free} livre{free === 1 ? "" : "s"}
                         </Link>

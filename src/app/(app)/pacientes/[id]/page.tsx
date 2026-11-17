@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
 import { firstName, renderTemplate } from "@/lib/messages";
-import { Alert, Badge, buttonClass, Card, cx, Field, Input, LinkButton, Section, Select } from "@/components/ui";
+import { Alert, Badge, buttonClass, Card, cx, EmptyState, Field, Input, LinkButton, Section, Select } from "@/components/ui";
 import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -26,11 +26,11 @@ export default async function PacientePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ salvo?: string; vendido?: string; aba?: string; pre?: string; erro?: string }>;
+  searchParams: Promise<{ salvo?: string; vendido?: string; aba?: string; pre?: string; erro?: string; f?: string }>;
 }) {
   const ctx = await getContext();
   const { id } = await params;
-  const { salvo, vendido, aba: abaParam, pre: preToken, erro } = await searchParams;
+  const { salvo, vendido, aba: abaParam, pre: preToken, erro, f: finFilter } = await searchParams;
   const supabase = await createClient();
 
   const { data: patient } = await supabase.from("patients").select("*").eq("id", id).maybeSingle();
@@ -86,7 +86,6 @@ export default async function PacientePage({
     : { data: [] as { package_id: string; used: number }[] };
   const usedOf = new Map((usage ?? []).map((u) => [u.package_id, u.used]));
   const open = (txs ?? []).filter((t) => !t.paid_on);
-  const paid = (txs ?? []).filter((t) => t.paid_on).slice(-5).reverse();
   const openTotal = open.reduce((a, t) => a + t.amount_cents, 0);
   const showFinance = ctx.role !== "profissional";
   const hh = await headers();
@@ -834,9 +833,27 @@ export default async function PacientePage({
             title="Pacotes e planos"
             action={
               ctx.canManageAgenda && (
-                <LinkButton href={`/pacientes/${patient.id}/vender`} size="sm" variant="secondary">
-                  <Plus size={16} /> Vender
-                </LinkButton>
+                <details className="group relative">
+                  <summary className={cx(buttonClass("primary", "sm"), "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}>
+                    Vender <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+                  </summary>
+                  <div className="absolute top-full right-0 z-30 mt-2 w-64 overflow-hidden rounded-2xl border border-line bg-surface py-1.5 shadow-xl">
+                    <Link href={`/pacientes/${patient.id}/vender?tipo=pacote`} className="flex min-h-12 items-center gap-3 px-4 hover:bg-hover">
+                      <Package size={18} className="text-chart-in" />
+                      <span>
+                        <span className="block font-medium">Pacote de sessões</span>
+                        <span className="block text-[12px] text-muted">Consultas, com alta no fim</span>
+                      </span>
+                    </Link>
+                    <Link href={`/pacientes/${patient.id}/vender?tipo=plano`} className="flex min-h-12 items-center gap-3 px-4 hover:bg-hover">
+                      <Dumbbell size={18} className="text-chart-out" />
+                      <span>
+                        <span className="block font-medium">Matrícula em aulas</span>
+                        <span className="block text-[12px] text-muted">Plano mensal e turmas fixas</span>
+                      </span>
+                    </Link>
+                  </div>
+                </details>
               )
             }
           >
@@ -965,40 +982,72 @@ export default async function PacientePage({
           </Section>
         )}
 
-        {showFinance && (txs?.length ?? 0) > 0 && (
+        {showFinance && (
           <Section
-            title="Pagamentos"
+            title="Lançamentos · só deste paciente"
             action={open.length > 0 && <span className="text-sm font-medium text-warn">{formatMoney(openTotal)} em aberto</span>}
           >
-            <Card className="divide-y divide-line overflow-hidden">
-              {open.map((t) => {
-                const late = t.due_date < today;
-                return (
-                  <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{t.description}</p>
-                      <p className={cx("text-sm", late ? "text-bad" : "text-muted")}>
-                        {late ? "Venceu em " : "Vence em "}
-                        {formatDateShort(t.due_date)}
-                      </p>
-                    </div>
-                    <span className="font-semibold tabular-nums">{formatMoney(t.amount_cents)}</span>
-                    <PayButton id={t.id} type="receita" amountLabel="" back={`/pacientes/${patient.id}`} />
-                  </div>
-                );
-              })}
-              {paid.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 px-4 py-3 text-muted">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate">{t.description}</p>
-                    <p className="text-sm">
-                      Pago em {formatDateShort(t.paid_on)} · {PAY_LABEL[t.payment_method ?? ""] ?? ""}
-                    </p>
-                  </div>
-                  <span className="tabular-nums">{formatMoney(t.amount_cents)}</span>
-                </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { k: "", l: "Tudo", n: (txs ?? []).length },
+                { k: "abertos", l: "Em aberto", n: open.length },
+                { k: "pagos", l: "Pagos", n: (txs ?? []).length - open.length },
+              ].map((c) => (
+                <Link
+                  key={c.k || "tudo"}
+                  href={`/pacientes/${patient.id}?aba=financeiro${c.k ? `&f=${c.k}` : ""}`}
+                  aria-current={(finFilter ?? "") === c.k ? "true" : undefined}
+                  className={cx(
+                    "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-semibold",
+                    (finFilter ?? "") === c.k ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface",
+                  )}
+                >
+                  {c.l} <span className="font-normal text-muted">{c.n}</span>
+                </Link>
               ))}
-            </Card>
+            </div>
+            {(() => {
+              const list = (txs ?? [])
+                .filter((t) => (finFilter === "abertos" ? !t.paid_on : finFilter === "pagos" ? !!t.paid_on : true))
+                .sort((x, y) => (x.paid_on ? 1 : 0) - (y.paid_on ? 1 : 0) || (x.paid_on ? y.paid_on!.localeCompare(x.paid_on!) : x.due_date.localeCompare(y.due_date)));
+              if (!list.length)
+                return (
+                  <EmptyState
+                    title={finFilter === "abertos" ? "Nada em aberto" : finFilter === "pagos" ? "Nenhum pagamento ainda" : "Sem lançamentos"}
+                    text="As cobranças e os pagamentos deste paciente aparecem aqui. Para começar, use Vender."
+                  />
+                );
+              return (
+                <Card className="divide-y divide-line overflow-hidden">
+                  {list.map((t) =>
+                    t.paid_on ? (
+                      <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{t.description}</p>
+                          <p className="text-sm text-muted">
+                            Pago em {formatDateShort(t.paid_on)} · {PAY_LABEL[t.payment_method ?? ""] ?? ""}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-ok-soft px-2 py-0.5 text-[12px] font-semibold text-ok">Pago</span>
+                        <span className="tabular-nums">{formatMoney(t.amount_cents)}</span>
+                      </div>
+                    ) : (
+                      <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{t.description}</p>
+                          <p className={cx("text-sm", t.due_date < today ? "text-bad" : "text-muted")}>
+                            {t.due_date < today ? "Venceu em " : "Vence em "}
+                            {formatDateShort(t.due_date)}
+                          </p>
+                        </div>
+                        <span className="font-semibold tabular-nums">{formatMoney(t.amount_cents)}</span>
+                        <PayButton id={t.id} type="receita" amountLabel="" back={`/pacientes/${patient.id}?aba=financeiro`} />
+                      </div>
+                    ),
+                  )}
+                </Card>
+              );
+            })()}
           </Section>
         )}
 

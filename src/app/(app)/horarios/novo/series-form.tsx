@@ -1,94 +1,212 @@
 "use client";
 
 import { useState } from "react";
+import { CalendarDays, Check, Minus, Plus, Trash2 } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { cx, Field, Input, Select } from "@/components/ui";
+import { cx, Input } from "@/components/ui";
 import { WEEKDAYS_SHORT } from "@/lib/format";
+import { proColor } from "@/lib/colors";
 import { createSeries } from "../actions";
 
 type Service = { id: string; name: string; kind: string; duration_min: number; default_capacity: number };
-type Pro = { id: string; name: string };
+type Pro = { id: string; name: string; color?: string | null };
+type Row = { key: number; start: string; end: string; days: number[] };
 
+const plus = (t: string, m: number) => {
+  const x = Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) + m;
+  return `${String(Math.floor(x / 60) % 24).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+};
+const label = "mb-2 block text-[14px] font-semibold text-muted";
+
+/** Nova turma: serviço e professor em botões, grade de horários (vários horários × dias), vagas com − e +. */
 export function SeriesForm({ services, pros, today }: { services: Service[]; pros: Pro[]; today: string }) {
-  const [serviceId, setServiceId] = useState(services.find((s) => s.kind === "turma")?.id ?? services[0]?.id ?? "");
+  const turmas = services.filter((s) => s.kind === "turma");
+  const list = turmas.length ? turmas : services;
+  const [serviceId, setServiceId] = useState(list[0]?.id ?? "");
   const service = services.find((s) => s.id === serviceId);
-  const [days, setDays] = useState<number[]>([]);
+  const [proId, setProId] = useState(pros.length === 1 ? pros[0].id : "");
+  const [rows, setRows] = useState<Row[]>([{ key: 1, start: "08:00", end: plus("08:00", service?.duration_min ?? 50), days: [] }]);
+  const [cap, setCap] = useState(service?.default_capacity ?? 4);
+  const slots = rows.flatMap((r) => r.days.map((d) => `${d}|${r.start}|${r.end}`));
+  const ready = !!serviceId && !!proId && slots.length > 0;
+  const upd = (key: number, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
   return (
-    <ActionForm action={createSeries}>
-      <Field label="Nome da turma (opcional)" hint="Ex.: Pilates Iniciante, Turma da manhã. Sem nome, aparece o nome do serviço.">
-        <Input name="name" maxLength={60} placeholder="Ex.: Pilates Iniciante" />
-      </Field>
-      <Field label="Serviço">
-        <Select name="service_id" value={serviceId} onChange={(e) => setServiceId(e.target.value)} required>
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} {s.kind === "turma" ? "(turma)" : ""}
-            </option>
-          ))}
-        </Select>
-      </Field>
+    <ActionForm action={createSeries} className="space-y-6">
+      <input type="hidden" name="service_id" value={serviceId} />
+      <input type="hidden" name="professional_id" value={proId} />
+      <input type="hidden" name="capacity" value={cap} />
+      {slots.map((s) => (
+        <input key={s} type="hidden" name="slot" value={s} />
+      ))}
 
-      <Field label="Profissional">
-        <Select name="professional_id" defaultValue={pros.length === 1 ? pros[0].id : ""} required>
-          {pros.length !== 1 && <option value="">Escolha…</option>}
-          {pros.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
+      <div>
+        <span className={label}>Serviço</span>
+        <div className="flex flex-wrap gap-2">
+          {list.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              aria-pressed={serviceId === s.id}
+              onClick={() => {
+                setServiceId(s.id);
+                setCap(s.default_capacity || 4);
+                setRows((rs) => rs.map((r) => ({ ...r, end: plus(r.start, s.duration_min) })));
+              }}
+              className={cx(
+                "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[15px] font-medium transition-colors",
+                serviceId === s.id ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface hover:bg-hover",
+              )}
+            >
+              <span className="size-2 rounded-full bg-chart-out" /> {s.name}
+            </button>
           ))}
-        </Select>
-      </Field>
-
-      <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">Dias da semana</legend>
-        <div className="grid grid-cols-7 gap-1.5">
-          {[1, 2, 3, 4, 5, 6, 7].map((d) => {
-            const on = days.includes(d);
-            return (
-              <label
-                key={d}
-                className={cx(
-                  "flex h-12 cursor-pointer items-center justify-center rounded-xl border text-[15px] font-medium capitalize transition-colors",
-                  on ? "border-accent bg-accent text-white" : "border-line bg-surface text-ink hover:bg-hover",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  name="weekday"
-                  value={d}
-                  className="sr-only"
-                  checked={on}
-                  onChange={() => setDays(on ? days.filter((x) => x !== d) : [...days, d])}
-                />
-                {WEEKDAYS_SHORT[d]}
-              </label>
-            );
-          })}
         </div>
-        <p className="text-[13px] text-muted">Pode marcar mais de um. Ex.: terça e quinta.</p>
-      </fieldset>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Horário">
-          <Input name="start_time" type="time" required defaultValue="07:00" step={300} />
-        </Field>
-        <Field label="Duração (min)">
-          <Input key={service?.id} name="duration_min" type="number" min={5} max={480} step={5} defaultValue={service?.duration_min ?? 50} />
-        </Field>
-        {service?.kind === "turma" && (
-          <Field label="Vagas">
-            <Input key={service.id} name="capacity" type="number" min={1} max={50} defaultValue={service.default_capacity} />
-          </Field>
-        )}
-        <Field label="Começa em">
-          <Input name="starts_on" type="date" defaultValue={today} min={today} />
-        </Field>
       </div>
 
-      <SubmitButton full pendingText="Criando e lançando na agenda…">
-        Criar turma
-      </SubmitButton>
+      <div>
+        <label htmlFor="nome-turma" className={label}>
+          Nome da turma <span className="font-normal">(opcional)</span>
+        </label>
+        <Input id="nome-turma" name="name" maxLength={60} placeholder="Ex.: Pilates Seg/Qua 08:00" />
+      </div>
+
+      <div>
+        <span className={label}>Professor</span>
+        <div className="flex flex-wrap gap-2">
+          {pros.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={proId === p.id}
+              onClick={() => setProId(p.id)}
+              className={cx(
+                "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[15px] font-medium transition-colors",
+                proId === p.id ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface hover:bg-hover",
+              )}
+            >
+              <span className="size-2.5 rounded-full" style={{ background: proColor(p.color ?? null, p.id) }} /> {p.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <span className={label}>Grade de horários</span>
+        <div className="space-y-3">
+          {rows.map((r) => (
+            <div key={r.key} className="rounded-2xl border border-line bg-surface p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="time"
+                  step={300}
+                  value={r.start}
+                  onChange={(e) => upd(r.key, { start: e.target.value, end: plus(e.target.value, service?.duration_min ?? 50) })}
+                  aria-label="Começa às"
+                  className="h-12 w-28 rounded-xl border border-line bg-surface px-2 text-center text-[16px] tabular-nums"
+                />
+                <span className="text-sm text-muted">às</span>
+                <input
+                  type="time"
+                  step={300}
+                  value={r.end}
+                  onChange={(e) => upd(r.key, { end: e.target.value })}
+                  aria-label="Termina às"
+                  className="h-12 w-28 rounded-xl border border-line bg-surface px-2 text-center text-[16px] tabular-nums"
+                />
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+                    aria-label="Tirar este horário"
+                    className="ml-auto grid size-11 place-items-center rounded-xl text-muted hover:bg-hover hover:text-bad"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-7 gap-1.5">
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => {
+                  const on = r.days.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => upd(r.key, { days: on ? r.days.filter((x) => x !== d) : [...r.days, d].sort() })}
+                      className={cx(
+                        "flex h-12 flex-col items-center justify-center rounded-xl border text-[13px] font-semibold capitalize transition-colors",
+                        on ? "border-accent bg-accent text-white" : "border-line bg-surface text-muted hover:bg-hover",
+                      )}
+                    >
+                      {on && <Check size={13} />}
+                      {WEEKDAYS_SHORT[d]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setRows((rs) => [...rs, { key: Date.now(), start: plus(rs[rs.length - 1].start, 60), end: plus(rs[rs.length - 1].start, 60 + (service?.duration_min ?? 50)), days: [] }])}
+            className="flex min-h-12 items-center gap-2 rounded-xl border border-dashed border-accent/50 px-4 text-[15px] font-semibold text-accent hover:bg-accent-soft/40"
+          >
+            <Plus size={18} /> Adicionar horário
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2">
+        <div>
+          <span className={label}>Vagas por aula</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setCap((c) => Math.max(1, c - 1))} aria-label="Menos uma vaga" className="grid size-12 place-items-center rounded-xl border border-line bg-surface hover:bg-hover">
+              <Minus size={18} />
+            </button>
+            <span className="grid h-12 min-w-16 flex-1 place-items-center rounded-xl border border-line bg-surface text-[18px] font-semibold tabular-nums">{cap}</span>
+            <button type="button" onClick={() => setCap((c) => Math.min(60, c + 1))} aria-label="Mais uma vaga" className="grid size-12 place-items-center rounded-xl border border-line bg-surface hover:bg-hover">
+              <Plus size={18} />
+            </button>
+          </div>
+        </div>
+        <div>
+          <label htmlFor="comeca" className={label}>
+            Começa em
+          </label>
+          <Input id="comeca" name="starts_on" type="date" defaultValue={today} min={today} />
+        </div>
+      </div>
+
+      <p className="flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-3 text-[14px] text-muted">
+        <CalendarDays size={18} className="mt-0.5 shrink-0 text-accent" />
+        <span>
+          {slots.length ? (
+            <>
+              Cria <strong className="text-ink">{slots.length}</strong> aula{slots.length === 1 ? "" : "s"} fixa{slots.length === 1 ? "" : "s"} por semana (
+              {rows
+                .filter((r) => r.days.length)
+                .map((r) => `${r.days.map((d) => WEEKDAYS_SHORT[d]).join("/")} ${r.start}`)
+                .join(" · ")}
+              ) com <strong className="text-ink">{cap}</strong> vaga{cap === 1 ? "" : "s"} cada. Os alunos entram por matrícula e, quando lotar, pela lista de espera.
+            </>
+          ) : (
+            "Marque os dias na grade de horários para ver como fica."
+          )}
+        </span>
+      </p>
+
+      <div className="sticky bottom-0 -mx-5 border-t border-line bg-surface/95 px-5 py-3 backdrop-blur sm:-mx-7 sm:px-7">
+        {ready ? (
+          <SubmitButton full pendingText="Criando e lançando na agenda…">
+            <Check size={18} /> Criar turma
+          </SubmitButton>
+        ) : (
+          <button type="button" disabled className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-accent/40 font-semibold text-white">
+            <Check size={18} /> {!proId ? "Escolha o professor" : "Marque pelo menos um dia"}
+          </button>
+        )}
+      </div>
     </ActionForm>
   );
 }

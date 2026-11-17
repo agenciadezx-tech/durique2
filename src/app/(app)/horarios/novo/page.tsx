@@ -13,7 +13,7 @@ export default async function NovoHorarioPage() {
   const supabase = await createClient();
   const [{ data: services }, { data: pros }] = await Promise.all([
     supabase.from("services").select("id, name, kind, duration_min, default_capacity").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
-    supabase.from("professionals").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
+    supabase.from("professionals").select("id, name, color").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
   ]);
 
   return (
