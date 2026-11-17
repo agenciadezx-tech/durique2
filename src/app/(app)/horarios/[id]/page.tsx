@@ -7,7 +7,8 @@ import { Alert, Avatar, Card, PageHeader, Section } from "@/components/ui";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateShort, formatTimestampShort, todayISO, WEEKDAYS } from "@/lib/format";
-import { endSeries, enroll, unenroll } from "../actions";
+import { endSeries, enroll, renameSeries, unenroll } from "../actions";
+import { Field, Input } from "@/components/ui";
 
 export default async function HorarioPage({
   params,
@@ -59,14 +60,30 @@ export default async function HorarioPage({
   return (
     <>
       <PageHeader
-        title={`${WEEKDAYS[s.weekday]} · ${s.start_time.slice(0, 5)}`}
-        description={`${service?.name} com ${pro?.name} · ${s.duration_min} min`}
+        title={s.name ?? `${WEEKDAYS[s.weekday]} · ${s.start_time.slice(0, 5)}`}
+        description={`${s.name ? `${WEEKDAYS[s.weekday]} · ${s.start_time.slice(0, 5)} · ` : ""}${service?.name} com ${pro?.name} · ${s.duration_min} min`}
         back={{ href: "/horarios", label: "Turmas" }}
       />
 
       <div className="space-y-8">
         {novo && <Alert tone="ok">Horário criado e lançado na agenda das próximas 8 semanas. Agora adicione os pacientes fixos.</Alert>}
         {!s.active && <Alert tone="info">Este horário foi encerrado.</Alert>}
+
+        {ctx.canManageAgenda && s.active && (
+          <Card className="p-4">
+            <ActionForm action={renameSeries} className="flex flex-wrap items-end gap-3 space-y-0!">
+              <input type="hidden" name="id" value={s.id} />
+              <div className="min-w-56 flex-1">
+                <Field label="Nome da turma" hint="Aparece na agenda, na chamada e no app do aluno.">
+                  <Input name="name" defaultValue={s.name ?? ""} maxLength={60} placeholder={`Ex.: ${service?.name ?? "Pilates"} manhã`} />
+                </Field>
+              </div>
+              <SubmitButton size="md" variant="secondary">
+                Salvar nome
+              </SubmitButton>
+            </ActionForm>
+          </Card>
+        )}
 
         <Section
           title={`Pacientes fixos (${enrolled.length}/${s.capacity})`}

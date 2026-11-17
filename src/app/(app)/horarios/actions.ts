@@ -18,6 +18,7 @@ export async function createSeries(_: ActionState, data: FormData): Promise<Acti
   const weekdays = data.getAll("weekday").map(Number).filter((n) => n >= 1 && n <= 7);
   const time = String(data.get("start_time") ?? "");
   const startsOn = String(data.get("starts_on") ?? "") || todayISO();
+  const name = String(data.get("name") ?? "").trim().slice(0, 60) || null;
   if (!serviceId) return { error: "Escolha o serviço." };
   if (!professionalId) return { error: "Escolha o profissional." };
   if (!weekdays.length) return { error: "Marque pelo menos um dia da semana." };
@@ -38,6 +39,7 @@ export async function createSeries(_: ActionState, data: FormData): Promise<Acti
         service_id: serviceId,
         professional_id: professionalId,
         weekday,
+        name,
         start_time: time,
         duration_min: duration,
         capacity,
@@ -89,4 +91,18 @@ export async function endSeries(data: FormData) {
   revalidatePath("/horarios");
   revalidatePath("/agenda");
   redirect("/horarios?encerrado=1");
+}
+
+/** Dá (ou troca) o nome da turma. */
+export async function renameSeries(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return NO_PERM;
+  const id = String(data.get("id"));
+  const name = String(data.get("name") ?? "").trim().slice(0, 60) || null;
+  const supabase = await createClient();
+  const { error } = await supabase.from("recurring_series").update({ name }).eq("id", id);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/horarios", "layout");
+  revalidatePath("/agenda");
+  return { ok: name ? "Nome salvo." : "Nome removido." };
 }

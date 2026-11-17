@@ -16,6 +16,9 @@ export function SeriesForm({ services, pros, today }: { services: Service[]; pro
 
   return (
     <ActionForm action={createSeries}>
+      <Field label="Nome da turma (opcional)" hint="Ex.: Pilates Iniciante, Turma da manhã. Sem nome, aparece o nome do serviço.">
+        <Input name="name" maxLength={60} placeholder="Ex.: Pilates Iniciante" />
+      </Field>
       <Field label="Serviço">
         <Select name="service_id" value={serviceId} onChange={(e) => setServiceId(e.target.value)} required>
           {services.map((s) => (

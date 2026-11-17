@@ -34,6 +34,7 @@ type Product = {
 };
 type Series = {
   id: string;
+  name: string | null;
   service_id: string;
   weekday: number;
   start_time: string;
@@ -60,7 +61,7 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
     supabase.from("products").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
     supabase
       .from("recurring_series")
-      .select("id, service_id, weekday, start_time, capacity, professionals(name), enrollments(ends_on)")
+      .select("id, name, service_id, weekday, start_time, capacity, professionals(name), enrollments(ends_on)")
       .eq("clinic_id", ctx.clinicId)
       .eq("active", true)
       .order("weekday")
@@ -396,6 +397,7 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
                       <Link key={r.id} href={`/horarios/${r.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-hover">
                         <span className="min-w-0 flex-1">
                           <span className="block font-medium">
+                            {r.name ? `${r.name} · ` : ""}
                             {WEEKDAYS[r.weekday]} · {r.start_time.slice(0, 5)}
                           </span>
                           <span className="block text-sm text-muted">{r.professionals?.name}</span>

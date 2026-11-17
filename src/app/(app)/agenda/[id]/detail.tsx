@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageCircle, NotebookPen, Repeat } from "lucide-react";
+import { CalendarClock, Check, ClipboardCheck, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PatientPicker } from "@/components/patient-picker";
-import { Alert, Avatar, Card, PageHeader, Section } from "@/components/ui";
+import { Alert, Avatar, Badge, buttonClass, Card, cx, Field, Input, PageHeader, Section } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
 import { AttendeeStatus } from "./status-buttons";
 import { ChargeForm } from "./charge-form";
@@ -11,7 +11,7 @@ import { getContext } from "@/lib/context";
 import { EvolutionForm } from "./evolution-form";
 import { createClient } from "@/lib/supabase/server";
 import { formatDayLong, formatTime, formatTimestampShort, TZ, whatsappLink } from "@/lib/format";
-import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, restoreAppointment } from "../actions";
+import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, rescheduleAppointment, restoreAppointment } from "../actions";
 import { WaSendButton } from "@/components/wa-send";
 import { firstName } from "@/lib/messages";
 
@@ -34,7 +34,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
   const { data: appt } = await supabase
     .from("appointments")
     .select(
-      "*, services(name, kind, price_cents), professionals(name), recurring_series(id), appointment_attendees(id, status, is_makeup, booked_online, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
+      "*, services(name, kind, price_cents), professionals(name), recurring_series(id, name), appointment_attendees(id, status, is_makeup, booked_online, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -120,15 +120,93 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
     : { data: [] };
   const waiting = (waitData ?? []) as unknown as { id: string; notes: string | null; patients: { id: string; name: string; phone: string | null } | null }[];
 
+  const isClass = appt.capacity > 1 || service?.kind === "turma";
+  const seriesName = (appt.recurring_series as unknown as { id: string; name: string | null } | null)?.name ?? null;
+  const main = !isClass ? attendees.find((t) => isActiveAttendee(t.status) || t.status === "presente" || t.status === "falta") ?? attendees[0] : null;
+  const title = isClass ? (seriesName ?? service?.name ?? "Aula") : (main?.patients?.name ?? service?.name ?? "Sessão");
+  const dayShort = new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, weekday: "short", day: "numeric", month: "short" })
+    .format(new Date(appt.starts_at))
+    .replace(/\./g, "");
+  const meta = `${dayShort.charAt(0).toUpperCase()}${dayShort.slice(1)} · ${formatTime(appt.starts_at)}–${formatTime(appt.ends_at)} · ${
+    isClass ? `Turma · ${occupied}/${appt.capacity} ocupadas` : (service?.name ?? "")
+  }`;
+  const { data: recs } =
+    main && ctx.canSeeClinical ? await supabase.from("clinical_records").select("id").eq("attendee_id", main.id).limit(1) : { data: [] as { id: string }[] };
+  const STATUS_LABEL: Record<string, string> = {
+    agendado: "Agendado",
+    confirmado: "Confirmado",
+    presente: "Atendido ✓",
+    falta: "Faltou",
+    desmarcado_no_prazo: "Desmarcou no prazo",
+    desmarcado_fora_prazo: "Desmarcou em cima da hora",
+  };
+  const ended = Date.parse(appt.ends_at) < Date.now();
+  const callDone = isClass && attendees.length > 0 && attendees.every((t) => !["agendado", "confirmado"].includes(t.status));
+
   return (
     <>
-      <PageHeader
-        title={`${formatTime(appt.starts_at)} – ${formatTime(appt.ends_at)}`}
-        description={`${formatDayLong(day)} · ${service?.name} com ${pro?.name}`}
-        back={embedded ? undefined : { href: `/agenda?d=${day}`, label: "Agenda" }}
-      />
+      {embedded ? (
+        <header className="relative isolate mb-6 -mt-10 flex items-center gap-4 pt-6 pb-5 before:absolute before:inset-y-0 before:-inset-x-[100vmax] before:-z-10 before:border-b before:border-line before:bg-surface">
+          {isClass ? (
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-chart-out/15 text-[#a85a17]">
+              <Users size={22} />
+            </span>
+          ) : (
+            <Avatar name={title} />
+          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-[22px] leading-tight font-semibold tracking-tight">{title}</h2>
+            <p className="truncate text-[15px] text-muted">{meta}</p>
+          </div>
+          <Link href={`/agenda?d=${day}`} aria-label="Fechar" className="grid size-10 shrink-0 place-items-center rounded-xl border border-line bg-surface text-muted hover:text-ink">
+            <X size={18} />
+          </Link>
+        </header>
+      ) : (
+        <PageHeader title={title} description={meta} back={{ href: `/agenda?d=${day}`, label: "Agenda" }} />
+      )}
 
-      <div className="space-y-8">
+      <div className="space-y-6">
+        {/* Atalhos do topo */}
+        {isClass && !canceled && (
+          <>
+            <Card className="flex flex-wrap items-center gap-3 p-4">
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12px] font-semibold tracking-wide text-muted uppercase">Professor da turma</span>
+                <span className="font-medium">{pro?.name ?? "Sem professor"}</span>
+              </span>
+              {appt.series_id && ctx.canManageAgenda && (
+                <Link href={`/horarios/${appt.series_id}`} className={buttonClass("secondary", "sm")}>
+                  Turma e alunos fixos
+                </Link>
+              )}
+            </Card>
+            <div className="grid grid-cols-2 gap-2">
+              <a href="#chamada" className={cx(buttonClass(callDone ? "secondary" : "primary", "lg"), "w-full")}>
+                <ClipboardCheck size={18} /> {callDone ? "Chamada feita" : "Fazer chamada"}
+              </a>
+              <a href="#evolucao" className={cx(buttonClass("secondary", "lg"), "w-full")}>
+                <NotebookPen size={18} /> Fazer evolução
+              </a>
+            </div>
+          </>
+        )}
+        {!isClass && main?.patients && (
+          <div className="grid grid-cols-2 gap-2">
+            <Link href={`/pacientes/${main.patients.id}`} className={cx(buttonClass("primary", "lg"), "w-full")}>
+              <UserRound size={18} /> Abrir ficha
+            </Link>
+            {ctx.canSeeClinical && ctx.professionalId ? (
+              <Link href={`/pacientes/${main.patients.id}/prontuario/novo?tipo=evolucao&sessao=${main.id}`} className={cx(buttonClass("secondary", "lg"), "w-full")}>
+                <NotebookPen size={18} /> Realizar evolução
+              </Link>
+            ) : (
+              <Link href={`/pacientes/${main.patients.id}?aba=historico`} className={cx(buttonClass("secondary", "lg"), "w-full")}>
+                Linha do tempo
+              </Link>
+            )}
+          </div>
+        )}
         {nova && <Alert tone="ok">Sessão marcada!</Alert>}
         {canceled && <Alert tone="info">Esta sessão foi cancelada.</Alert>}
         {appt.series_id && !canceled && (
@@ -141,8 +219,23 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
         )}
 
         <Section
-          title={appt.capacity > 1 ? `Pacientes (${occupied}/${appt.capacity})` : "Paciente"}
-          action={free <= 0 && appt.capacity > 1 ? <span className="text-sm font-medium text-warn">Lotado</span> : undefined}
+          id="chamada"
+          title={isClass ? `Chamada · ${occupied}/${appt.capacity} vagas` : "Presença"}
+          action={
+            isClass ? (
+              callDone ? (
+                <Badge tone="ok">
+                  <Check size={13} /> Chamada feita
+                </Badge>
+              ) : free <= 0 ? (
+                <span className="text-sm font-medium text-warn">Lotado</span>
+              ) : ctx.canManageAgenda && !canceled ? (
+                <a href="#adicionar" className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-line bg-surface px-3 text-sm font-medium text-accent hover:bg-hover">
+                  <Plus size={16} /> Aluno
+                </a>
+              ) : undefined
+            ) : undefined
+          }
         >
           {attendees.length ? (
             <ul className="space-y-3">
@@ -246,7 +339,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
         </Section>
 
         {canEvolve && evoPeople.length > 0 && (
-          <Section title="Evolução">
+          <Section id="evolucao" title="Evolução">
             <EvolutionForm
               appointmentId={appt.id}
               turma={appt.capacity > 1}
@@ -259,7 +352,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
         )}
 
         {ctx.canManageAgenda && !canceled && free > 0 && (
-          <Section title={appt.capacity > 1 ? "Adicionar à sessão" : "Escolher paciente"}>
+          <Section id="adicionar" title={appt.capacity > 1 ? "Adicionar aluno nesta aula" : "Escolher paciente"}>
             <Card className="p-5">
               <ActionForm action={addAttendee} resetOnSuccess>
                 <input type="hidden" name="appointment_id" value={appt.id} />
@@ -332,6 +425,49 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
           </Section>
         )}
 
+        {!isClass && main && (
+          <Card className="p-5">
+            <p className="mb-3 text-[12px] font-semibold tracking-wide text-muted uppercase">Sessão</p>
+            <dl className="divide-y divide-line text-[15px]">
+              {[
+                ["Serviço", service?.name ?? "—"],
+                ["Status", STATUS_LABEL[main.status] ?? main.status],
+                ["Evolução", !ctx.canSeeClinical ? "—" : (recs ?? []).length ? "Feita ✓" : main.status === "presente" || ended ? "Pendente" : "—"],
+                ["Profissional", pro?.name ?? "—"],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between gap-3 py-2">
+                  <dt className="text-muted">{k}</dt>
+                  <dd className={cx("font-medium", v === "Pendente" && "rounded-full bg-warn-soft px-2 text-[13px] text-warn", v === "Atendido ✓" && "rounded-full bg-ok-soft px-2 text-[13px] text-ok")}>{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+        )}
+
+        {ctx.canManageAgenda && !canceled && (
+          <details className="group rounded-2xl border border-line bg-surface">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
+              <CalendarClock size={17} className="text-muted" /> Corrigir data da sessão
+            </summary>
+            <div className="border-t border-line p-4">
+              <ActionForm action={rescheduleAppointment} className="space-y-4">
+                <input type="hidden" name="id" value={appt.id} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Field label="Dia">
+                    <Input type="date" name="date" defaultValue={day} required />
+                  </Field>
+                  <Field label="Horário">
+                    <Input type="time" name="time" defaultValue={formatTime(appt.starts_at)} required />
+                  </Field>
+                </div>
+                <SubmitButton size="md" variant="secondary">
+                  Salvar nova data
+                </SubmitButton>
+              </ActionForm>
+            </div>
+          </details>
+        )}
+
         {ctx.canManageAgenda && (
           <div className="border-t border-line pt-6">
             {canceled ? (
@@ -344,8 +480,10 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
             ) : (
               <form action={cancelAppointment}>
                 <input type="hidden" name="id" value={appt.id} />
-                <ConfirmSubmit question="Cancelar esta sessão? Os pacientes continuam na turma para as próximas semanas.">
-                  Cancelar esta sessão
+                <ConfirmSubmit
+                  question={isClass ? "Cancelar esta aula? Os alunos continuam na turma para as próximas semanas." : "Excluir este agendamento? O horário volta a ficar livre."}
+                >
+                  {isClass ? "Cancelar esta aula" : "Excluir agendamento"}
                 </ConfirmSubmit>
               </form>
             )}

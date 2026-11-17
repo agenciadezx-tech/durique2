@@ -52,6 +52,7 @@ type Appt = {
   series_id: string | null;
   services: { name: string; kind: string } | null;
   professionals: { id: string; name: string; color: string | null } | null;
+  recurring_series: { name: string | null } | null;
   appointment_attendees: Attendee[];
 };
 
@@ -83,7 +84,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name, access_via))",
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name, access_via))",
       )
       .eq("clinic_id", ctx.clinicId)
       .gte("starts_at", from)
@@ -91,7 +92,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       .order("starts_at"),
     supabase
       .from("appointments")
-      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(id, name, color), appointment_attendees(status, patients(name))")
+      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(status, patients(name))")
       .eq("clinic_id", ctx.clinicId)
       .eq("status", "agendado")
       .gte("starts_at", weekRange.from)
@@ -109,6 +110,22 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase.from("recurring_series").select("id", { count: "exact", head: true }).eq("clinic_id", ctx.clinicId),
   ]);
   const pros = prosData ?? [];
+  // Dias fechados da semana (bloqueio da clínica toda de 8h ou mais)
+  const { data: weekBlocks } =
+    view === "semana"
+      ? await supabase
+          .from("time_blocks")
+          .select("starts_at, ends_at, reason")
+          .eq("clinic_id", ctx.clinicId)
+          .is("professional_id", null)
+          .lt("starts_at", weekRange.to)
+          .gt("ends_at", weekRange.from)
+      : { data: [] as { starts_at: string; ends_at: string; reason: string | null }[] };
+  const closedDays: Record<string, string> = {};
+  (weekBlocks ?? []).forEach((b) => {
+    if (Date.parse(b.ends_at) - Date.parse(b.starts_at) >= 8 * 3600e3)
+      closedDays[new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(b.starts_at))] = b.reason || "Fechado";
+  });
   const proFilter = pros.find((p) => p.id === sp.pro)?.id ?? null;
   const blocks = ((blocksData ?? []) as ProGridBlock[]).filter((b) => !proFilter || !b.professional_id || b.professional_id === proFilter);
 
@@ -314,6 +331,19 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const step = view === "semana" ? 7 : 1;
   const sel = selected ? all.find((a) => a.id === selected) ?? null : null;
 
+  // Semana (computador): grade de horas + resumo da semana
+  const weekList = ((weekAppts ?? []) as unknown as GridAppt[])
+    .filter((a) => !proFilter || a.professionals?.id === proFilter)
+    .filter((a) => tipo === "tudo" || (tipo === "aulas" ? isAula(a) : !isAula(a)));
+  const wCons = weekList.filter((a) => !isAula(a));
+  const wAulas = weekList.filter(isAula);
+  const nowMs = Date.now();
+  const wDone = wCons.filter((a) => a.appointment_attendees.some((t) => t.status === "presente")).length;
+  const wToConfirm = weekList.filter((a) => Date.parse(a.starts_at) > nowMs).reduce((n, a) => n + a.appointment_attendees.filter((t) => t.status === "agendado").length, 0);
+  const wLate = weekList.filter((a) => Date.parse(a.ends_at) < nowMs && a.appointment_attendees.some((t) => t.status === "agendado" || t.status === "confirmado")).length;
+  const wPeople = wAulas.reduce((n, a) => n + a.appointment_attendees.filter((t) => isActiveAttendee(t.status)).length, 0);
+  const wCap = wAulas.reduce((n, a) => n + a.capacity, 0);
+
   const desktop = (
     <div className="hidden h-dvh flex-col lg:flex">
       {/* Barra de filtros */}
@@ -332,7 +362,12 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         <Link href={href({ d: addDaysISO(day, step) })} aria-label="Próximo" className="grid size-10 place-items-center rounded-xl border border-line hover:bg-hover">
           <ChevronRight size={18} />
         </Link>
-        {day !== today && (
+        {view === "semana" && (
+          <span className="px-1 text-[15px] font-semibold">
+            {Number(week[0].slice(8))} – {formatDayLong(week[6]).split(", ")[1]}
+          </span>
+        )}
+        {(view === "semana" ? !week.includes(today) : day !== today) && (
           <Link href={href({ d: undefined })} className="px-1 text-sm font-medium text-accent hover:underline">
             Hoje
           </Link>
@@ -380,6 +415,11 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             ))}
           </div>
         )}
+        {view === "semana" && ctx.canManageAgenda && (
+          <Link href={`/agenda/nova?d=${day}`} className={cx(buttonClass("primary", "md"), "ml-auto")}>
+            <Plus size={18} /> Agendar
+          </Link>
+        )}
         {view !== "semana" && (
           <div className="ml-auto flex rounded-xl bg-hover p-1">
             <Link href={href({ v: undefined })} className={seg(view === "dia")}>
@@ -393,17 +433,63 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       </div>
 
       {view === "semana" ? (
-        <div className="flex-1 overflow-auto px-6 py-5">
-          <p className="mb-4 text-[17px] font-semibold">
-            {formatDayLong(week[0]).split(", ")[1]} a {formatDayLong(week[6]).split(", ")[1]}
-          </p>
-          <WeekGrid
-            week={week}
-            today={today}
-            appts={((weekAppts ?? []) as unknown as GridAppt[])
-              .filter((a) => !proFilter || a.professionals?.id === proFilter)
-              .filter((a) => tipo === "tudo" || (tipo === "aulas" ? isAula(a) : !isAula(a)))}
-          />
+        <div className="flex min-h-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-auto px-5 py-4">
+            <WeekGrid
+              week={week.filter((d, i) => i < 5 || weekList.some((a) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(a.starts_at)) === d) || closedDays[d])}
+              today={today}
+              appts={weekList}
+              closed={closedDays}
+              hrefFor={(a, d) => `/agenda?d=${d}&s=${a.id}`}
+              dayHref={(d) => `/agenda?d=${d}`}
+            />
+          </div>
+          <aside className="w-[310px] shrink-0 overflow-y-auto border-l border-line bg-surface px-4 py-5">
+            <p className="text-[12px] font-semibold tracking-wide text-muted uppercase">Resumo da semana</p>
+            <p className="mb-4 text-[18px] font-semibold">
+              {Number(week[0].slice(8))} – {formatDayLong(week[6]).split(", ")[1]}
+            </p>
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-2">
+                <p className="col-span-2 flex items-center gap-2 text-[13px] font-semibold text-muted">
+                  <span className="size-2.5 rounded-full bg-chart-in" /> Consultas <span className="font-normal">· semana</span>
+                </p>
+                <Tile n={wCons.length} label="sessões" sub="semana" />
+                <Tile n={wDone} label="realizadas" sub={wCons.length ? `de ${wCons.length}` : undefined} />
+                <Tile n={wToConfirm} label="a confirmar" sub="sem resposta" />
+                <Tile n={wLate} label="chamadas atrasadas" sub="já passou, sem marcar" tone={wLate ? "bad" : undefined} />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <p className="col-span-3 flex items-center gap-2 text-[13px] font-semibold text-muted">
+                  <span className="size-2.5 rounded-full bg-chart-out" /> Aulas <span className="font-normal">· semana</span>
+                </p>
+                <Tile n={wAulas.length} label="aulas" />
+                <Tile n={wPeople} label="alunos" />
+                <Tile n={wCap ? `${Math.round((wPeople / wCap) * 100)}%` : "—"} label="ocupação" sub={wCap ? `${wPeople}/${wCap} vagas` : undefined} />
+              </div>
+              <div>
+                <p className="mb-2 text-[13px] font-semibold text-muted">Ações da semana</p>
+                <div className="space-y-2">
+                  {[
+                    { k: "conf", icon: BellRing, label: "Confirmar presença · semana", n: wToConfirm, href: "/whatsapp?aba=lembretes" },
+                    { k: "cham", icon: ClipboardCheck, label: "Chamadas pendentes", n: wLate, href: href({ v: undefined, f: "chamada" }) },
+                  ]
+                    .filter((x) => x.n > 0)
+                    .map((x) => (
+                      <Link key={x.k} href={x.href} className="flex min-h-12 items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2 hover:bg-hover">
+                        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+                          <x.icon size={16} />
+                        </span>
+                        <span className="min-w-0 flex-1 text-[15px] font-medium">{x.label}</span>
+                        <span className="text-sm font-semibold tabular-nums">{x.n}</span>
+                        <ChevronRight size={16} className="text-faint" />
+                      </Link>
+                    ))}
+                  {wToConfirm + wLate === 0 && <p className="text-sm text-muted">Nada pendente nesta semana. 👏</p>}
+                </div>
+              </div>
+            </div>
+          </aside>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
@@ -468,7 +554,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                   const f = flags.get(a.id)!;
                   const on = a.id === selected;
                   const color = proColor(a.professionals?.color, a.professionals?.id);
-                  const title = aula ? a.services?.name : people[0]?.patients?.name ?? "Sem paciente";
+                  const title = aula ? (a.recurring_series?.name ?? a.services?.name) : people[0]?.patients?.name ?? "Sem paciente";
                   const sub = aula ? `${people.length}/${a.capacity} ocupadas` : a.services?.name;
                   const tag = f.risco ? { t: "Em risco", c: "bg-bad-soft text-bad" } : f.chamada ? { t: "Chamada pendente", c: "bg-warn-soft text-warn" } : f.evolucao ? { t: "Evolução pendente", c: "bg-warn-soft text-warn" } : null;
                   return (

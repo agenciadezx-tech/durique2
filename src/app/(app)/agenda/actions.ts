@@ -228,3 +228,26 @@ export async function removeBlock(data: FormData) {
   await supabase.from("time_blocks").delete().eq("id", String(data.get("id")));
   revalidatePath("/agenda");
 }
+
+/** Corrige dia/horário de uma sessão (mantém a duração). */
+export async function rescheduleAppointment(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
+  const id = String(data.get("id"));
+  const date = String(data.get("date") ?? "");
+  const time = String(data.get("time") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Informe o dia e o horário." };
+  const supabase = await createClient();
+  const { data: a } = await supabase.from("appointments").select("starts_at, ends_at").eq("id", id).single();
+  if (!a) return { error: "Sessão não encontrada." };
+  const dur = Date.parse(a.ends_at) - Date.parse(a.starts_at);
+  const start = new Date(toTimestamp(date, time));
+  const { error } = await supabase
+    .from("appointments")
+    .update({ starts_at: start.toISOString(), ends_at: new Date(start.getTime() + dur).toISOString() })
+    .eq("id", id);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/agenda");
+  revalidatePath(`/agenda/${id}`);
+  return { ok: "Data corrigida." };
+}

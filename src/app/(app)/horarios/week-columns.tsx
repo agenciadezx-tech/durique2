@@ -13,6 +13,7 @@ export type ClassOcc = {
   capacity: number;
   services: { name: string } | null;
   professionals: { id: string; name: string; color: string | null } | null;
+  recurring_series?: { name: string | null } | null;
   appointment_attendees: { id: string; status: string; patients: { name: string } | null }[];
 };
 
@@ -56,7 +57,7 @@ export function WeekColumns({ week, today, items, canEdit }: { week: string[]; t
                         <p className="font-semibold tabular-nums">
                           {formatTime(a.starts_at)} <span className="text-[13px] font-normal text-muted">– {formatTime(a.ends_at)}</span>
                         </p>
-                        <p className="truncate text-[15px] font-medium">{a.services?.name}</p>
+                        <p className="truncate text-[15px] font-medium">{a.recurring_series?.name ?? a.services?.name}</p>
                         <p className="truncate text-[13px] text-muted">{a.professionals?.name}</p>
                       </div>
                       <ChevronRight size={18} className="mt-1 text-faint" />
