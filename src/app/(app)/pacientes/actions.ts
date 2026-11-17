@@ -263,3 +263,16 @@ export async function registerDischarge(_: ActionState, data: FormData): Promise
   revalidatePath(`/pacientes/${patientId}`);
   return { ok: kind === "alta" ? "Alta registrada. Parabéns pelo resultado!" : "Registrado." };
 }
+
+/** Liga/desliga o pedido de confirmação de presença para este paciente. */
+export async function setSkipConfirmation(id: string, skip: boolean): Promise<{ ok?: boolean; error?: string }> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Só a recepção ou o administrador muda isso." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("patients").update({ skip_confirmation: skip }).eq("id", id);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/pacientes/${id}`);
+  revalidatePath("/agenda");
+  revalidatePath("/whatsapp");
+  return { ok: true };
+}

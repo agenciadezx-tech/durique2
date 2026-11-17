@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Users, Stethoscope, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Users, Stethoscope, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -17,6 +17,7 @@ import { CopyButton } from "@/components/copy-button";
 import { PatientFields } from "../patient-fields";
 import { levelLabel } from "@/lib/levels";
 import { SummaryEditor } from "./summary-editor";
+import { ConfirmBell, PatientMenu, type MenuItem } from "./header-actions";
 import { formatPhone } from "@/lib/format";
 
 export default async function PacientePage({
@@ -234,13 +235,55 @@ export default async function PacientePage({
   }
   const doneWeek = new Set((plans ?? []).flatMap((p) => p.exercise_logs.filter((l) => l.done_on > weekAgo).map((l) => l.done_on))).size;
 
+  const exercisesCard = ctx.canSeeClinical && (
+<Link href={`/pacientes/${patient.id}/exercicios`} className="block">
+            <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
+              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+                <Dumbbell size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Exercícios para casa</span>
+                <span className="text-sm text-muted">
+                  {(plans ?? []).length === 0 ? "Escolha da biblioteca com vídeo · aparece no app do paciente" : `Fez em ${doneWeek} dos últimos 7 dias`}
+                </span>
+              </span>
+              <ChevronRight size={20} className="text-faint" />
+            </Card>
+          </Link>
+  );
+  const pid = patient.id;
+  const menu: MenuItem[] = [
+    ...(ctx.canSeeClinical
+      ? [
+          {
+            href: `/pacientes/${pid}/prontuario/novo?tipo=evolucao`,
+            label: "Nova evolução",
+            icon: "NotebookPen" as const,
+            ...(consultaPkg || plano || series.length ? {} : { hint: "Precisa de pacote ou turma ativos", disabled: true }),
+          },
+          { href: `/pacientes/${pid}/prontuario/novo?tipo=avaliacao`, label: "Nova avaliação", icon: "ClipboardList" as const },
+          { href: `/pacientes/${pid}/exercicios`, label: "Passar exercícios para casa", icon: "Dumbbell" as const, hint: "Com vídeo, vai para o app do paciente" },
+        ]
+      : []),
+    ...(ctx.canManageAgenda && patient.active
+      ? [
+          { href: `/agenda/nova?paciente=${pid}`, label: "Agendar", icon: "CalendarDays" as const },
+          { href: `/pacientes/${pid}/vender`, label: "Vender pacote ou plano", icon: "Package" as const },
+        ]
+      : []),
+    ...(wa ? [{ href: wa, label: "Mandar WhatsApp", icon: "MessageCircle" as const, external: true }] : []),
+    ...(ctx.role !== "financeiro" ? [{ href: `/pacientes/${pid}?aba=documentos`, label: "Gerar documento", icon: "FileSignature" as const }] : []),
+    { href: `/pacientes/${pid}?aba=cadastro`, label: "Editar cadastro", icon: "Pencil" as const },
+    ...(patient.active && ctx.canManageAgenda ? [{ href: `/pacientes/${pid}?aba=cadastro#arquivar`, label: "Arquivar paciente", icon: "Archive" as const, tone: "bad" as const }] : []),
+  ];
+
   return (
     <>
-      <Link href="/pacientes" className="mb-3 inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden">
-        <span aria-hidden>←</span> Pacientes
-      </Link>
-      <header className="mb-4 flex flex-wrap items-center gap-4">
-        <span className="grid size-14 shrink-0 place-items-center rounded-full bg-accent-soft text-[18px] font-semibold text-accent">
+      <header className="mb-3 flex items-center gap-3">
+        <Link href="/pacientes" aria-label="Voltar para pacientes" className="-ml-2 grid size-10 shrink-0 place-items-center rounded-xl text-muted hover:bg-hover lg:hidden">
+          <ChevronLeft size={24} />
+        </Link>
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-accent-soft text-[16px] font-semibold text-accent lg:size-14 lg:text-[18px]">
           {patient.name
             .split(" ")
             .filter(Boolean)
@@ -250,27 +293,27 @@ export default async function PacientePage({
             .toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="text-[24px] leading-tight font-semibold tracking-tight">{patient.name}</h1>
-          <p className="flex flex-wrap items-center gap-x-2 text-[15px] text-muted">
+          <div className="flex items-center gap-2">
+            <h1 className="min-w-0 truncate text-[20px] leading-tight font-semibold tracking-tight lg:text-[24px]">{patient.name}</h1>
+            {patient.active && <ConfirmBell id={patient.id} skip={!!patient.skip_confirmation} canEdit={ctx.canManageAgenda} />}
+          </div>
+          <p className="flex flex-wrap items-center gap-x-2 text-[14px] text-muted lg:text-[15px]">
             {age != null && <span>{age} anos</span>}
             {age != null && patient.phone && <span aria-hidden>·</span>}
             {patient.phone && <span>{formatPhone(patient.phone)}</span>}
             {!patient.active && <Badge>Arquivado</Badge>}
             {patient.access_via && <Badge tone="info">{patient.access_via === "wellhub" ? "Wellhub" : "TotalPass"}</Badge>}
+            {patient.skip_confirmation && <Badge tone="warn">Não pede confirmação</Badge>}
           </p>
         </div>
-        <div className="flex gap-2">
-          {wa && (
+        {wa && (
+          <span className="hidden sm:block">
             <a href={wa} target="_blank" rel="noreferrer" className={buttonClass("secondary", "md")}>
               <MessageCircle size={18} /> WhatsApp
             </a>
-          )}
-          {ctx.canSeeClinical && (
-            <LinkButton href={`/pacientes/${patient.id}/prontuario/novo`} size="md">
-              <Plus size={18} /> Registrar
-            </LinkButton>
-          )}
-        </div>
+          </span>
+        )}
+        <PatientMenu items={menu} />
       </header>
 
       <div className="mb-4">
@@ -278,6 +321,31 @@ export default async function PacientePage({
       </div>
 
       {/* Vínculos */}
+      {!(consultaPkg || plano || series.length > 0 || sessions.length > 0) && patient.active ? (
+        <Card className="mb-5 p-5">
+          <span className="grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent">
+            <Package size={22} />
+          </span>
+          <p className="mt-3 text-[17px] font-semibold">{firstName(patient.name)} ainda não começou</p>
+          <p className="mt-1 text-[15px] text-muted">
+            Começa por um <strong className="text-ink">pacote de sessões</strong> (consultas, com alta no fim) ou entrando numa{" "}
+            <strong className="text-ink">turma fixa</strong> (aulas toda semana). Agenda, cobranças e prontuário seguem a partir daí.
+          </p>
+          {ctx.canManageAgenda && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <LinkButton href={`/pacientes/${patient.id}/vender`} size="md">
+                <Package size={18} /> Vender pacote ou plano
+              </LinkButton>
+              <LinkButton href="/horarios?v=fixos" size="md" variant="secondary">
+                <Users size={18} /> Colocar numa turma
+              </LinkButton>
+              <LinkButton href={`/agenda/nova?paciente=${patient.id}`} size="md" variant="ghost">
+                <CalendarDays size={18} /> Só agendar
+              </LinkButton>
+            </div>
+          )}
+        </Card>
+      ) : (
       <div className="mb-5 grid gap-3 sm:grid-cols-2">
         <Card className="p-4">
           <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-muted uppercase">
@@ -352,6 +420,7 @@ export default async function PacientePage({
           )}
         </Card>
       </div>
+      )}
 
       {/* Abas */}
       <nav className="-mx-5 mb-6 flex gap-1 overflow-x-auto border-b border-line px-5 lg:mx-0 lg:px-0" aria-label="Seções do paciente">
@@ -375,6 +444,7 @@ export default async function PacientePage({
         {vendido && <Alert tone="ok">Venda registrada! As parcelas já estão em Contas a receber.</Alert>}
         {aba === "geral" && (
           <>
+        {exercisesCard}
         {credits && credits.length > 0 && (
           <Alert tone="info">
             {credits.length} reposição{credits.length === 1 ? "" : "ões"} disponível{credits.length === 1 ? "" : "is"} · a primeira vence em{" "}
@@ -592,22 +662,7 @@ export default async function PacientePage({
           </Link>
         )}
 
-        {ctx.canSeeClinical && (
-          <Link href={`/pacientes/${patient.id}/exercicios`} className="block">
-            <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
-                <Dumbbell size={20} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-semibold">Exercícios para casa</span>
-                <span className="text-sm text-muted">
-                  {(plans ?? []).length === 0 ? "Passe exercícios com vídeo pelo link do aluno" : `Fez em ${doneWeek} dos últimos 7 dias`}
-                </span>
-              </span>
-              <ChevronRight size={20} className="text-faint" />
-            </Card>
-          </Link>
-        )}
+        {exercisesCard}
 
         {ctx.canSeeClinical && evos.length > 0 && (
           <Section title="Evolução nas aulas">
@@ -930,7 +985,7 @@ export default async function PacientePage({
         </Section>
 
         {ctx.canManageAgenda && (
-          <form action={setPatientActive}>
+          <form action={setPatientActive} id="arquivar" className="scroll-mt-24">
             <input type="hidden" name="id" value={patient.id} />
             <input type="hidden" name="active" value={String(!patient.active)} />
             <SubmitButton variant="ghost" size="md" pendingText="Aguarde…" className="text-muted">

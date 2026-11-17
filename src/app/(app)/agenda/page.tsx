@@ -43,7 +43,7 @@ type Attendee = {
   status: string;
   is_makeup: boolean;
   booked_online: boolean;
-  patients: { name: string; access_via: string | null } | null;
+  patients: { name: string; access_via: string | null; skip_confirmation: boolean } | null;
 };
 type Appt = {
   id: string;
@@ -85,7 +85,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name, access_via))",
+        "id, starts_at, ends_at, capacity, status, series_id, services(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(id, patient_id, status, is_makeup, booked_online, patients(name, access_via, skip_confirmation))",
       )
       .eq("clinic_id", ctx.clinicId)
       .gte("starts_at", from)
@@ -93,7 +93,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       .order("starts_at"),
     supabase
       .from("appointments")
-      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(status, patients(name))")
+      .select("id, starts_at, ends_at, capacity, services(name, kind), professionals(id, name, color), recurring_series(name), appointment_attendees(status, patients(name, skip_confirmation))")
       .eq("clinic_id", ctx.clinicId)
       .eq("status", "agendado")
       .gte("starts_at", weekRange.from)
@@ -156,7 +156,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   for (const a of scoped) {
     const ended = Date.parse(a.ends_at) < now;
     const startsIn = Date.parse(a.starts_at) - now;
-    const waiting = a.appointment_attendees.filter((t) => t.status === "agendado").length;
+    const waiting = a.appointment_attendees.filter((t) => t.status === "agendado" && !t.patients?.skip_confirmation).length;
     flags.set(a.id, {
       chamada: ended && a.appointment_attendees.some((t) => t.status === "agendado" || t.status === "confirmado"),
       evolucao: ended && ctx.canSeeClinical && canEvolve(a) && !evolved.has(a.id) && a.appointment_attendees.some((t) => t.status === "presente"),

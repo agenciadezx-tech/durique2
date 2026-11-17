@@ -82,13 +82,15 @@ async function Lembretes({ day, isToday, tpl, clinic, clinicId }: { day: string;
   const { from, to } = dayRange(day);
   const { data } = await supabase
     .from("appointment_attendees")
-    .select("id, status, patients(id, name, phone, portal_token), appointments!inner(id, starts_at, status, services(name), professionals(name))")
+    .select("id, status, patients(id, name, phone, portal_token, skip_confirmation), appointments!inner(id, starts_at, status, services(name), professionals(name))")
     .eq("clinic_id", clinicId)
     .gte("appointments.starts_at", from)
     .lt("appointments.starts_at", to)
     .eq("appointments.status", "agendado")
     .in("status", ["agendado", "confirmado", "desmarcado_no_prazo", "desmarcado_fora_prazo"]);
-  const rows = ((data ?? []) as unknown as Att[]).sort((a, b) =>
+  const rows = ((data ?? []) as unknown as (Att & { patients: { skip_confirmation?: boolean } | null })[])
+    .filter((r) => !r.patients?.skip_confirmation)
+    .sort((a, b) =>
     a.appointments.starts_at === b.appointments.starts_at
       ? (a.patients?.name ?? "").localeCompare(b.patients?.name ?? "")
       : a.appointments.starts_at.localeCompare(b.appointments.starts_at),

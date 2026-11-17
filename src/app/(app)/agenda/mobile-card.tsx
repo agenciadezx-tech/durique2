@@ -11,7 +11,7 @@ export type MobileAppt = {
   capacity: number;
   services: { name: string; kind: string } | null;
   recurring_series?: { name: string | null } | null;
-  appointment_attendees: { status: string; patients: { name: string } | null }[];
+  appointment_attendees: { status: string; patients: { name: string; skip_confirmation?: boolean } | null }[];
 };
 
 const STATUS: Record<string, { l: string; c: string }> = {
@@ -34,7 +34,7 @@ export function MobileApptCard({ a, flag, now, href }: { a: MobileAppt; flag?: {
     (aula
       ? { l: "Turma", c: "bg-chart-out/12 text-chart-out" }
       : person
-        ? (STATUS[person.status] ?? (future ? { l: "A confirmar", c: "bg-warn-soft text-warn" } : null))
+        ? (STATUS[person.status] ?? (future && !person.patients?.skip_confirmation ? { l: "A confirmar", c: "bg-warn-soft text-warn" } : null))
         : null);
   return (
     <Link

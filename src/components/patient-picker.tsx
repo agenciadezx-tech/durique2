@@ -10,9 +10,9 @@ type P = { id: string; name: string; phone?: string | null };
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** Busca de paciente amigável: digita parte do nome e toca. Envia `name` no formulário. */
-export function PatientPicker({ patients, name = "patient_id" }: { patients: P[]; name?: string }) {
+export function PatientPicker({ patients, name = "patient_id", initialId }: { patients: P[]; name?: string; initialId?: string }) {
   const [q, setQ] = useState("");
-  const [picked, setPicked] = useState<P | null>(null);
+  const [picked, setPicked] = useState<P | null>(() => patients.find((p) => p.id === initialId) ?? null);
   const list = useMemo(() => {
     const t = norm(q.trim());
     const digits = q.replace(/\D/g, "");

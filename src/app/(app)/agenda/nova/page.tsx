@@ -9,10 +9,10 @@ import { createAppointment } from "../actions";
 
 export const metadata = { title: "Agendar" };
 
-export default async function NovaSessaoPage({ searchParams }: { searchParams: Promise<{ d?: string; pro?: string; h?: string; tipo?: string }> }) {
+export default async function NovaSessaoPage({ searchParams }: { searchParams: Promise<{ d?: string; pro?: string; h?: string; tipo?: string; paciente?: string }> }) {
   const ctx = await getContext();
   if (!ctx.canManageAgenda) redirect("/agenda");
-  const { d, pro, h, tipo } = await searchParams;
+  const { d, pro, h, tipo, paciente } = await searchParams;
   const hour = h && /^\d{2}:\d{2}$/.test(h) ? h : "08:00";
   const day = d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : todayISO();
   const supabase = await createClient();
@@ -39,7 +39,7 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
         <Card className="p-5 sm:p-7">
           <ActionForm action={createAppointment}>
             <Field label="Paciente" hint="Pode deixar em branco e adicionar depois.">
-              <PatientPicker patients={patients ?? []} />
+              <PatientPicker patients={patients ?? []} initialId={paciente} />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Serviço">
