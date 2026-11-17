@@ -445,7 +445,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         )}
         {view === "semana" && ctx.canManageAgenda && (
           <Link href={`/agenda/nova?d=${day}`} className={cx(buttonClass("primary", "md"), "ml-auto")}>
-            <Plus size={18} /> Agendar
+            <Plus size={18} /> Nova consulta
           </Link>
         )}
         {view !== "semana" && (
@@ -539,9 +539,12 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                     <Plus size={20} />
                   </span>
                   <span>
-                    <span className="block font-semibold">Agendar</span>
-                    <span className="block text-[12px] text-white/80">Consulta ou alguém numa aula</span>
+                    <span className="block font-semibold">Nova consulta</span>
+                    <span className="block text-[12px] text-white/80">Paciente antigo ou novo, na hora</span>
                   </span>
+                </Link>
+                <Link href="/horarios/novo" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line text-sm font-medium hover:bg-hover">
+                  <Users size={15} className="text-accent" /> Nova turma
                 </Link>
                 <Link href={`/agenda/bloquear?d=${day}`} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm font-medium text-muted hover:bg-hover">
                   <Lock size={15} /> Bloquear horário

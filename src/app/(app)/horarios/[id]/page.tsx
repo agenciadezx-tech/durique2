@@ -123,7 +123,7 @@ export default async function HorarioPage({
               <ActionForm action={enroll} resetOnSuccess>
                 <input type="hidden" name="series_id" value={s.id} />
                 <p className="font-medium">Adicionar paciente fixo</p>
-                <PatientPicker key={enrolled.length} patients={available} />
+                <PatientPicker key={enrolled.length} patients={available} allowNew />
                 <SubmitButton size="md" pendingText="Adicionando…">
                   Adicionar a este horário
                 </SubmitButton>

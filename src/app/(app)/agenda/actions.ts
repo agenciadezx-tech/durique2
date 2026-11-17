@@ -5,10 +5,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
 import { friendlyError, toTimestamp } from "@/lib/format";
+import { resolvePatient } from "@/lib/quick-patient";
 import { formatTime } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
 
 const NO_PERM = { error: "Você não tem permissão para alterar a agenda." };
+
 
 /** Veio / Faltou / Desmarcou / Voltar. "Desmarcou" decide sozinho se foi no prazo. */
 export async function setAttendeeStatus(data: FormData) {
@@ -59,9 +61,11 @@ export async function addAttendee(_: ActionState, data: FormData): Promise<Actio
   const ctx = await getContext();
   if (!ctx.canManageAgenda) return NO_PERM;
   const appointmentId = String(data.get("appointment_id"));
-  const patientId = String(data.get("patient_id") ?? "");
-  if (!patientId) return { error: "Escolha um paciente." };
   const supabase = await createClient();
+  const who = await resolvePatient(supabase, ctx.clinicId, data);
+  if (who.error) return { error: who.error };
+  const patientId = who.id;
+  if (!patientId) return { error: "Escolha um paciente ou cadastre um novo." };
   const { error } = await supabase.from("appointment_attendees").insert({
     clinic_id: ctx.clinicId,
     appointment_id: appointmentId,
@@ -71,7 +75,7 @@ export async function addAttendee(_: ActionState, data: FormData): Promise<Actio
   if (error) return { error: friendlyError(error) };
   revalidatePath(`/agenda/${appointmentId}`);
   revalidatePath("/agenda");
-  return { ok: "Paciente adicionado à sessão." };
+  return { ok: who.created ? "Paciente novo cadastrado e adicionado." : "Paciente adicionado à sessão." };
 }
 
 export async function removeAttendee(data: FormData) {
@@ -113,11 +117,13 @@ export async function createAppointment(_: ActionState, data: FormData): Promise
   const professionalId = String(data.get("professional_id") ?? "");
   const date = String(data.get("date") ?? "");
   const time = String(data.get("time") ?? "");
-  const patientId = String(data.get("patient_id") ?? "");
   if (!serviceId || !professionalId) return { error: "Escolha o serviço e o profissional." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Informe dia e horário." };
 
   const supabase = await createClient();
+  const who = await resolvePatient(supabase, ctx.clinicId, data);
+  if (who.error) return { error: who.error };
+  const patientId = who.id;
   const { data: service } = await supabase.from("services").select("duration_min, default_capacity, kind").eq("id", serviceId).single();
   if (!service) return { error: "Serviço não encontrado." };
   const duration = Number(data.get("duration_min")) || service.duration_min;

@@ -1,5 +1,7 @@
 "use server";
 
+import { resolvePatient } from "@/lib/quick-patient";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -61,15 +63,17 @@ export async function enroll(_: ActionState, data: FormData): Promise<ActionStat
   const ctx = await getContext();
   if (!ctx.canManageAgenda) return NO_PERM;
   const seriesId = String(data.get("series_id"));
-  const patientId = String(data.get("patient_id") ?? "");
-  if (!patientId) return { error: "Escolha um paciente." };
   const supabase = await createClient();
+  const who = await resolvePatient(supabase, ctx.clinicId, data);
+  if (who.error) return { error: who.error };
+  const patientId = who.id;
+  if (!patientId) return { error: "Escolha um paciente ou cadastre um novo." };
   const { error } = await supabase.rpc("enroll_patient", { p_series: seriesId, p_patient: patientId });
   if (error) return { error: friendlyError(error) };
   revalidatePath(`/horarios/${seriesId}`);
   revalidatePath("/horarios");
   revalidatePath("/agenda");
-  return { ok: "Paciente adicionado. Ele já aparece nas próximas sessões." };
+  return { ok: who.created ? "Paciente novo cadastrado e colocado na turma." : "Paciente adicionado. Ele já aparece nas próximas sessões." };
 }
 
 export async function unenroll(data: FormData) {

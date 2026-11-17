@@ -422,7 +422,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
             <div className="border-t border-line p-5">
               <ActionForm action={addAttendee} resetOnSuccess>
                 <input type="hidden" name="appointment_id" value={appt.id} />
-                <PatientPicker key={occupied} patients={available} />
+                <PatientPicker key={occupied} patients={available} allowNew />
                 {appt.capacity > 1 && (
                   <label className="flex items-center gap-2.5 text-[15px]">
                     <input type="checkbox" name="is_makeup" className="size-5 accent-[var(--color-accent)]" />

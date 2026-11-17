@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarPlus, Lock, Plus, RefreshCcw, Sparkles, X } from "lucide-react";
+import { CalendarPlus, Lock, Plus, RefreshCcw, Sparkles, Users, X } from "lucide-react";
 import { cx } from "@/components/ui";
 
 /** Botão + do celular: abre os atalhos da agenda em cima do botão. */
@@ -10,12 +10,13 @@ export function AgendaFab({ day, full }: { day: string; full: boolean }) {
   const [open, setOpen] = useState(false);
   const items = full
     ? [
-        { href: `/agenda/bloquear?d=${day}`, icon: Lock, label: "Bloquear horário" },
+        { href: `/agenda/nova?d=${day}`, icon: CalendarPlus, label: "Nova consulta", main: true },
+        { href: "/horarios/novo", icon: Users, label: "Nova turma", main: true },
         { href: "/agenda/vagas?motivo=experimental", icon: Sparkles, label: "Aula experimental" },
         { href: "/agenda/vagas?motivo=reposicao", icon: RefreshCcw, label: "Repor aula" },
-        { href: `/agenda/nova?d=${day}`, icon: CalendarPlus, label: "Agendar" },
+        { href: `/agenda/bloquear?d=${day}`, icon: Lock, label: "Bloquear horário" },
       ]
-    : [{ href: `/agenda/bloquear?d=${day}`, icon: Lock, label: "Bloquear meu horário" }];
+    : [{ href: `/agenda/bloquear?d=${day}`, icon: Lock, label: "Bloquear meu horário", main: false }];
   return (
     <div className="lg:hidden print:hidden">
       {open && <button type="button" aria-label="Fechar atalhos" onClick={() => setOpen(false)} className="fixed inset-0 z-30 bg-ink/35" />}
@@ -26,10 +27,13 @@ export function AgendaFab({ day, full }: { day: string; full: boolean }) {
               key={i.href}
               href={i.href}
               onClick={() => setOpen(false)}
-              className="flex min-h-13 items-center gap-3 rounded-full bg-surface py-2 pr-5 pl-2 text-[16px] font-semibold shadow-lg"
+              className={cx(
+                "flex min-h-13 items-center gap-3 rounded-full py-2 pr-5 pl-2 text-[16px] font-semibold shadow-lg",
+                "main" in i && i.main ? "bg-accent text-white" : "bg-surface",
+              )}
               style={{ animation: `fab-in 160ms ease-out ${(items.length - n) * 25}ms both` }}
             >
-              <span className="grid size-9 place-items-center rounded-full bg-accent-soft text-accent">
+              <span className={cx("grid size-9 place-items-center rounded-full", "main" in i && i.main ? "bg-white/20 text-white" : "bg-accent-soft text-accent")}>
                 <i.icon size={18} />
               </span>
               {i.label}

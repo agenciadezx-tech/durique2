@@ -25,7 +25,7 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
   return (
     <>
       <PageHeader
-        title={tipo === "experimental" ? "Aula experimental" : "Agendar"}
+        title={tipo === "experimental" ? "Aula experimental" : tipo === "aula" ? "Agendar aula" : "Nova consulta"}
         description={tipo === "experimental" ? "Marque a primeira aula de quem ainda não é aluno. Cadastre a pessoa antes em Pacientes, se for nova." : "Uma consulta ou um atendimento avulso. Para algo que se repete toda semana, crie uma turma em Turmas."}
         back={{ href: `/agenda?d=${day}`, label: "Agenda" }}
       />
@@ -38,8 +38,8 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
       ) : (
         <Card className="p-5 sm:p-7">
           <ActionForm action={createAppointment}>
-            <Field label="Paciente" hint="Pode deixar em branco e adicionar depois.">
-              <PatientPicker patients={patients ?? []} initialId={paciente} />
+            <Field label="Paciente" hint="Busque pelo nome ou telefone. Se for a primeira vez, toque em “Cadastrar paciente novo”.">
+              <PatientPicker patients={patients ?? []} initialId={paciente} allowNew />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Serviço">
