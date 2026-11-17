@@ -46,6 +46,7 @@ export default async function AjustesPage() {
       <PageHeader title="Minha clínica" description="Sua clínica, equipe e serviços." />
       <nav aria-label="Assuntos" className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
         {[
+          { href: "/configurar", title: "Assistente de configuração", show: admin },
           { href: "#clinica", title: "Dados da clínica", show: true },
           { href: "#equipe", title: "Equipe e acessos", show: admin },
           { href: "#profissionais", title: "Profissionais e comissões", show: true },

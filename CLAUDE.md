@@ -72,7 +72,7 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Categorias do financeiro com cor (`categories.color`): `/financeiro/categorias`; bolinha da cor nos lançamentos. Automáticas (`system_key`) não podem ser guardadas.
 - Feriados e dias fechados: `/ajustes/feriados` (feriados nacionais calculados em `src/lib/holidays.ts`) → `time_blocks` da clínica toda no dia.
 - Minha clínica abre com cartões por assunto (âncoras `#clinica`, `#equipe`, `#profissionais`, `#regras`, `#pix`, `#apps`, `#documentos`, `#whatsapp`, `#conta`).
-- Primeiros passos: `src/components/first-steps.tsx` na tela Hoje (só admin), some quando os 7 passos estão feitos.
+- Assistente "Configurar clínica": `/configurar?passo=1..8|fim` (só admin; `/comecar` leva para lá). Passos em `src/lib/setup.ts`: tipo (`clinics.practice_type` fisio/aulas/ambos), pacientes (planilha ou à mão), WhatsApp, horários (`clinic_hours` + `clinics.session_minutes`; profissional sem horário próprio recebe o da clínica em `availability`), serviços e valores (`services-editor.tsx`, sugestões conforme o tipo, vagas por turma), dados da clínica (`clinics.cep/address/cnpj/legal_responsible/responsible_crefito`), página da clínica (link) e equipe (convites). Concluir grava `setup_completed_at`; "Não preciso de ajuda" grava `setup_dismissed`. A barra `src/components/first-steps.tsx` na tela Hoje mostra "Configurar clínica · N de 8 · Continuar" até concluir/dispensar.
 
 ## Conceitos do WhatsApp
 - `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).
