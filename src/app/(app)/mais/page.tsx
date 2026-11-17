@@ -16,6 +16,9 @@ import {
   Receipt,
   Users,
   Wallet,
+  Activity,
+  Funnel,
+  ListChecks,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui";
@@ -33,6 +36,7 @@ export default async function MaisPage() {
       title: "Dinheiro",
       items: [
         { href: "/financeiro", icon: Wallet, title: "Financeiro", text: "Quanto entrou, o que falta receber e as contas", show: finance },
+        { href: "/financeiro/saude", icon: Activity, title: "Saúde do negócio", text: "Metas do mês e o que fazer esta semana", show: ctx.canSeeExpenses },
         { href: "/financeiro/cobrancas", icon: HandCoins, title: "Cobranças", text: "Quem está devendo, cobrar e dar baixa", show: finance },
         { href: "/financeiro/lancamentos", icon: Receipt, title: "Lançamentos", text: "Todas as entradas e saídas", show: finance },
         { href: "/financeiro/comissoes", icon: Percent, title: "Comissões", text: "Quanto cada profissional tem a receber", show: ctx.canSeeExpenses },
@@ -43,6 +47,8 @@ export default async function MaisPage() {
     {
       title: "Pacientes e divulgação",
       items: [
+        { href: "/contatos", icon: Funnel, title: "Novos contatos", text: "Quem se interessou e em que passo está", show: ctx.canManageAgenda },
+        { href: "/atendimentos", icon: ListChecks, title: "Atendimentos realizados", text: "Tudo o que foi feito no período, com filtros", show: finance },
         { href: "/whatsapp", icon: MessageCircle, title: "WhatsApp", text: "Lembretes, renovações e mensagens prontas", show: finance },
         { href: "/ajustes/agendamento-online", icon: CalendarPlus, title: "Página da clínica", text: "Agendamento online e entrada do paciente", show: ctx.isAdmin },
         { href: "/ajustes/pre-avaliacao", icon: ClipboardList, title: "Pré-avaliação", text: "Perguntas que o paciente responde antes de começar", show: ctx.isAdmin },

@@ -12,6 +12,7 @@ export function FinanceTabs({ showCommissions }: { showCommissions: boolean }) {
     { href: "/financeiro/lancamentos", label: "Lançamentos" },
     ...(showCommissions
       ? [
+          { href: "/financeiro/saude", label: "Saúde do negócio" },
           { href: "/financeiro/comissoes", label: "Comissões" },
           { href: "/financeiro/relatorios", label: "Relatórios" },
         ]

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Minus, Plus, Undo2, FileText } from "lucide-react";
+import { Minus, Plus, Undo2, FileText, Tags } from "lucide-react";
 import { ConfirmSubmit } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -23,7 +23,7 @@ type Tx = {
   payment_method: string | null;
   patient_id: string | null;
   patients: { name: string; phone: string | null } | null;
-  categories: { name: string } | null;
+  categories: { name: string; color: string | null } | null;
 };
 
 const FILTERS = [
@@ -50,7 +50,7 @@ export default async function LancamentosPage({
 
   let q = supabase
     .from("transactions")
-    .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name, phone), categories(name)")
+    .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name, phone), categories(name, color)")
     .eq("clinic_id", ctx.clinicId)
     .eq("type", f.type);
   if (f.paid) q = q.not("paid_on", "is", null).gte("paid_on", from).lte("paid_on", to).order("paid_on", { ascending: false });
@@ -64,7 +64,7 @@ export default async function LancamentosPage({
   if (!f.paid && !onlyLate && month === today.slice(0, 7)) {
     const { data: l } = await supabase
       .from("transactions")
-      .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name, phone), categories(name)")
+      .select("id, type, description, amount_cents, due_date, paid_on, payment_method, patient_id, patients(name, phone), categories(name, color)")
       .eq("clinic_id", ctx.clinicId)
       .eq("type", f.type)
       .is("paid_on", null)
@@ -88,6 +88,11 @@ export default async function LancamentosPage({
           {ctx.canSeeExpenses && (
             <LinkButton href="/financeiro/novo?tipo=despesa" variant="secondary" size="md">
               <Minus size={18} /> Despesa
+            </LinkButton>
+          )}
+          {ctx.canSeeExpenses && (
+            <LinkButton href="/financeiro/categorias" variant="secondary" size="md">
+              <Tags size={18} /> Categorias
             </LinkButton>
           )}
           {ctx.canSeeExpenses && (
@@ -166,6 +171,7 @@ export default async function LancamentosPage({
                       )}
                     </p>
                     <p className={cx("truncate text-sm", isLate ? "text-bad" : "text-muted")}>
+                      {t.categories?.color && <span aria-hidden className="mr-1.5 inline-block size-2.5 rounded-full align-middle" style={{ background: t.categories.color }} />}
                       {who ? t.description : t.categories?.name ?? (t.type === "receita" ? "Receita" : "Despesa")}
                       {isLate && " · vencido"}
                       {t.paid_on && t.payment_method && ` · ${PAY_LABEL[t.payment_method]}`}

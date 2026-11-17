@@ -11,7 +11,7 @@ const ITEMS = [
   { href: "/pacientes", label: "Pacientes", icon: Users, match: ["/pacientes"] },
   { href: "/horarios", label: "Turmas", icon: Repeat, match: ["/horarios"] },
   { href: "/catalogo", label: "Catálogo", icon: Tags, match: ["/catalogo"] },
-  { href: "/mais", label: "Mais", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes"] },
+  { href: "/mais", label: "Mais", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes", "/contatos", "/atendimentos"] },
 ];
 
 function useActive() {

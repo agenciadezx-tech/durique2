@@ -157,3 +157,51 @@ export async function chargeAttendee(_: ActionState, data: FormData): Promise<Ac
   refresh(`/agenda/${String(data.get("appointment_id"))}`);
   return { ok: paidNow ? "Pagamento registrado." : "Cobrança lançada em Contas a receber." };
 }
+
+/** Metas do painel "Saúde do negócio" (só administrador). */
+export async function saveGoals(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.isAdmin) return { error: "Somente o administrador define as metas." };
+  const { GOALS } = await import("@/lib/goals");
+  const rows: { clinic_id: string; key: string; target: number; updated_at: string }[] = [];
+  for (const g of GOALS) {
+    const raw = String(data.get(g.key) ?? "").trim();
+    if (!raw) continue;
+    const v = g.unit === "money" ? parseMoney(raw) : Number(raw.replace(",", "."));
+    if (v == null || !Number.isFinite(v) || v < (g.key === "nps" ? -100 : 0)) return { error: `Confira o valor de “${g.label}”.` };
+    rows.push({ clinic_id: ctx.clinicId, key: g.key, target: Math.max(0, v), updated_at: new Date().toISOString() });
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("clinic_goals").upsert(rows, { onConflict: "clinic_id,key" });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/financeiro/saude");
+  return { ok: "Metas salvas." };
+}
+
+const CAT_COLOR = /^#[0-9a-f]{6}$/i;
+
+/** Categorias do financeiro: criar, renomear, trocar a cor, guardar. */
+export async function saveCategory(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canSeeExpenses) return { error: "Sem permissão." };
+  const id = String(data.get("id") ?? "");
+  const name = String(data.get("name") ?? "").trim().slice(0, 60);
+  const color = String(data.get("color") ?? "");
+  if (!name) return { error: "Informe o nome da categoria." };
+  const values = { name, color: CAT_COLOR.test(color) ? color : null };
+  const supabase = await createClient();
+  const { error } = id
+    ? await supabase.from("categories").update(values).eq("id", id)
+    : await supabase.from("categories").insert({ ...values, clinic_id: ctx.clinicId, type: data.get("type") === "despesa" ? "despesa" : "receita" });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/financeiro", "layout");
+  return { ok: id ? "Categoria salva." : `“${name}” criada.` };
+}
+
+export async function toggleCategory(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canSeeExpenses) return;
+  const supabase = await createClient();
+  await supabase.from("categories").update({ active: data.get("active") === "1" }).eq("id", String(data.get("id"))).is("system_key", null);
+  revalidatePath("/financeiro", "layout");
+}

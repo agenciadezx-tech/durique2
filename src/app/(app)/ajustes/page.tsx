@@ -47,8 +47,31 @@ export default async function AjustesPage() {
   return (
     <>
       <PageHeader title="Minha clínica" description="Sua clínica, equipe e serviços." />
+      <nav aria-label="Assuntos" className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {[
+          { href: "#clinica", title: "Dados da clínica", show: true },
+          { href: "#equipe", title: "Equipe e acessos", show: admin },
+          { href: "#profissionais", title: "Profissionais e comissões", show: true },
+          { href: "#regras", title: "Regras de desmarcar", show: true },
+          { href: "/ajustes/feriados", title: "Feriados e dias fechados", show: ctx.canManageAgenda },
+          { href: "/ajustes/agendamento-online", title: "Horários e link da clínica", show: admin },
+          { href: "#pix", title: "Pix", show: admin },
+          { href: "#apps", title: "Wellhub e TotalPass", show: admin },
+          { href: "#documentos", title: "Contratos e termos", show: true },
+          { href: "#whatsapp", title: "Mensagens do WhatsApp", show: true },
+          { href: "/financeiro/categorias", title: "Categorias do financeiro", show: ctx.canSeeExpenses },
+          { href: "#conta", title: "Sua conta e exportar", show: true },
+        ]
+          .filter((i) => i.show)
+          .map((i) => (
+            <Link key={i.href} href={i.href} className="flex min-h-14 items-center justify-between gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-[15px] font-medium hover:bg-hover">
+              {i.title}
+              <ChevronRight size={16} className="shrink-0 text-faint" />
+            </Link>
+          ))}
+      </nav>
       <div className="space-y-10">
-        <Section title="Clínica">
+        <Section id="clinica" title="Clínica">
           <Card className="p-5 sm:p-6">
             <ActionForm action={renameClinic}>
               <Field label="Nome da clínica" htmlFor="clinic-name">
@@ -176,7 +199,17 @@ export default async function AjustesPage() {
           </Section>
         )}
 
-        <Section title="Profissionais">
+        <Section
+          id="profissionais"
+          title="Profissionais"
+          action={
+            ctx.canSeeExpenses ? (
+              <Link href="/financeiro/comissoes" className="inline-flex min-h-11 items-center text-sm font-medium text-accent">
+                Comissões do mês e pagar →
+              </Link>
+            ) : undefined
+          }
+        >
           <Card className="divide-y divide-line overflow-hidden">
             {(pros ?? []).map((p) => (
               <Disclosure
@@ -278,7 +311,7 @@ export default async function AjustesPage() {
         </Section>
 
 
-        <Section title="Regras da agenda">
+        <Section id="regras" title="Regras da agenda">
           <Card className="p-5 sm:p-6">
             <ActionForm action={saveRules}>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -378,7 +411,7 @@ export default async function AjustesPage() {
         )}
 
 
-        <Section title="Modelos de documentos">
+        <Section id="documentos" title="Modelos de documentos">
           <Card className="divide-y divide-line overflow-hidden">
             {(docTemplates ?? []).map((t) => (
               <Disclosure key={t.id} summary={<span className="font-medium">{t.name}</span>}>

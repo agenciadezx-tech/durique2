@@ -273,3 +273,27 @@ export async function saveApps(_: ActionState, data: FormData): Promise<ActionSt
   revalidatePath("/", "layout");
   return { ok: "Configuração salva." };
 }
+
+/** Feriado / dia fechado: bloqueia a clínica toda no dia (não aparece no agendamento online). */
+export async function setClosedDay(data: FormData) {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return;
+  const date = String(data.get("date") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+  const supabase = await createClient();
+  const from = `${date}T00:00:00-03:00`;
+  const to = `${date}T23:59:00-03:00`;
+  if (data.get("open") === "1") {
+    await supabase.from("time_blocks").delete().eq("clinic_id", ctx.clinicId).is("professional_id", null).eq("starts_at", new Date(from).toISOString());
+  } else {
+    await supabase.from("time_blocks").insert({
+      clinic_id: ctx.clinicId,
+      professional_id: null,
+      starts_at: from,
+      ends_at: to,
+      reason: String(data.get("reason") ?? "Feriado").trim().slice(0, 120) || "Feriado",
+    });
+  }
+  revalidatePath("/ajustes/feriados");
+  revalidatePath("/agenda");
+}

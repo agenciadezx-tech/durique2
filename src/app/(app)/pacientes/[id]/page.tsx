@@ -11,7 +11,7 @@ import { AttendeeBadge } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { addDaysISO, formatDateShort, formatMoney, formatTimestampShort, PAY_LABEL, todayISO, whatsappLink, WEEKDAYS } from "@/lib/format";
-import { createDocument, freezePackage, requestPreAssessment, setPackageStatus, setPatientActive, updatePatient } from "../actions";
+import { createDocument, freezePackage, registerDischarge, requestPreAssessment, setPackageStatus, setPatientActive, updatePatient } from "../actions";
 import { PreAnswers } from "@/components/pre-answers";
 import { CopyButton } from "@/components/copy-button";
 import { PatientFields } from "../patient-fields";
@@ -128,6 +128,14 @@ export default async function PacientePage({
   const levelSeries = evos.filter((e) => e.level != null).slice(0, 12).reverse();
   const { data: waSettings } = await supabase.from("whatsapp_settings").select("tpl_renovacao").eq("clinic_id", ctx.clinicId).maybeSingle();
   const weekAgo = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  const { data: dischargeRows } = await supabase
+    .from("discharges")
+    .select("id, kind, discharged_on, notes, created_at")
+    .eq("patient_id", id)
+    .order("discharged_on", { ascending: false })
+    .limit(10);
+  const discharges = dischargeRows ?? [];
+  const DISCHARGE_LABEL: Record<string, string> = { alta: "Recebeu alta", abandono: "Parou o tratamento", pausa: "Pausou o tratamento" };
 
   // ===== Pré-avaliação =====
   const { data: preStatus } = await supabase.rpc("pre_assessment_status", { p_patient: id });
@@ -209,6 +217,12 @@ export default async function PacientePage({
         icon: "doc" as const,
         text: d.signed_at ? `Assinou: ${d.title}` : `Documento gerado: ${d.title}`,
         href: `/pacientes/${id}/documentos/${d.id}`,
+      })),
+      ...discharges.map((x) => ({
+        at: `${x.discharged_on}T12:00:00-03:00`,
+        icon: "clin" as const,
+        text: DISCHARGE_LABEL[x.kind] ?? x.kind,
+        sub: x.notes ?? undefined,
       })),
       ...(recs ?? []).map((r) => ({
         at: r.created_at,
@@ -462,7 +476,7 @@ export default async function PacientePage({
                     : "Queixa, dor e histórico pelo celular antes de começar."}
                 </span>
               </span>
-              <form action={requestPreAssessment} className="flex gap-2">
+              <form action={requestPreAssessment} className="flex w-full flex-wrap gap-2 sm:w-auto">
                 <input type="hidden" name="patient_id" value={patient.id} />
                 <button name="kind" value="consulta" className={buttonClass("secondary", "sm")}>
                   Pedir (consulta)
@@ -488,6 +502,60 @@ export default async function PacientePage({
               </div>
             )}
             {erro === "pre" && <p className="mt-2 text-sm text-bad">Não foi possível criar o link. Tente de novo.</p>}
+          </Card>
+        )}
+
+        {aba === "geral" && ctx.role !== "financeiro" && (
+          <Card>
+            <details className="group">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-hover [&::-webkit-details-marker]:hidden">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ok-soft text-ok">
+                  <CheckCircle2 size={20} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold">Fim do tratamento</span>
+                  <span className="text-sm text-muted">
+                    {discharges[0]
+                      ? `${DISCHARGE_LABEL[discharges[0].kind]} em ${formatDateShort(discharges[0].discharged_on)}`
+                      : "Registre a alta, a pausa ou quando o paciente parar de vir."}
+                  </span>
+                </span>
+                <span className="text-sm text-muted group-open:hidden">Registrar</span>
+                <span className="hidden text-sm text-muted group-open:inline">Fechar</span>
+              </summary>
+              <div className="border-t border-line px-4 py-5">
+                <ActionForm action={registerDischarge} resetOnSuccess>
+                  <input type="hidden" name="patient_id" value={patient.id} />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="O que aconteceu">
+                      <Select name="kind" defaultValue="alta">
+                        <option value="alta">Recebeu alta (terminou o tratamento)</option>
+                        <option value="pausa">Pausou (vai voltar depois)</option>
+                        <option value="abandono">Parou de vir sem terminar</option>
+                      </Select>
+                    </Field>
+                    <Field label="Data">
+                      <Input type="date" name="discharged_on" defaultValue={today} max={today} required />
+                    </Field>
+                  </div>
+                  <Field label="Observação (opcional)" hint="Ex.: objetivo alcançado, voltou a correr.">
+                    <Input name="notes" maxLength={500} />
+                  </Field>
+                  <SubmitButton size="md">Registrar</SubmitButton>
+                  <p className="text-[13px] text-muted">O histórico continua guardado. Isso entra nos números de Saúde do negócio.</p>
+                </ActionForm>
+                {discharges.length > 0 && (
+                  <ul className="mt-5 divide-y divide-line border-t border-line text-sm">
+                    {discharges.map((x) => (
+                      <li key={x.id} className="py-2">
+                        <span className="font-medium">{DISCHARGE_LABEL[x.kind]}</span> · {formatDateShort(x.discharged_on)}
+                        {x.notes && <span className="text-muted"> · {x.notes}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </details>
           </Card>
         )}
 

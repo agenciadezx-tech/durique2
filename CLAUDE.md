@@ -64,13 +64,23 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 - Pré-avaliação: `pre_assessment_forms` (por clínica e tipo consulta/aula: campos Pedir/Obrig. + até 10 perguntas próprias; catálogo e padrões em `src/lib/pre-assessment.ts`), `pre_assessments` (token, cópia do formulário, respostas; leitura só clínica). RPCs `request_pre_assessment`, `pre_assessment_status` (sem respostas, p/ recepção), `get_pre_assessment`/`submit_pre_assessment` (página pública `/pre/[token]`; completa só CPF/nascimento/e-mail vazios). Respostas na aba Clínico e ao abrir uma nova avaliação.
 - Relatórios: RPC `report_overview` (admin/financeiro) → `/financeiro/relatorios` com `src/components/charts.tsx` (StatTile, ColumnChart, BarList; uma série por gráfico).
 
+## Gestão (Etapa 4)
+- Saúde do negócio: `/financeiro/saude` (aba do Financeiro, admin/financeiro) com RPC `business_health(clinic, de, até)` → caixa, Consultas (ocupação = sessões ÷ minutos de `availability`/50, valor médio do pacote, altas, "pararam no meio"), Aulas (vagas ocupadas, mensalidade média, entraram/saíram), sinais (novos contatos, faltas, NPS, confirmadas 7 dias), faltosos e atrasados. Metas em `clinic_goals` (chaves e padrões em `src/lib/goals.ts`, só admin edita). "Faça esta semana" sai desses números. Por profissional: gera × comissão × fica (`commission_report`).
+- Fim do tratamento: `discharges` (`alta`/`pausa`/`abandono`), cartão "Fim do tratamento" na aba Geral da ficha; aparece na linha do tempo.
+- Novos contatos (CRM): `leads` (admin/recepção), `/contatos` com colunas Novos → Em conversa → Avaliação marcada, abas Viraram pacientes / Não fecharam; "Virou paciente" (`convertLead`) cria/acha o paciente pelo WhatsApp. Quem marca pelo link pela 1ª vez entra sozinho como "Avaliação marcada" (`private.booking_patient`).
+- Atendimentos realizados: `/atendimentos` (atalhos de período, filtros profissional/serviço/tipo/situação) e CSV `/exportar/atendimentos` com os mesmos filtros (`src/lib/attendances.ts`).
+- Categorias do financeiro com cor (`categories.color`): `/financeiro/categorias`; bolinha da cor nos lançamentos. Automáticas (`system_key`) não podem ser guardadas.
+- Feriados e dias fechados: `/ajustes/feriados` (feriados nacionais calculados em `src/lib/holidays.ts`) → `time_blocks` da clínica toda no dia.
+- Minha clínica abre com cartões por assunto (âncoras `#clinica`, `#equipe`, `#profissionais`, `#regras`, `#pix`, `#apps`, `#documentos`, `#whatsapp`, `#conta`).
+- Primeiros passos: `src/components/first-steps.tsx` na tela Hoje (só admin), some quando os 7 passos estão feitos.
+
 ## Conceitos do WhatsApp
 - `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).
 - Modo manual: a Central `/whatsapp` monta a mensagem e abre `wa.me` com o texto; `message_log` registra o envio (`WaSendButton`).
 - Próximo passo: envio automático via Zapster (Edge Function + pg_cron), webhook para respostas 1/2.
 
 ## Interface (padrões)
-- Menu (igual no celular e no computador): Hoje (`/agenda`), Pacientes, Turmas (`/horarios`), Catálogo (`/catalogo`: serviços + pacotes/planos, Consultas × Aulas, aviso do que falta), Mais (`/mais`: Dinheiro · Pacientes e divulgação · Sua clínica, filtrado por papel). Financeiro (abas Resumo, Cobranças, Lançamentos, Comissões, Relatórios), WhatsApp e Minha clínica (`/ajustes`) ficam dentro de Mais.
+- Menu (igual no celular e no computador): Hoje (`/agenda`), Pacientes, Turmas (`/horarios`), Catálogo (`/catalogo`: serviços + pacotes/planos, Consultas × Aulas, aviso do que falta), Mais (`/mais`: Dinheiro · Pacientes e divulgação · Sua clínica, filtrado por papel). Financeiro (abas Resumo, Cobranças, Lançamentos, Saúde do negócio, Comissões, Relatórios), WhatsApp e Minha clínica (`/ajustes`) ficam dentro de Mais.
 - Tela Hoje: visões Dia / Por profissional (`pro-grid.tsx`, toque no vazio abre `/agenda/nova?pro=&h=`) / Semana; filtros `t=consultas|aulas`, `pro=`, `f=chamada|evolucao|confirmar|risco`; selos Chamada pendente / Evolução pendente / Em risco (< 2h sem confirmar); resumo Consultas × Aulas e "Para fazer hoje". Cores: consultas `chart-in`, aulas `chart-out`. Atalhos: Agendar, Bloquear horário (`time_blocks`, respeitado no agendamento online), Aula experimental e Repor aula (`/agenda/vagas`).
 - Textos em português simples, sem jargão ("Veio / Faltou / Desmarcou", não "presença/ausência").
 - Componentes em `src/components/ui.tsx` (Card, Field, Input, Select, Badge, EmptyState, PageHeader…) e `forms.tsx` (`ActionForm` com mensagens amigáveis, `SubmitButton`, `ConfirmSubmit` para ações destrutivas).

@@ -3,6 +3,8 @@ import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { buildCarneLeao, CARNE_LEAO_MAX_LINES } from "@/lib/carne-leao";
 import { monthRange } from "@/lib/format";
+import { loadAttendances, readFilters } from "@/lib/attendances";
+import { ATTENDEE_LABEL, type AttendeeStatus } from "@/components/status";
 
 // Exporta os dados da clínica em CSV (abre no Excel: separador ; e BOM UTF-8)
 const cell = (v: unknown) => {
@@ -84,6 +86,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tipo
         r.is_makeup ? "sim" : "não",
         r.appointments.status === "cancelado" ? "sim" : "não",
       ]),
+    );
+  } else if (tipo === "atendimentos" && ctx.role !== "profissional") {
+    const f = readFilters(Object.fromEntries(req.nextUrl.searchParams.entries()));
+    const rows = await loadAttendances(supabase, ctx.clinicId, f);
+    body = csv(
+      ["Data", "Hora", "Paciente", "Serviço", "Tipo", "Profissional", "Situação", "Reposição", "Vem por"],
+      rows.map((r) => {
+        const d = new Date(r.appointments.starts_at);
+        const aula = r.appointments.services?.kind === "turma" || r.appointments.capacity > 1;
+        return [
+          d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }),
+          r.patients?.name,
+          r.appointments.services?.name,
+          aula ? "Aula" : "Consulta",
+          r.appointments.professionals?.name,
+          ATTENDEE_LABEL[r.status as AttendeeStatus] ?? r.status,
+          r.is_makeup ? "sim" : "não",
+          r.patients?.access_via === "wellhub" ? "Wellhub" : r.patients?.access_via === "totalpass" ? "TotalPass" : "",
+        ];
+      }),
     );
   } else if (tipo === "financeiro" && ctx.canSeeExpenses) {
     const { data } = await supabase

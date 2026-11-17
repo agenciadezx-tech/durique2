@@ -240,3 +240,26 @@ export async function requestPreAssessment(data: FormData) {
   revalidatePath(`/pacientes/${id}`);
   redirect(`/pacientes/${id}?pre=${token}`);
 }
+
+/** Alta, pausa ou abandono do tratamento (só registra; não apaga nada). */
+export async function registerDischarge(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (ctx.role === "financeiro") return { error: "Sem permissão." };
+  const kind = String(data.get("kind"));
+  if (!["alta", "pausa", "abandono"].includes(kind)) return { error: "Escolha o que aconteceu." };
+  const date = String(data.get("discharged_on") ?? "") || todayISO();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayISO()) return { error: "Confira a data." };
+  const patientId = String(data.get("patient_id"));
+  const supabase = await createClient();
+  const { error } = await supabase.from("discharges").insert({
+    clinic_id: ctx.clinicId,
+    patient_id: patientId,
+    kind,
+    discharged_on: date,
+    notes: String(data.get("notes") ?? "").trim() || null,
+    professional_id: ctx.professionalId,
+  });
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/pacientes/${patientId}`);
+  return { ok: kind === "alta" ? "Alta registrada. Parabéns pelo resultado!" : "Registrado." };
+}

@@ -24,6 +24,7 @@ import { WeekGrid, type GridAppt } from "./week-grid";
 import { ProGrid, type ProGridAppt, type ProGridBlock } from "./pro-grid";
 import { removeBlock } from "./actions";
 import { WaSendButton } from "@/components/wa-send";
+import { FirstSteps } from "@/components/first-steps";
 import { firstName } from "@/lib/messages";
 import { proColor } from "@/lib/colors";
 import { isActiveAttendee } from "@/components/status";
@@ -324,6 +325,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           </div>
         </div>
       </header>
+
+      {ctx.isAdmin && isTodayView && <FirstSteps clinicId={ctx.clinicId} />}
 
       {/* Filtros */}
       <div className="-mx-5 mb-5 flex gap-2 overflow-x-auto px-5 pb-1 lg:mx-0 lg:flex-wrap lg:px-0">
