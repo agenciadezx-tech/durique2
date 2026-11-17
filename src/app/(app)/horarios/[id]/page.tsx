@@ -7,19 +7,19 @@ import { Alert, Avatar, Card, PageHeader, Section } from "@/components/ui";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatDateShort, formatTimestampShort, todayISO, WEEKDAYS } from "@/lib/format";
-import { endSeries, enroll, renameSeries, unenroll } from "../actions";
-import { Field, Input } from "@/components/ui";
+import { endSeries, enroll, unenroll } from "../actions";
+import { EditSeries } from "./edit-series";
 
 export default async function HorarioPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ novo?: string }>;
+  searchParams: Promise<{ novo?: string; editado?: string }>;
 }) {
   const ctx = await getContext();
   const { id } = await params;
-  const { novo } = await searchParams;
+  const { novo, editado } = await searchParams;
   const supabase = await createClient();
   const today = todayISO();
 
@@ -32,7 +32,7 @@ export default async function HorarioPage({
   const service = s.services as unknown as { name: string; kind: string } | null;
   const pro = s.professionals as unknown as { name: string } | null;
 
-  const [{ data: enrollments }, { data: next }, { data: patients }] = await Promise.all([
+  const [{ data: enrollments }, { data: next }, { data: patients }, { data: services }, { data: pros }] = await Promise.all([
     supabase
       .from("enrollments")
       .select("id, starts_on, patients(id, name)")
@@ -50,6 +50,8 @@ export default async function HorarioPage({
     ctx.canManageAgenda
       ? supabase.from("patients").select("id, name, phone").eq("clinic_id", ctx.clinicId).eq("active", true).order("name").limit(2000)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    supabase.from("services").select("id, name, kind, duration_min").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
+    supabase.from("professionals").select("id, name, color").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
   ]);
 
   const enrolled = (enrollments ?? []).map((e) => ({ ...e, patient: e.patients as unknown as { id: string; name: string } }));
@@ -63,26 +65,45 @@ export default async function HorarioPage({
         title={s.name ?? `${WEEKDAYS[s.weekday]} · ${s.start_time.slice(0, 5)}`}
         description={`${s.name ? `${WEEKDAYS[s.weekday]} · ${s.start_time.slice(0, 5)} · ` : ""}${service?.name} com ${pro?.name} · ${s.duration_min} min`}
         back={{ href: "/horarios", label: "Turmas" }}
+        action={
+          ctx.canManageAgenda &&
+          s.active && (
+            <EditSeries
+              s={{
+                id: s.id,
+                name: s.name,
+                weekday: s.weekday,
+                start: s.start_time.slice(0, 5),
+                duration: s.duration_min,
+                service_id: s.service_id,
+                professional_id: s.professional_id,
+                capacity: s.capacity,
+                enrolled: (enrollments ?? []).length,
+              }}
+              services={services ?? []}
+              pros={pros ?? []}
+              endSlot={
+    <form action={endSeries}>
+      <input type="hidden" name="series_id" value={s.id} />
+      <ConfirmSubmit size="md" variant="ghost" className="text-bad!" question="Encerrar esta turma? As próximas aulas serão canceladas. O histórico dos alunos fica guardado.">
+        Encerrar turma
+      </ConfirmSubmit>
+    </form>
+              }
+            />
+          )
+        }
       />
 
       <div className="space-y-8">
         {novo && <Alert tone="ok">Horário criado e lançado na agenda das próximas 8 semanas. Agora adicione os pacientes fixos.</Alert>}
         {!s.active && <Alert tone="info">Este horário foi encerrado.</Alert>}
 
-        {ctx.canManageAgenda && s.active && (
-          <Card className="p-4">
-            <ActionForm action={renameSeries} className="flex flex-wrap items-end gap-3 space-y-0!">
-              <input type="hidden" name="id" value={s.id} />
-              <div className="min-w-56 flex-1">
-                <Field label="Nome da turma" hint="Aparece na agenda, na chamada e no app do aluno.">
-                  <Input name="name" defaultValue={s.name ?? ""} maxLength={60} placeholder={`Ex.: ${service?.name ?? "Pilates"} manhã`} />
-                </Field>
-              </div>
-              <SubmitButton size="md" variant="secondary">
-                Salvar nome
-              </SubmitButton>
-            </ActionForm>
-          </Card>
+        {editado != null && (
+          <Alert tone="ok">
+            Turma atualizada.{" "}
+            {Number(editado) > 0 ? `${editado} próxima${Number(editado) === 1 ? "" : "s"} aula${Number(editado) === 1 ? "" : "s"} mudou${Number(editado) === 1 ? "" : "aram"} junto.` : ""}
+          </Alert>
         )}
 
         <Section

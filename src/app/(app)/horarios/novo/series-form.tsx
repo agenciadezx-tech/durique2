@@ -16,7 +16,7 @@ const plus = (t: string, m: number) => {
   const x = Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) + m;
   return `${String(Math.floor(x / 60) % 24).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
 };
-const label = "mb-2 block text-[14px] font-semibold text-muted";
+const label = "mb-2 block text-[14px] font-semibold text-accent";
 
 /** Nova turma: serviço e professor em botões, grade de horários (vários horários × dias), vagas com − e +. */
 export function SeriesForm({ services, pros, today }: { services: Service[]; pros: Pro[]; today: string }) {

@@ -88,7 +88,7 @@ export function PageHeader({
           <ChevronLeft size={20} />
         </Link>
       )}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[11rem] flex-1">
         <h1 className="text-[26px] leading-tight font-semibold tracking-tight">{title}</h1>
         {description && <p className="mt-1 text-[15px] text-muted">{description}</p>}
       </div>
@@ -110,7 +110,7 @@ export function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
+      <label htmlFor={htmlFor} className="block text-[14px] font-semibold text-accent">
         {label}
       </label>
       {children}

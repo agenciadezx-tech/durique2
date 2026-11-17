@@ -25,10 +25,14 @@ export function VoiceNote({ kind, aiOn, onFill, onPlain }: { kind: "avaliacao" |
   const [listening, setListening] = useState(false);
   const [text, setText] = useState("");
   const [interim, setInterim] = useState("");
+  const textRef = useRef("");
+  textRef.current = text;
   const [msg, setMsg] = useState<{ ok?: string; error?: string } | null>(null);
   const [pending, start] = useTransition();
   const rec = useRef<Rec | null>(null);
   const want = useRef(false);
+  const base = useRef(""); // texto que já estava antes desta rodada de escuta
+  const session = useRef(""); // texto final desta rodada
 
   useEffect(() => {
     const w = window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec };
@@ -40,21 +44,29 @@ export function VoiceNote({ kind, aiOn, onFill, onPlain }: { kind: "avaliacao" |
     r.continuous = true;
     r.interimResults = true;
     r.onresult = (e) => {
+      // Reconstrói a fala inteira desta rodada a partir de TODOS os resultados.
+      // (No Chrome do Android os resultados chegam repetidos/acumulados; somar pedaço a pedaço duplicava o texto.)
       let fin = "";
       let mid = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      for (let i = 0; i < e.results.length; i++) {
         const res = e.results[i];
-        if (res.isFinal) fin += res[0].transcript;
-        else mid += res[0].transcript;
+        const t = res[0].transcript.trim();
+        if (!t) continue;
+        if (res.isFinal) fin = mergeSpeech(fin, t);
+        else mid = mergeSpeech(mid, t);
       }
-      if (fin) setText((t) => (t ? `${t.trimEnd()} ${fin.trim()}` : fin.trim()));
+      session.current = fin;
       setInterim(mid);
+      setText(joinText(base.current, fin));
     };
     r.onerror = (e) => {
       if (e.error === "not-allowed") setMsg({ error: "Libere o microfone para este site (ícone ao lado do endereço)." });
     };
     r.onend = () => {
       setInterim("");
+      // fecha a rodada: o que foi falado passa a ser a base da próxima
+      base.current = joinText(base.current, session.current);
+      session.current = "";
       if (want.current) {
         try {
           r.start(); // o navegador para sozinho depois de um silêncio; continua enquanto o botão estiver ligado
@@ -79,6 +91,8 @@ export function VoiceNote({ kind, aiOn, onFill, onPlain }: { kind: "avaliacao" |
       setListening(false);
     } else {
       want.current = true;
+      base.current = textRef.current;
+      session.current = "";
       try {
         rec.current.start();
       } catch {
@@ -127,7 +141,11 @@ export function VoiceNote({ kind, aiOn, onFill, onPlain }: { kind: "avaliacao" |
         <div className="mt-3 space-y-2">
           <textarea
             value={text + (interim ? ` ${interim}` : "")}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              base.current = e.target.value;
+              session.current = "";
+            }}
             rows={4}
             aria-label="Texto ditado"
             placeholder={listening ? "Pode falar…" : ""}
@@ -143,7 +161,13 @@ export function VoiceNote({ kind, aiOn, onFill, onPlain }: { kind: "avaliacao" |
                 Colocar no prontuário
               </button>
             )}
-            <button type="button" onClick={() => setText("")} className={buttonClass("ghost", "md")}>
+            <button
+              type="button"
+              onClick={() => {
+                setText("");
+                base.current = "";
+                session.current = "";
+              }} className={buttonClass("ghost", "md")}>
               Limpar
             </button>
           </div>
@@ -153,4 +177,20 @@ export function VoiceNote({ kind, aiOn, onFill, onPlain }: { kind: "avaliacao" |
       {msg?.ok && <p className="mt-2 text-sm font-medium text-ok">{msg.ok}</p>}
     </div>
   );
+}
+
+function joinText(a: string, b: string) {
+  if (!b) return a;
+  if (!a) return b;
+  return `${a.trimEnd()} ${b.trim()}`;
+}
+
+/** Junta dois trechos sem repetir: se o novo já começa com o anterior (Android), fica só o novo. */
+function mergeSpeech(acc: string, next: string) {
+  if (!acc) return next;
+  const a = acc.toLowerCase();
+  const n = next.toLowerCase();
+  if (n.startsWith(a)) return next;
+  if (a.endsWith(n) || a.includes(n)) return acc;
+  return `${acc} ${next}`;
 }

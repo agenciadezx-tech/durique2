@@ -2,20 +2,22 @@ import { notFound, redirect } from "next/navigation";
 import { Card, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
-import { todayISO, WEEKDAYS } from "@/lib/format";
-import { SellForm, type SeriesOption } from "./sell-form";
+import { formatDayLong, formatTime, todayISO, TZ, WEEKDAYS } from "@/lib/format";
+import { isActiveAttendee } from "@/components/status";
+import { SellForm, type ClassOption, type SeriesOption } from "./sell-form";
 
 export const metadata = { title: "Vender pacote ou plano" };
 
-export default async function VenderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tipo?: string }> }) {
+export default async function VenderPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tipo?: string; aula?: string }> }) {
   const ctx = await getContext();
   if (!ctx.canManageAgenda) redirect("/pacientes");
   const { id } = await params;
-  const { tipo } = await searchParams;
+  const { tipo, aula } = await searchParams;
+  const single = tipo === "experimental" || tipo === "avulsa" ? tipo : null;
   const kind = tipo === "plano" || tipo === "pacote" ? tipo : null;
   const supabase = await createClient();
   const today = todayISO();
-  const [{ data: patient }, { data: products }, { data: seriesData }, { data: enr }] = await Promise.all([
+  const [{ data: patient }, { data: products }, { data: seriesData }, { data: enr }, { data: appts }] = await Promise.all([
     supabase.from("patients").select("id, name").eq("id", id).maybeSingle(),
     supabase
       .from("products")
@@ -33,6 +35,18 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
       .order("weekday")
       .order("start_time"),
     supabase.from("enrollments").select("series_id, patient_id").eq("clinic_id", ctx.clinicId).or(`ends_on.is.null,ends_on.gte.${today}`),
+    kind === "pacote"
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("appointments")
+          .select("id, starts_at, capacity, recurring_series(name), services(name, price_cents), professionals(name), appointment_attendees(patient_id, status)")
+          .eq("clinic_id", ctx.clinicId)
+          .eq("status", "agendado")
+          .gt("capacity", 1)
+          .gte("starts_at", new Date().toISOString())
+          .lte("starts_at", new Date(Date.now() + 14 * 864e5).toISOString())
+          .order("starts_at")
+          .limit(300),
   ]);
   if (!patient) notFound();
   const list = (products ?? []).filter((p) => !kind || (kind === "plano" ? p.kind === "plano" : p.kind !== "plano"));
@@ -50,12 +64,35 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
         free: s.capacity - used,
       };
     });
-  const title = kind === "plano" ? "Matricular em aulas" : kind === "pacote" ? "Vender pacote" : "Vender pacote ou plano";
+  type ApptRow = {
+    id: string;
+    starts_at: string;
+    capacity: number;
+    recurring_series: { name: string | null } | null;
+    services: { name: string; price_cents: number | null } | null;
+    professionals: { name: string } | null;
+    appointment_attendees: { patient_id: string; status: string }[];
+  };
+  const dayKey = (ts: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(ts));
+  const classes: ClassOption[] = ((appts ?? []) as unknown as ApptRow[])
+    .filter((a) => !a.appointment_attendees.some((t) => t.patient_id === id && isActiveAttendee(t.status)))
+    .map((a) => ({ a, free: a.capacity - a.appointment_attendees.filter((t) => isActiveAttendee(t.status)).length }))
+    .filter((x) => x.free > 0)
+    .map(({ a, free }) => ({
+      id: a.id,
+      day: dayKey(a.starts_at),
+      dayLabel: formatDayLong(dayKey(a.starts_at)),
+      time: formatTime(a.starts_at),
+      sub: [a.recurring_series?.name ?? a.services?.name, a.professionals?.name].filter(Boolean).join(" · "),
+      free,
+      price_cents: a.services?.price_cents ?? 0,
+    }));
+  const title = single === "experimental" ? "Aula experimental" : single === "avulsa" ? "Aula avulsa" : kind === "plano" ? "Matricular em aulas" : kind === "pacote" ? "Vender pacote" : "Vender pacote ou plano";
 
   return (
     <>
       <PageHeader title={title} description={patient.name} back={{ href: `/pacientes/${id}`, label: patient.name }} />
-      {!list.length ? (
+      {!list.length && !classes.length ? (
         <EmptyState
           title={kind === "plano" ? "Nenhum plano de aulas cadastrado" : "Nenhum pacote cadastrado"}
           text={ctx.isAdmin ? "Cadastre no Catálogo o que a clínica vende, por exemplo: Pacote 10 sessões ou Pilates 2x por semana." : "Peça ao administrador para cadastrar no Catálogo."}
@@ -63,7 +100,7 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
         />
       ) : (
         <Card className="p-5 pb-0 sm:p-7 sm:pb-0">
-          <SellForm patientId={id} patientName={patient.name} products={list} today={today} series={series} />
+          <SellForm patientId={id} patientName={patient.name} products={list} today={today} series={series} classes={classes} initialSingle={single} initialClass={classes.some((c) => c.id === aula) ? aula : undefined} />
         </Card>
       )}
     </>

@@ -8,6 +8,13 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
   const finance = ctx.role !== "profissional";
   const groups: { title: string; items: (MaisItem & { show: boolean })[] }[] = [
     {
+      title: "Relatórios e metas",
+      items: [
+        { href: "/financeiro/relatorios", icon: "chart", title: "Relatórios", text: "Gráficos de sessões, faltas, receita e satisfação", show: ctx.canSeeExpenses },
+        { href: "/financeiro/saude", icon: "activity", title: "Saúde do negócio", text: "Metas do mês e o que fazer esta semana", show: ctx.canSeeExpenses },
+      ],
+    },
+    {
       title: "Dinheiro",
       items: [
         { href: "/financeiro", icon: "wallet", title: "Financeiro", text: "Quanto entrou, o que falta receber e as contas", show: finance },
@@ -31,9 +38,7 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
       title: "A clínica",
       items: [
         { href: "/catalogo", icon: "tag", title: "Catálogo", text: "Serviços, pacotes e planos que a clínica vende", show: true, mobileOnly: true },
-        { href: "/financeiro/saude", icon: "activity", title: "Saúde do negócio", text: "Metas do mês e o que fazer esta semana", show: ctx.canSeeExpenses },
         { href: "/atendimentos", icon: "check", title: "Atendimentos realizados", text: "Quantos no período, por profissional", show: finance },
-        { href: "/financeiro/relatorios", icon: "chart", title: "Relatórios", text: "Sessões, faltas e satisfação por mês", show: ctx.canSeeExpenses },
         { href: "/ajustes/agenda-google", icon: "calendar", title: "Agenda no Google", text: "Ver os atendimentos no celular", show: ctx.isAdmin || !!ctx.professionalId },
         { href: "/ajustes", icon: "settings", title: "Configurações", text: "Clínica, agenda, financeiro, equipe e conta", show: true },
       ],

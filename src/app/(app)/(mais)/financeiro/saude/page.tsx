@@ -129,7 +129,7 @@ export default async function SaudePage({ searchParams }: { searchParams: Promis
       tone: "warn",
     });
   if (occA != null && goal.ocupacao_aulas > 0 && occA < goal.ocupacao_aulas)
-    todo.push({ icon: Users, text: `As turmas estão com ${occA}% das vagas ocupadas. Ofereça aula experimental.`, href: "/agenda/vagas?motivo=experimental", cta: "Ver vagas", tone: "info" });
+    todo.push({ icon: Users, text: `As turmas estão com ${occA}% das vagas ocupadas. Ofereça aula experimental.`, href: "/horarios/matricula?tipo=experimental", cta: "Ver vagas", tone: "info" });
   if (goal.novos_contatos > 0 && h.sinais.leads < goal.novos_contatos)
     todo.push({ icon: UserPlus, text: `${h.sinais.leads} de ${goal.novos_contatos} novos contatos no mês. Divulgue o link da clínica.`, href: "/contatos", cta: "Ver contatos", tone: "info" });
 

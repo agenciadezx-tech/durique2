@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Archive, Bell, BellOff, CalendarDays, ClipboardList, Dumbbell, FileSignature, MessageCircle, NotebookPen, Package, Pencil, Plus, X } from "lucide-react";
+import { Archive, Bell, BellOff, CalendarDays, ClipboardList, Dumbbell, FileSignature, MessageCircle, NotebookPen, Package, Pencil, Plus, Sparkles, X } from "lucide-react";
 
-const ICONS = { Archive, CalendarDays, ClipboardList, Dumbbell, FileSignature, MessageCircle, NotebookPen, Package, Pencil } satisfies Record<string, LucideIcon>;
+const ICONS = { Archive, CalendarDays, ClipboardList, Dumbbell, FileSignature, MessageCircle, NotebookPen, Package, Pencil, Sparkles } satisfies Record<string, LucideIcon>;
 import { buttonClass, cx } from "@/components/ui";
 import { setSkipConfirmation } from "../actions";
 

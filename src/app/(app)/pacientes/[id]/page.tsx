@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarDays, ChevronDown, ChevronRight, X, ClipboardList, Dumbbell, TrendingUp, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Repeat, Sparkles } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -20,6 +20,7 @@ import { SummaryEditor } from "./summary-editor";
 import { ConfirmBell, PatientMenu, type MenuItem } from "./header-actions";
 import { ManageClasses } from "./manage-classes";
 import { formatPhone } from "@/lib/format";
+import { painColor } from "@/lib/clinical";
 
 export default async function PacientePage({
   params,
@@ -93,7 +94,7 @@ export default async function PacientePage({
   const { data: credits } = ctx.canManageAgenda
     ? await supabase.from("makeup_credits").select("expires_on").eq("patient_id", id).eq("status", "disponivel").gte("expires_on", today).order("expires_on")
     : { data: [] as { expires_on: string }[] };
-  const [{ data: docs }, { data: templates }, { data: lastRec }, { data: plans }] = await Promise.all([
+  const [{ data: docs }, { data: templates }, { data: lastRec }, { data: plans }, { data: lastAval }, { data: lastEvo }] = await Promise.all([
     supabase.from("patient_documents").select("id, title, status, signed_at, created_at").eq("patient_id", id).neq("status", "cancelado").order("created_at", { ascending: false }),
     supabase.from("document_templates").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     ctx.canSeeClinical
@@ -102,6 +103,12 @@ export default async function PacientePage({
     ctx.canSeeClinical
       ? supabase.from("exercise_plans").select("id, exercise_logs(done_on)").eq("patient_id", id).eq("active", true)
       : Promise.resolve({ data: [] as { id: string; exercise_logs: { done_on: string }[] }[] }),
+    ctx.canSeeClinical
+      ? supabase.from("clinical_records").select("id, record_date, queixa_principal, diagnostico, dor_eva, mapa_dor").eq("patient_id", id).eq("kind", "avaliacao").order("record_date", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null as { id: string; record_date: string; queixa_principal: string | null; diagnostico: string | null; dor_eva: number | null; mapa_dor: unknown } | null }),
+    ctx.canSeeClinical
+      ? supabase.from("clinical_records").select("id, record_date, subjetivo, conduta, resposta, dor_eva").eq("patient_id", id).eq("kind", "evolucao").order("record_date", { ascending: false }).order("created_at", { ascending: false }).limit(1).maybeSingle()
+      : Promise.resolve({ data: null as { id: string; record_date: string; subjetivo: string | null; conduta: string | null; resposta: string | null; dor_eva: number | null } | null }),
   ]);
   type Evo = {
     level: number | null;
@@ -299,6 +306,58 @@ export default async function PacientePage({
             </Card>
           </Link>
   );
+  const painRegions = Array.isArray(lastAval?.mapa_dor) ? (lastAval!.mapa_dor as string[]).filter((x) => typeof x === "string") : [];
+  const assessmentCard = ctx.canSeeClinical && (
+    <Card className="overflow-hidden">
+      <div className="flex items-center gap-3 border-b border-line px-4 py-3 sm:px-5">
+        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
+          <ClipboardList size={19} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-accent">Avaliação</p>
+          <p className="text-sm text-muted">{lastAval ? `Feita em ${formatDateShort(lastAval.record_date)}` : "Ainda não tem avaliação"}</p>
+        </div>
+        <Link href={`/pacientes/${patient.id}/prontuario/novo?tipo=avaliacao`} className={buttonClass(lastAval ? "secondary" : "primary", "md")}>
+          {lastAval ? "Nova" : "Fazer avaliação"}
+        </Link>
+      </div>
+      {lastAval ? (
+        <Link href={`/pacientes/${patient.id}/prontuario/${lastAval.id}`} className="block space-y-2 px-4 py-3 hover:bg-hover sm:px-5">
+          {lastAval.queixa_principal && (
+            <p className="text-[15px]">
+              <span className="block text-[13px] font-semibold text-accent">Queixa principal</span>
+              <span className="line-clamp-2">{lastAval.queixa_principal}</span>
+            </p>
+          )}
+          {lastAval.diagnostico && (
+            <p className="text-[15px]">
+              <span className="block text-[13px] font-semibold text-accent">Diagnóstico</span>
+              <span className="line-clamp-2">{lastAval.diagnostico}</span>
+            </p>
+          )}
+          {(lastAval.dor_eva != null || painRegions.length > 0) && (
+            <p className="flex flex-wrap items-center gap-2 text-sm">
+              {lastAval.dor_eva != null && <span className={cx("rounded-full px-2.5 py-0.5 font-semibold", painColor(lastAval.dor_eva))}>Dor {lastAval.dor_eva}/10</span>}
+              {painRegions.slice(0, 4).map((r) => (
+                <span key={r} className="rounded-full bg-hover px-2.5 py-0.5 text-muted">{r}</span>
+              ))}
+            </p>
+          )}
+        </Link>
+      ) : (
+        <p className="px-4 py-3 text-[15px] text-muted sm:px-5">Comece pela avaliação: queixa, exame, dor e plano de tratamento. Dá para ditar em vez de digitar.</p>
+      )}
+      {lastEvo && (
+        <Link href={`/pacientes/${patient.id}/prontuario/${lastEvo.id}`} className="block border-t border-line bg-bg/60 px-4 py-3 hover:bg-hover sm:px-5">
+          <span className="flex items-center justify-between gap-2 text-[13px] font-semibold text-accent">
+            Última evolução · {formatDateShort(lastEvo.record_date)}
+            {lastEvo.dor_eva != null && <span className={cx("rounded-full px-2 py-0.5", painColor(lastEvo.dor_eva))}>Dor {lastEvo.dor_eva}/10</span>}
+          </span>
+          <span className="mt-0.5 line-clamp-2 block text-[15px]">{lastEvo.resposta || lastEvo.conduta || lastEvo.subjetivo || "Sem texto"}</span>
+        </Link>
+      )}
+    </Card>
+  );
   const pid = patient.id;
   const menu: MenuItem[] = [
     ...(ctx.canSeeClinical
@@ -317,6 +376,7 @@ export default async function PacientePage({
       ? [
           { href: `/agenda/nova?paciente=${pid}`, label: "Agendar", icon: "CalendarDays" as const },
           { href: `/pacientes/${pid}/vender`, label: "Vender pacote ou plano", icon: "Package" as const },
+          { href: `/pacientes/${pid}/vender?tipo=experimental`, label: "Aula experimental", icon: "Sparkles" as const, hint: "Grátis ou com valor, não usa pacote" },
         ]
       : []),
     ...(wa ? [{ href: wa, label: "Mandar WhatsApp", icon: "MessageCircle" as const, external: true }] : []),
@@ -327,41 +387,52 @@ export default async function PacientePage({
 
   return (
     <>
-      <header className="mb-3 flex items-center gap-3">
-        <Link href="/pacientes" aria-label="Voltar para pacientes" className="-ml-2 grid size-10 shrink-0 place-items-center rounded-xl text-muted hover:bg-hover lg:hidden">
-          <ChevronLeft size={24} />
-        </Link>
-        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-accent-soft text-[16px] font-semibold text-accent lg:size-14 lg:text-[18px]">
-          {patient.name
-            .split(" ")
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((w: string) => w[0])
-            .join("")
-            .toUpperCase()}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="min-w-0 truncate text-[20px] leading-tight font-semibold tracking-tight lg:text-[24px]">{patient.name}</h1>
-            {patient.active && <ConfirmBell id={patient.id} skip={!!patient.skip_confirmation} canEdit={ctx.canManageAgenda} />}
-          </div>
-          <p className="flex flex-wrap items-center gap-x-2 text-[14px] text-muted lg:text-[15px]">
-            {age != null && <span>{age} anos</span>}
-            {age != null && patient.phone && <span aria-hidden>·</span>}
-            {patient.phone && <span>{formatPhone(patient.phone)}</span>}
-            {!patient.active && <Badge>Arquivado</Badge>}
-            {patient.access_via && <Badge tone="info">{patient.access_via === "wellhub" ? "Wellhub" : "TotalPass"}</Badge>}
-            {patient.skip_confirmation && <Badge tone="warn">Não pede confirmação</Badge>}
-          </p>
+      <header className="mb-3">
+        {/* Celular: fechar à esquerda, sino e + à direita (nome fica com a linha inteira embaixo) */}
+        <div className="mb-2 flex items-center gap-2 lg:hidden">
+          <Link href="/pacientes" aria-label="Fechar ficha" className="-ml-1 grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-surface text-muted hover:bg-hover">
+            <X size={22} />
+          </Link>
+          <span className="flex-1" />
+          {patient.active && <ConfirmBell id={patient.id} skip={!!patient.skip_confirmation} canEdit={ctx.canManageAgenda} />}
+          <PatientMenu items={menu} />
         </div>
-        {wa && (
-          <span className="hidden sm:block">
-            <a href={wa} target="_blank" rel="noreferrer" className={buttonClass("secondary", "md")}>
-              <MessageCircle size={18} /> WhatsApp
-            </a>
+        <div className="flex items-center gap-3">
+          <span className="grid size-12 shrink-0 place-items-center rounded-full bg-accent-soft text-[16px] font-semibold text-accent lg:size-14 lg:text-[18px]">
+            {patient.name
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((w: string) => w[0])
+              .join("")
+              .toUpperCase()}
           </span>
-        )}
-        <PatientMenu items={menu} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="min-w-0 text-[20px] leading-tight font-semibold tracking-tight break-words lg:truncate lg:text-[24px]">{patient.name}</h1>
+              <span className="hidden lg:block">{patient.active && <ConfirmBell id={patient.id} skip={!!patient.skip_confirmation} canEdit={ctx.canManageAgenda} />}</span>
+            </div>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-muted lg:text-[15px]">
+              {age != null && <span>{age} anos</span>}
+              {age != null && patient.phone && <span aria-hidden>·</span>}
+              {patient.phone && <span className="whitespace-nowrap">{formatPhone(patient.phone)}</span>}
+              {!patient.active && <Badge>Arquivado</Badge>}
+              {patient.access_via && <Badge tone="info">{patient.access_via === "wellhub" ? "Wellhub" : "TotalPass"}</Badge>}
+              {patient.skip_confirmation && <Badge tone="warn">Não pede confirmação</Badge>}
+            </p>
+          </div>
+          <div className="hidden shrink-0 items-center gap-2 lg:flex">
+            {wa && (
+              <a href={wa} target="_blank" rel="noreferrer" className={buttonClass("secondary", "md")}>
+                <MessageCircle size={18} /> WhatsApp
+              </a>
+            )}
+            <PatientMenu items={menu} />
+            <Link href="/pacientes" aria-label="Fechar ficha" title="Fechar ficha" className="grid size-11 place-items-center rounded-xl border border-line bg-surface text-muted hover:bg-hover">
+              <X size={20} />
+            </Link>
+          </div>
+        </div>
       </header>
 
       <div className="mb-4">
@@ -512,6 +583,7 @@ export default async function PacientePage({
         {vendido && <Alert tone="ok">Venda registrada! As parcelas já estão em Contas a receber.</Alert>}
         {aba === "geral" && (
           <>
+        {assessmentCard}
         {exercisesCard}
         {credits && credits.length > 0 && (
           <Alert tone="info">
@@ -850,6 +922,13 @@ export default async function PacientePage({
                       <span>
                         <span className="block font-medium">Matrícula em aulas</span>
                         <span className="block text-[12px] text-muted">Plano mensal e turmas fixas</span>
+                      </span>
+                    </Link>
+                    <Link href={`/pacientes/${patient.id}/vender?tipo=experimental`} className="flex min-h-12 items-center gap-3 px-4 hover:bg-hover">
+                      <Sparkles size={18} className="text-info" />
+                      <span>
+                        <span className="block font-medium">Aula experimental ou avulsa</span>
+                        <span className="block text-[12px] text-muted">Uma aula só, grátis ou com valor</span>
                       </span>
                     </Link>
                   </div>

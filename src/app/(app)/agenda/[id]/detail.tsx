@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Check, CheckCheck, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
+import { Check, CheckCheck, Gift, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PatientPicker } from "@/components/patient-picker";
 import { Alert, Avatar, Badge, buttonClass, Card, cx, PageHeader, Section } from "@/components/ui";
@@ -23,6 +23,7 @@ type Attendee = {
   status: string;
   is_makeup: boolean;
   booked_online: boolean;
+  charge_kind: string | null;
   enrollment_id: string | null;
   package_id: string | null;
   patients: { id: string; name: string; phone: string | null; access_via: string | null } | null;
@@ -30,14 +31,14 @@ type Attendee = {
 };
 
 /** Detalhe da sessão. Usado na página própria (celular) e no meio da tela Hoje (computador, `embedded`). */
-export async function AppointmentDetail({ id, nova, embedded }: { id: string; nova?: boolean; embedded?: boolean }) {
+export async function AppointmentDetail({ id, nova, embedded, marcado }: { id: string; nova?: boolean; embedded?: boolean; marcado?: string }) {
   const ctx = await getContext();
   const supabase = await createClient();
 
   const { data: appt } = await supabase
     .from("appointments")
     .select(
-      "*, services(name, kind, price_cents), professionals(name), recurring_series(id, name), appointment_attendees(id, status, is_makeup, booked_online, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
+      "*, services(name, kind, price_cents), professionals(name), recurring_series(id, name), appointment_attendees(id, status, is_makeup, booked_online, charge_kind, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -151,6 +152,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
         : ended && pendingPeople.length
           ? { l: "Falta concluir", c: "bg-warn-soft text-warn" }
           : { l: "Agendada", c: "bg-hover text-muted" };
+  const toConfirm = attendees.filter((t) => t.status === "agendado" && t.patients?.phone);
   const callDone = isClass && attendees.length > 0 && attendees.every((t) => !["agendado", "confirmado"].includes(t.status));
 
   return (
@@ -178,6 +180,23 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
 
       <div className="space-y-6">
         {nova && <Alert tone="ok">Sessão marcada!</Alert>}
+        {marcado && <Alert tone="ok">{marcado === "avulsa" ? "Aluno colocado na aula avulsa." : "Aula experimental marcada! Não desconta de pacote."}</Alert>}
+
+        {/* Números da aula */}
+        {isClass && !canceled && attendees.length > 0 && (
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { n: cameCount, l: cameCount === 1 ? "Veio" : "Vieram", c: "bg-ok-soft text-ok" },
+              { n: attendees.filter((t) => t.status === "confirmado").length, l: "Confirmaram", c: "bg-warn-soft text-warn" },
+              { n: missedCount, l: missedCount === 1 ? "Faltou" : "Faltaram", c: "bg-bad-soft text-bad" },
+            ].map((x) => (
+              <div key={x.l} className={cx("rounded-2xl px-3 py-3 text-center", x.c)}>
+                <p className="text-[24px] leading-none font-bold tabular-nums">{x.n}</p>
+                <p className="mt-1 text-[13px] font-semibold">{x.l}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Resumo da sessão */}
         <Card className="overflow-hidden">
@@ -238,6 +257,28 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
               ) : pendingPeople.length > 0 ? (
                 <p className="text-[14px] text-muted">O botão “Concluir” aparece meia hora antes do horário.</p>
               ) : null}
+              {ctx.canManageAgenda && !ended && toConfirm.length > 0 && (
+                <details className="group rounded-xl border border-accent/40 bg-surface">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 px-4 text-[15px] font-semibold text-accent [&::-webkit-details-marker]:hidden">
+                    <MessageCircle size={18} /> Pedir confirmação no WhatsApp ({toConfirm.length})
+                  </summary>
+                  <ul className="divide-y divide-line border-t border-line">
+                    {toConfirm.map((t) => (
+                      <li key={t.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <span className="min-w-0 flex-1 truncate font-medium">{t.patients!.name}</span>
+                        <WaSendButton
+                          compact
+                          phone={t.patients!.phone!}
+                          kind="lembrete"
+                          patientId={t.patients!.id}
+                          attendeeId={t.id}
+                          body={`Olá, ${firstName(t.patients!.name)}! Confirma ${isClass ? "sua aula" : "seu atendimento"} de ${service?.name ?? ""} ${formatDayLong(day).toLowerCase()} às ${formatTime(appt.starts_at)}, na ${ctx.clinicName}? Responda 1 para confirmar ou 2 se não puder vir.`}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               <div className="flex flex-wrap gap-2">
                 {isClass && appt.series_id && ctx.canManageAgenda && (
                   <Link href={`/horarios/${appt.series_id}`} className={buttonClass("secondary", "sm")}>
@@ -321,6 +362,12 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
                             {chargedOf.has(t.id) && (
                               <span className="text-[13px] text-muted">{chargedOf.get(t.id) ? "Avulsa paga ✓" : "Avulsa a receber"}</span>
                             )}
+                            {t.charge_kind === "experimental" && (
+                              <span className="rounded-full bg-info-soft px-2 py-0.5 text-[12px] font-semibold text-info">
+                                Experimental{chargedOf.has(t.id) ? "" : " · grátis"}
+                              </span>
+                            )}
+                            {t.charge_kind === "avulsa" && <span className="rounded-full bg-hover px-2 py-0.5 text-[12px] font-semibold text-muted">Aula avulsa</span>}
                             {t.is_makeup && <span className="text-[13px] text-muted">Reposição</span>}
                             {t.booked_online && <span className="text-[13px] text-info">Marcou pelo link</span>}
                             {t.patients?.access_via && (
@@ -337,7 +384,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
                                     : "Pacote vencendo"}
                               </Link>
                             )}
-                            {!t.enrollment_id && !t.is_makeup && appt.series_id && <span className="text-[13px] text-muted">Avulso</span>}
+                            {!t.enrollment_id && !t.is_makeup && !t.charge_kind && appt.series_id && <span className="text-[13px] text-muted">Avulso</span>}
                           </>
                         }
                         trailing={
@@ -362,7 +409,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
                           <NotebookPen size={16} /> Escrever evolução
                         </Link>
                       )}
-                      {showFinance && !canceled && t.status === "presente" && !t.package_id && !chargedOf.has(t.id) && t.patients && (
+                      {showFinance && !canceled && t.status === "presente" && !t.package_id && !t.charge_kind && !chargedOf.has(t.id) && t.patients && (
                         <ChargeForm
                           attendeeId={t.id}
                           appointmentId={appt.id}
@@ -433,6 +480,14 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
                   Adicionar
                 </SubmitButton>
               </ActionForm>
+              {appt.capacity > 1 && (
+                <Link
+                  href={`/horarios/matricula?tipo=experimental&aula=${appt.id}`}
+                  className="mt-4 flex min-h-12 items-center gap-3 rounded-xl border border-dashed border-line px-3 text-[15px] font-medium hover:bg-hover"
+                >
+                  <Gift size={18} className="text-accent" /> Aula experimental ou avulsa (não usa pacote)
+                </Link>
+              )}
             </div>
           </details>
         )}

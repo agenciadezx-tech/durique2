@@ -85,6 +85,7 @@ export async function removeAttendee(data: FormData) {
   const supabase = await createClient();
   const id = String(data.get("id"));
   await supabase.rpc("release_makeup_credit", { p_attendee: id }); // devolve o crédito se era reposição
+  await supabase.from("transactions").delete().eq("attendee_id", id).is("paid_on", null); // cobrança em aberto da aula avulsa/experimental
   await supabase.from("appointment_attendees").delete().eq("id", id).is("enrollment_id", null);
   revalidatePath(`/agenda/${appointmentId}`);
   revalidatePath("/agenda");

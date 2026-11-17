@@ -148,6 +148,54 @@ export async function sellPackage(_: ActionState, data: FormData): Promise<Actio
   redirect(`/pacientes/${patientId}?vendido=1`);
 }
 
+/** Aula experimental (grátis ou com valor) ou aula avulsa: coloca o aluno só naquela aula, sem usar pacote. */
+export async function bookSingleClass(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Você não tem permissão para marcar aulas." };
+  const patientId = String(data.get("patient_id"));
+  const appointmentId = String(data.get("appointment_id") ?? "");
+  const kind = data.get("charge_kind") === "avulsa" ? "avulsa" : "experimental";
+  const price = parseMoney(String(data.get("price") ?? "")) ?? 0;
+  const paidNow = data.get("paid_now") === "on";
+  const method = String(data.get("payment_method") ?? "") || null;
+  if (!appointmentId) return { error: "Escolha a aula." };
+  if (kind === "avulsa" && price <= 0) return { error: "Informe o valor da aula avulsa." };
+  if (price > 0 && paidNow && !method) return { error: "Escolha a forma de pagamento." };
+  const supabase = await createClient();
+  const { data: appt } = await supabase.from("appointments").select("starts_at, services(name)").eq("id", appointmentId).maybeSingle();
+  if (!appt) return { error: "Aula não encontrada." };
+  const { data: att, error } = await supabase
+    .from("appointment_attendees")
+    .insert({ clinic_id: ctx.clinicId, appointment_id: appointmentId, patient_id: patientId, charge_kind: kind } as never)
+    .select("id")
+    .single();
+  if (error) return { error: friendlyError(error) };
+  if (price > 0) {
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(appt.starts_at));
+    const { data: cat } = await supabase.from("categories").select("id").eq("clinic_id", ctx.clinicId).eq("system_key", "avulsas").maybeSingle();
+    const svc = (appt.services as unknown as { name: string } | null)?.name ?? "Aula";
+    const { error: e2 } = await supabase.from("transactions").insert({
+      clinic_id: ctx.clinicId,
+      type: "receita",
+      description: `${kind === "experimental" ? "Aula experimental" : "Aula avulsa"} · ${svc}`,
+      category_id: cat?.id ?? null,
+      amount_cents: price,
+      due_date: String(data.get("first_due") || day),
+      paid_on: paidNow ? todayISO() : null,
+      payment_method: (paidNow ? method : null) as "pix" | null,
+      patient_id: patientId,
+      attendee_id: att.id,
+    });
+    if (e2) return { error: `Aula marcada, mas não deu para lançar o valor: ${friendlyError(e2)}` };
+  }
+  revalidatePath(`/pacientes/${patientId}`);
+  revalidatePath(`/agenda/${appointmentId}`);
+  revalidatePath("/agenda");
+  revalidatePath("/horarios");
+  revalidatePath("/financeiro", "layout");
+  redirect(`/agenda/${appointmentId}?marcado=${kind}`);
+}
+
 export async function setPackageStatus(data: FormData) {
   const ctx = await getContext();
   if (!ctx.canManageAgenda) return;

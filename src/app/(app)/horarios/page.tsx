@@ -99,7 +99,7 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
         action={
           ctx.canManageAgenda && (
             <span className="hidden gap-2 lg:flex">
-              <LinkButton href="/agenda/vagas?motivo=experimental" variant="secondary">
+              <LinkButton href="/horarios/matricula?tipo=experimental" variant="secondary">
                 <Sparkles size={17} /> Aula experimental
               </LinkButton>
               <LinkButton href="/horarios/matricula" variant="secondary">

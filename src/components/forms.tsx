@@ -70,19 +70,21 @@ export function ConfirmSubmit({
   variant = "danger",
   size = "md",
   full,
+  className,
 }: {
   children: ReactNode;
   question: string;
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "md" | "lg" | "sm";
   full?: boolean;
+  className?: string;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
       disabled={pending}
-      className={buttonClass(variant, size, full)}
+      className={cx(buttonClass(variant, size, full), className)}
       onClick={(e) => {
         if (!window.confirm(question)) e.preventDefault();
       }}

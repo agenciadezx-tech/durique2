@@ -14,7 +14,7 @@ type Values = Record<string, string | number | string[] | null | undefined>;
 function PainScale({ value, onChange }: { value: number | null; onChange: (v: number | null) => void }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">Dor agora (0 a 10)</legend>
+      <legend className="text-[14px] font-semibold text-accent">Dor agora (0 a 10)</legend>
       <input type="hidden" name="dor_eva" value={value ?? ""} />
       <div className="grid grid-cols-11 gap-1">
         {Array.from({ length: 11 }, (_, i) => i).map((n) => {
@@ -47,11 +47,11 @@ function PainScale({ value, onChange }: { value: number | null; onChange: (v: nu
   );
 }
 
-function PainMap({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+function PainMap({ value, onChange, eva }: { value: string[]; onChange: (v: string[]) => void; eva: number | null }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">Onde dói? Toque no boneco ou nos nomes</legend>
-      <BodyMap value={value} onToggle={(r) => onChange(value.includes(r) ? value.filter((x) => x !== r) : [...value, r])} />
+      <legend className="text-[14px] font-semibold text-accent">Onde dói? Toque no boneco ou nos nomes</legend>
+      <BodyMap eva={eva} value={value} onToggle={(r) => onChange(value.includes(r) ? value.filter((x) => x !== r) : [...value, r])} />
       <div className="flex flex-wrap gap-1.5">
         {PAIN_REGIONS.map((r) => {
           const on = value.includes(r);
@@ -87,7 +87,7 @@ function Vitals({ initial }: { initial: Values }) {
   const imc = bmi(num(peso), num(altura));
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">Sinais vitais (opcional)</legend>
+      <legend className="text-[14px] font-semibold text-accent">Sinais vitais (opcional)</legend>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Field label="Peso (kg)">
           <Input name="peso_kg" inputMode="decimal" value={peso} onChange={(e) => setPeso(e.target.value)} placeholder="68" />
@@ -174,13 +174,13 @@ export function RecordForm({
       />
       {kind === "avaliacao" && <Vitals initial={initial} />}
       <PainScale value={eva} onChange={setEva} />
-      {kind === "avaliacao" && <PainMap value={regions} onChange={setRegions} />}
+      {kind === "avaliacao" && <PainMap value={regions} onChange={setRegions} eva={eva} />}
       {fields.map((f) => (
         <Field key={f.key} label={f.label} hint={f.hint || undefined}>
           <Textarea name={f.key} rows={f.rows} value={vals[f.key] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
         </Field>
       ))}
-      {kind === "evolucao" && <PainMap value={regions} onChange={setRegions} />}
+      {kind === "evolucao" && <PainMap value={regions} onChange={setRegions} eva={eva} />}
       <p className="text-[13px] text-muted">
         Depois de assinado, o registro não pode mais ser alterado (exigência do COFFITO). Correções são feitas por adendo.
       </p>

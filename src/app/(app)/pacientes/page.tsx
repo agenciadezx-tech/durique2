@@ -85,9 +85,11 @@ export default async function PacientesPage({
         action={
           ctx.canManageAgenda && (
             <>
-              <LinkButton href="/pacientes/importar" variant="secondary" className="hidden sm:inline-flex">
-                <FileSpreadsheet size={18} /> Importar planilha
-              </LinkButton>
+              <span className="hidden sm:block">
+                <LinkButton href="/pacientes/importar" variant="secondary">
+                  <FileSpreadsheet size={18} /> Importar planilha
+                </LinkButton>
+              </span>
               <LinkButton href="/pacientes/novo">
                 <Plus size={18} /> Novo paciente
               </LinkButton>

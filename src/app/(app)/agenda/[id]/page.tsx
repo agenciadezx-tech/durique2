@@ -5,9 +5,9 @@ export default async function SessaoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ nova?: string }>;
+  searchParams: Promise<{ nova?: string; marcado?: string }>;
 }) {
   const { id } = await params;
-  const { nova } = await searchParams;
-  return <AppointmentDetail id={id} nova={!!nova} />;
+  const { nova, marcado } = await searchParams;
+  return <AppointmentDetail id={id} nova={!!nova} marcado={marcado} />;
 }

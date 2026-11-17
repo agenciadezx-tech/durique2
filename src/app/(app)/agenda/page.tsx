@@ -549,7 +549,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                 <Link href={`/agenda/bloquear?d=${day}`} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm font-medium text-muted hover:bg-hover">
                   <Lock size={15} /> Bloquear horário
                 </Link>
-                <Link href="/agenda/vagas?motivo=experimental" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line text-sm font-medium hover:bg-hover">
+                <Link href="/horarios/matricula?tipo=experimental" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line text-sm font-medium hover:bg-hover">
                   <Sparkles size={15} className="text-accent" /> Aula experimental
                 </Link>
                 <Link href="/agenda/vagas?motivo=reposicao" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line text-sm font-medium hover:bg-hover">

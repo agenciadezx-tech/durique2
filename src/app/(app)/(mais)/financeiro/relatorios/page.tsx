@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { BarList, ColumnChart, StatTile } from "@/components/charts";
+import { ColumnChart, DonutChart, StatTile } from "@/components/charts";
 import Link from "next/link";
 import { Badge, Card, cx, PageHeader, Section } from "@/components/ui";
 import { getContext } from "@/lib/context";
@@ -105,15 +105,26 @@ export default async function ReportsPage() {
 
         <Section title="Atendimentos">
           <div className="grid gap-4 lg:grid-cols-2">
-            <ColumnChart title="Sessões feitas" subtitle="Pacientes que vieram, por mês" data={pts("done")} valueLabel="Sessões" />
-            <ColumnChart title="Faltas" subtitle="Faltou ou desmarcou em cima da hora" data={pts("missed")} valueLabel="Faltas" />
-            <ColumnChart title="Pacientes novos" subtitle="Cadastrados no mês" data={pts("new_patients")} valueLabel="Pacientes" />
-            <BarList
+            <DonutChart
               title="Sessões por serviço"
-              subtitle="Últimos 30 dias"
+              subtitle="Quem veio · últimos 30 dias"
               data={r.by_service_30d.map((s) => ({ label: s.name, value: s.done }))}
+              center={{ value: String(r.by_service_30d.reduce((a, s) => a + s.done, 0)), label: "sessões" }}
               empty="Nenhuma sessão marcada como Veio nos últimos 30 dias."
             />
+            <DonutChart
+              title="Vieram × faltaram"
+              subtitle={formatMonth(cur.month)}
+              data={[
+                { label: "Vieram", value: cur.done, color: "#2e9e5b" },
+                { label: "Faltaram ou desmarcaram em cima da hora", value: cur.missed, color: "#d64545" },
+              ]}
+              center={{ value: missRate == null ? "—" : `${100 - missRate}%`, label: "vieram" }}
+              empty="Nenhuma sessão concluída neste mês ainda."
+            />
+            <ColumnChart title="Sessões feitas" subtitle="Pacientes que vieram, por mês" data={pts("done")} valueLabel="Sessões" color="#0d9488" />
+            <ColumnChart title="Faltas" subtitle="Faltou ou desmarcou em cima da hora" data={pts("missed")} valueLabel="Faltas" color="#d64545" />
+            <ColumnChart title="Pacientes novos" subtitle="Cadastrados no mês" data={pts("new_patients")} valueLabel="Pacientes" color="#3b6fd1" />
           </div>
         </Section>
 
@@ -136,19 +147,17 @@ export default async function ReportsPage() {
                 <StatTile label="Neutros (7–8)" value={neutral} hint={`${pctOf(neutral)}% das respostas`} />
                 <StatTile label="Insatisfeitos (0–6)" value={unhappy} hint={`${pctOf(unhappy)}% das respostas`} tone={unhappy ? "bad" : undefined} />
               </div>
-              <Card className="p-4 sm:p-5">
-                <p className="text-sm text-muted">{fb.length} resposta{fb.length === 1 ? "" : "s"} nos últimos 90 dias</p>
-                <div className="mt-2 flex h-3 gap-[2px] overflow-hidden rounded-full" aria-hidden>
-                  {fans > 0 && <div className="bg-ok" style={{ width: `${pctOf(fans)}%` }} />}
-                  {neutral > 0 && <div className="bg-faint" style={{ width: `${pctOf(neutral)}%` }} />}
-                  {unhappy > 0 && <div className="bg-bad" style={{ width: `${pctOf(unhappy)}%` }} />}
-                </div>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted">
-                  <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-ok" /> Fãs {pctOf(fans)}%</span>
-                  <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-faint" /> Neutros {pctOf(neutral)}%</span>
-                  <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-bad" /> Insatisfeitos {pctOf(unhappy)}%</span>
-                </div>
-              </Card>
+              <DonutChart
+                title="Como os pacientes avaliam"
+                subtitle={`${fb.length} resposta${fb.length === 1 ? "" : "s"} nos últimos 90 dias`}
+                data={[
+                  { label: "Fãs (9–10)", value: fans, color: "#2e9e5b" },
+                  { label: "Neutros (7–8)", value: neutral, color: "#e3a21a" },
+                  { label: "Insatisfeitos (0–6)", value: unhappy, color: "#d64545" },
+                ]}
+                center={{ value: `${nps! > 0 ? "+" : ""}${nps}`, label: "NPS" }}
+                empty="Sem respostas."
+              />
               <Card className="divide-y divide-line overflow-hidden">
                 {fb.slice(0, 20).map((f) => (
                   <div key={f.id} className={cx("flex gap-3 px-4 py-3", f.score <= 6 && "bg-bad-soft/40")}>
@@ -197,12 +206,14 @@ export default async function ReportsPage() {
               data={pts("revenue")}
               format={moneyShort}
               valueLabel="Recebido"
+              color="#2e9e5b"
             />
-            <BarList
+            <DonutChart
               title="De onde veio o dinheiro"
               subtitle={`Recebido em ${formatMonth(cur.month).toLowerCase()}`}
               data={r.revenue_by_category_month.map((c) => ({ label: c.name, value: c.cents }))}
-              format={formatMoney}
+              format={moneyShort}
+              center={{ value: moneyShort(r.revenue_by_category_month.reduce((a, c) => a + c.cents, 0)), label: "recebido" }}
               empty="Nada recebido este mês ainda."
             />
           </div>

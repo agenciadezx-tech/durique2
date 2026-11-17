@@ -106,7 +106,7 @@ export default async function RegistroPage({
             )}
             {regions.length > 0 && (
               <div className="mb-5 print:hidden">
-                <BodyMap value={regions} readOnly />
+                <BodyMap value={regions} readOnly eva={rec.dor_eva} />
               </div>
             )}
             <dl className="space-y-4">

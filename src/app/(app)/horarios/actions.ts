@@ -131,6 +131,32 @@ export async function renameSeries(_: ActionState, data: FormData): Promise<Acti
   return { ok: name ? "Nome salvo." : "Nome removido." };
 }
 
+/** Editar turma: dia, horário, duração, serviço, professor, vagas e nome. As próximas aulas mudam junto. */
+export async function updateSeries(_: ActionState, data: FormData): Promise<ActionState> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return NO_PERM;
+  const id = String(data.get("id"));
+  const start = String(data.get("start") ?? "");
+  const duration = Number(data.get("duration"));
+  if (!/^\d{2}:\d{2}$/.test(start)) return { error: "Informe o horário de início." };
+  if (!(duration >= 5)) return { error: "O fim precisa ser depois do início." };
+  const supabase = await createClient();
+  const { data: moved, error } = await supabase.rpc("update_series" as never, {
+    p_series: id,
+    p_name: String(data.get("name") ?? "").slice(0, 60),
+    p_weekday: Number(data.get("weekday")),
+    p_start: start,
+    p_duration: duration,
+    p_service: String(data.get("service_id")),
+    p_professional: String(data.get("professional_id")),
+    p_capacity: Number(data.get("capacity")),
+  } as never);
+  if (error) return { error: friendlyError(error) };
+  revalidatePath("/horarios", "layout");
+  revalidatePath("/agenda", "layout");
+  redirect(`/horarios/${id}?editado=${Number(moved) || 0}`);
+}
+
 /** Nova matrícula a partir de Turmas: acha/cadastra o aluno e abre os passos de plano e turma. */
 export async function startEnrollment(_: ActionState, data: FormData): Promise<ActionState> {
   const ctx = await getContext();
@@ -139,5 +165,6 @@ export async function startEnrollment(_: ActionState, data: FormData): Promise<A
   const who = await resolvePatient(supabase, ctx.clinicId, data);
   if (who.error) return { error: who.error };
   if (!who.id) return { error: "Escolha o aluno ou cadastre um novo." };
-  redirect(`/pacientes/${who.id}/vender?tipo=plano`);
+  const aula = String(data.get("aula") ?? "");
+  redirect(`/pacientes/${who.id}/vender?tipo=${data.get("tipo") === "experimental" ? "experimental" : "plano"}${/^[0-9a-f-]{36}$/.test(aula) ? `&aula=${aula}` : ""}`);
 }
