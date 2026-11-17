@@ -107,3 +107,23 @@ Objetivo: inspiração de organização/fluxo. Não copiar marca, textos nem vis
 - Consultas: quem é avisado tem a vaga por N horas (ex.: 2) — depois passa para o próximo da fila.
 - Aulas · quando abre vaga (avisado tem 30 min para responder): "A recepção escolhe" (ninguém é avisado sozinho) ou "Automático para o 1º da fila" (WhatsApp; recusou/não respondeu → próximo).
 - Interruptor "Aluno entra sozinho na fila pelo app": turma cheia aparece no app com lista de espera (reposição daquela data e vaga fixa); desligado, turma cheia não aparece e a fila é só da recepção.
+
+## 19. Conectar WhatsApp (janela) — pedido do usuário em 17/11
+- Janela "Conectar o WhatsApp da clínica · leva 1 minuto". Duas formas: **No computador** (QR que se renova, "Esperando a leitura do QR") e **No celular** (digita o número → recebe código de 8 letras para pôr em Aparelhos conectados › Conectar com número).
+- Passo a passo à direita com Android/iPhone, desenho do celular mostrando onde tocar, "Feito, próximo". Aviso de que o WhatsApp vai citar o servidor de envio e que é seguro.
+- Pedido: juntar Avisos automáticos + Central em um só item "WhatsApp" (abas Para enviar · Avisos automáticos · Conexão).
+- Técnica: Zapster (QR/código) via Edge Function com o token só no servidor; webhook de status/respostas 1/2; agendador (pg_cron) respeitando o horário de envio. Avisar risco de bloqueio por ser conexão tipo WhatsApp Web.
+
+## 20. Equipe no lugar de Comissões — pedido do usuário
+- Lista de todos (com e sem login): função, atende, cor, comissão; "R$ X a pagar" + Pagar no mesmo lugar; Convidar.
+- Funções prontas (Sócio/Admin, Recepção, Profissional, Financeiro) + interruptores extras por pessoa (ver valores, ver agenda de todos, dar desconto, ver relatórios) — valendo no banco (RLS), não só na tela.
+
+## 21. Onboarding "Configurar clínica" (assistente de 8 passos) — pedido do usuário
+- Janela grande: passos à esquerda (Essencial: 1 Como você trabalha, 2 Importar pacientes [opcional], 3 WhatsApp [opcional], 4 Horários de atendimento, 5 Serviços e valores, 6 Perfil da clínica; Recomendado: 7 Link da clínica [opcional], 8 Sua equipe [opcional]); conteúdo à direita; rodapé ← Voltar · "Não preciso de ajuda" · Pular por agora · Salvar e continuar.
+- 1: Só fisioterapia / Só aulas em grupo / Os dois (ajusta o que aparece) + "Configurar pelo WhatsApp" (atendimento humano).
+- 2: Subir planilha CSV (+ baixar modelo) · Adicionar alguns à mão · Suporte importa de graça.
+- 3: Conectar WhatsApp (mesma janela de QR/código).
+- 4: Dias (Dom–Sáb), abertura, fechamento, duração da sessão, "+ Algum dia tem horário diferente?" → vira horário da clínica e disponibilidade.
+- 5: Serviços já sugeridos conforme o passo 1 (Consultas: Avaliação, Sessão; chips para adicionar Neuro, Traumato-ortopédica, RPG, Osteopatia; Aulas: Pilates…), cada um com minutos e preço editáveis; "Sala das aulas" com vagas.
+- 6–8 ainda por receber (perfil: nome, logo, cor, endereço; link; equipe).
+- Substitui/estende o "Primeiros passos" atual (barra na tela Hoje continua como lembrete: "Configuração da clínica · 3 de 8 · Continuar").
