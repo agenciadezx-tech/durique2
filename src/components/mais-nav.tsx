@@ -20,12 +20,14 @@ import {
   Percent,
   Wallet,
   Settings,
+  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { MaisGroup } from "@/lib/mais-menu";
 import { cx } from "./ui";
 
 const ICONS: Record<string, LucideIcon> = {
+  users: Users,
   wallet: Wallet,
   coins: Coins,
   percent: Percent,

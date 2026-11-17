@@ -9,6 +9,7 @@ import { formatDateShort, todayISO, TZ } from "@/lib/format";
 import { ASSESSMENT_FIELDS, bmi, bmiLabel, EVOLUTION_FIELDS, painColor } from "@/lib/clinical";
 import { BodyMap } from "@/components/body-map";
 import { addAddendum, updateRecord } from "../actions";
+import { aiEnabled } from "@/lib/ai";
 import { RecordForm } from "../record-form";
 
 export const metadata = { title: "Registro do prontuário" };
@@ -62,7 +63,7 @@ export default async function RegistroPage({
 
         {!signed && isAuthor ? (
           <Card className="p-5 sm:p-7">
-            <RecordForm
+            <RecordForm aiOn={aiEnabled()}
               action={updateRecord}
               kind={rec.kind as "avaliacao" | "evolucao"}
               patientId={id}

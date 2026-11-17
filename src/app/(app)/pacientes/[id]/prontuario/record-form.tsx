@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { PenLine } from "lucide-react";
 import { ActionForm, type FormAction } from "@/components/forms";
 import { buttonClass, cx, Field, Input, Textarea } from "@/components/ui";
+import { VoiceNote } from "./voice-note";
 import { ASSESSMENT_FIELDS, bmi, bmiLabel, EVOLUTION_FIELDS, PAIN_REGIONS } from "@/lib/clinical";
 import { BodyMap } from "@/components/body-map";
 
@@ -135,6 +136,7 @@ export function RecordForm({
   initial = {},
   today,
   canSign = true,
+  aiOn = false,
 }: {
   action: FormAction;
   kind: "avaliacao" | "evolucao";
@@ -144,10 +146,13 @@ export function RecordForm({
   initial?: Values;
   today: string;
   canSign?: boolean;
+  aiOn?: boolean;
 }) {
   const [eva, setEva] = useState<number | null>(initial.dor_eva != null ? Number(initial.dor_eva) : null);
   const [regions, setRegions] = useState<string[]>(Array.isArray(initial.mapa_dor) ? (initial.mapa_dor as string[]) : []);
   const fields = kind === "avaliacao" ? ASSESSMENT_FIELDS : EVOLUTION_FIELDS;
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(fields.map((f) => [f.key, String(initial[f.key] ?? "")])));
+  const merge = (key: string, add: string) => setVals((v) => ({ ...v, [key]: v[key]?.trim() ? `${v[key].trim()}\n${add}` : add }));
 
   return (
     <ActionForm action={action}>
@@ -158,12 +163,21 @@ export function RecordForm({
       <Field label="Data">
         <Input name="record_date" type="date" defaultValue={String(initial.record_date ?? today)} className="max-w-48" />
       </Field>
+      <VoiceNote
+        kind={kind}
+        aiOn={aiOn}
+        onFill={(n) => {
+          Object.entries(n.fields).forEach(([k, v]) => merge(k, v));
+          if (n.dor_eva != null) setEva(n.dor_eva);
+        }}
+        onPlain={(t) => merge(kind === "avaliacao" ? "historia_doenca" : "conduta", t)}
+      />
       {kind === "avaliacao" && <Vitals initial={initial} />}
       <PainScale value={eva} onChange={setEva} />
       {kind === "avaliacao" && <PainMap value={regions} onChange={setRegions} />}
       {fields.map((f) => (
         <Field key={f.key} label={f.label} hint={f.hint || undefined}>
-          <Textarea name={f.key} rows={f.rows} defaultValue={String(initial[f.key] ?? "")} />
+          <Textarea name={f.key} rows={f.rows} value={vals[f.key] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.key]: e.target.value }))} />
         </Field>
       ))}
       {kind === "evolucao" && <PainMap value={regions} onChange={setRegions} />}

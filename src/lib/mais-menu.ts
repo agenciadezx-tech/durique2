@@ -12,7 +12,7 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
       items: [
         { href: "/financeiro", icon: "wallet", title: "Financeiro", text: "Quanto entrou, o que falta receber e as contas", show: finance },
         { href: "/financeiro/cobrancas", icon: "coins", title: "Cobranças", text: "Quem está devendo, cobrar e dar baixa", show: finance },
-        { href: "/financeiro/comissoes", icon: "percent", title: "Comissões", text: "Quanto cada profissional tem a receber", show: ctx.canSeeExpenses },
+        { href: "/equipe", icon: "users", title: "Equipe", text: "Quem trabalha, o que cada um vê e comissões", show: ctx.isAdmin || ctx.canSeeExpenses },
         { href: "/financeiro/notas", icon: "file", title: "Notas fiscais", text: "Planilha do contador e Carnê-Leão", show: ctx.canSeeExpenses },
       ],
     },

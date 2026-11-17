@@ -174,7 +174,7 @@ export default async function AjustesSecaoPage({ params }: { params: Promise<{ s
           title="Profissionais"
           action={
             ctx.canSeeExpenses ? (
-              <Link href="/financeiro/comissoes" className="inline-flex min-h-11 items-center text-sm font-medium text-accent">
+              <Link href="/equipe" className="inline-flex min-h-11 items-center text-sm font-medium text-accent">
                 Comissões do mês e pagar →
               </Link>
             ) : undefined

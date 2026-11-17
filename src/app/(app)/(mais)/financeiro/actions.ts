@@ -123,6 +123,7 @@ export async function payCommission(data: FormData) {
     professional_id: String(data.get("professional_id")),
   });
   refresh("/financeiro/comissoes");
+  revalidatePath("/equipe");
 }
 
 /** Cobrar sessão avulsa (paciente sem pacote). */

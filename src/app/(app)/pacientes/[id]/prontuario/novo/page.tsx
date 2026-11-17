@@ -4,6 +4,7 @@ import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/format";
 import { createRecord } from "../actions";
+import { aiEnabled } from "@/lib/ai";
 import { RecordForm } from "../record-form";
 import { PreAnswers } from "@/components/pre-answers";
 
@@ -63,7 +64,7 @@ export default async function NovoRegistroPage({
             </details>
           )}
         <Card className="p-5 sm:p-7">
-          <RecordForm action={createRecord} kind={kind} patientId={id} attendeeId={sp.sessao} today={todayISO()} />
+          <RecordForm aiOn={aiEnabled()} action={createRecord} kind={kind} patientId={id} attendeeId={sp.sessao} today={todayISO()} />
         </Card>
         </>
       )}

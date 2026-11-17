@@ -304,3 +304,20 @@ export async function setClosedDay(data: FormData) {
   revalidatePath("/ajustes/feriados");
   revalidatePath("/agenda");
 }
+
+/** Muda a função de alguém da equipe (só admin; ninguém muda a própria função). */
+export async function setMemberRole(data: FormData) {
+  const ctx = await adminCtx();
+  if (!ctx) return;
+  const role = String(data.get("role") ?? "");
+  if (!["admin", "recepcao", "profissional", "financeiro"].includes(role)) return;
+  const supabase = await createClient();
+  await supabase
+    .from("members")
+    .update({ role: role as "admin" })
+    .eq("id", String(data.get("id")))
+    .eq("clinic_id", ctx.clinicId)
+    .neq("user_id", ctx.userId);
+  revalidatePath("/equipe");
+  revalidatePath("/ajustes", "layout");
+}
