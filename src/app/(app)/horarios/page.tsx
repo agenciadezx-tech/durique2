@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DragMove } from "../agenda/move";
 import { CalendarDays, ChevronLeft, ChevronRight, Columns3, List, Plus, Repeat, Search, Sparkles, UserPlus } from "lucide-react";
 import { Alert, Card, cx, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { WeekColumns, type ClassOcc } from "./week-columns";
@@ -243,7 +244,9 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
         <>
           {view === "calendario" && (
             <div className="hidden lg:block">
-              <WeekGrid variant="turmas" week={shownWeek} today={today} appts={occ} hrefFor={(a, d) => `/agenda?d=${d}&s=${a.id}`} dayHref={(d) => `/agenda?d=${d}&t=aulas`} />
+              <DragMove enabled={ctx.canManageAgenda}>
+                <WeekGrid variant="turmas" movable={ctx.canManageAgenda} week={shownWeek} today={today} appts={occ} hrefFor={(a, d) => `/agenda?d=${d}&s=${a.id}`} dayHref={(d) => `/agenda?d=${d}&t=aulas`} />
+              </DragMove>
             </div>
           )}
           <div className={view === "calendario" ? "lg:hidden" : undefined}>

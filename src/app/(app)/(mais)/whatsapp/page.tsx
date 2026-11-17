@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { BellRing, CalendarClock, Package, Receipt, Settings2 } from "lucide-react";
+import { ArrowRight, BellRing, CalendarClock, CalendarSync, Package, Receipt, Settings2 } from "lucide-react";
 import { Card, cx, EmptyState } from "@/components/ui";
 import { WaSendButton } from "@/components/wa-send";
 import { getContext } from "@/lib/context";
@@ -16,6 +16,7 @@ const TABS = [
   { key: "lembretes", label: "Lembretes", icon: BellRing },
   { key: "cobrancas", label: "Cobranças", icon: Receipt },
   { key: "renovacoes", label: "Renovações", icon: Package },
+  { key: "mudancas", label: "Aulas que mudaram", icon: CalendarSync },
 ] as const;
 
 const dayLabel = (iso: string) => `${WEEKDAYS[isoWeekday(iso)].toLowerCase()}, ${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -65,6 +66,7 @@ export default async function WhatsappPage({ searchParams }: { searchParams: Pro
       </nav>
 
       {tab === "lembretes" && <Lembretes day={day} isToday={day === today} tpl={tpl.tpl_lembrete} clinic={ctx.clinicName} clinicId={ctx.clinicId} />}
+      {tab === "mudancas" && <Mudancas clinic={ctx.clinicName} clinicId={ctx.clinicId} />}
       {tab === "renovacoes" && <Renovacoes today={today} tpl={tpl.tpl_renovacao} clinic={ctx.clinicName} clinicId={ctx.clinicId} />}
     </>
   );
@@ -252,5 +254,114 @@ async function Renovacoes({ today, tpl, clinic, clinicId }: { today: string; tpl
         );
       })}
     </Card>
+  );
+}
+
+type Change = {
+  id: string;
+  appointment_id: string;
+  old_starts_at: string;
+  created_at: string;
+  appointments: {
+    id: string;
+    starts_at: string;
+    status: string;
+    services: { name: string } | null;
+    recurring_series: { name: string | null } | null;
+    appointment_attendees: { id: string; status: string; patients: { id: string; name: string; phone: string | null; portal_token: string | null } | null }[];
+  } | null;
+};
+
+const whenLabel = (ts: string) => {
+  const d = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(ts));
+  return `${dayLabel(d)} às ${formatTime(ts)}`;
+};
+
+/** Aulas/sessões que mudaram de dia nos últimos 14 dias e ainda vão acontecer: mensagem pronta para cada aluno. */
+async function Mudancas({ clinic, clinicId }: { clinic: string; clinicId: string }) {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - 14 * 864e5).toISOString();
+  const { data } = await supabase
+    .from("appointment_changes")
+    .select(
+      "id, appointment_id, old_starts_at, created_at, appointments(id, starts_at, status, services(name), recurring_series(name), appointment_attendees(id, status, patients(id, name, phone, portal_token)))",
+    )
+    .eq("clinic_id", clinicId)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false });
+  // Uma linha por sessão (a mudança mais recente); a data "antes" é a primeira original
+  const byAppt = new Map<string, Change & { first_old: string }>();
+  for (const c of (data ?? []) as unknown as Change[]) {
+    const prev = byAppt.get(c.appointment_id);
+    if (!prev) byAppt.set(c.appointment_id, { ...c, first_old: c.old_starts_at });
+    else prev.first_old = c.old_starts_at;
+  }
+  const items = [...byAppt.values()].filter(
+    (c) => c.appointments && c.appointments.status === "agendado" && Date.parse(c.appointments.starts_at) > Date.now() && Date.parse(c.first_old) !== Date.parse(c.appointments.starts_at),
+  );
+  const attIds = items.flatMap((c) => c.appointments!.appointment_attendees.map((t) => t.id));
+  const { data: logs } = attIds.length
+    ? await supabase.from("message_log").select("attendee_id, created_at").eq("kind", "outro").in("attendee_id", attIds).gte("created_at", since)
+    : { data: [] as { attendee_id: string | null; created_at: string }[] };
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
+
+  if (!items.length)
+    return (
+      <EmptyState
+        icon={<CalendarSync size={22} />}
+        title="Nenhuma aula mudou de dia"
+        text="Quando você arrastar uma aula para outro dia (ou tocar em Mudar dia), a mensagem para cada aluno aparece aqui pronta."
+      />
+    );
+
+  return (
+    <div className="space-y-4">
+      {items.map((c) => {
+        const a = c.appointments!;
+        const title = a.recurring_series?.name ?? a.services?.name ?? "Sessão";
+        const people = a.appointment_attendees.filter((t) => (t.status === "agendado" || t.status === "confirmado") && t.patients);
+        const changedAt = c.created_at;
+        return (
+          <Card key={c.id} className="overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+              <span className="font-semibold">{title}</span>
+              <span className="flex flex-wrap items-center gap-1.5 text-sm text-muted">
+                <span className="line-through">{whenLabel(c.first_old)}</span>
+                <ArrowRight size={14} />
+                <span className="font-medium text-ink">{whenLabel(a.starts_at)}</span>
+              </span>
+            </div>
+            {people.length === 0 ? (
+              <p className="px-4 py-3 text-sm text-muted">Ninguém marcado nesta sessão.</p>
+            ) : (
+              <div className="divide-y divide-line">
+                {people.map((t) => {
+                  const p = t.patients!;
+                  const sent = (logs ?? []).find((l) => l.attendee_id === t.id && l.created_at >= changedAt)?.created_at;
+                  const body = `Oi, ${firstName(p.name)}! Aviso da ${clinic}: ${a.recurring_series ? "sua aula" : "sua sessão"} de ${title} de ${whenLabel(c.first_old)} mudou para ${whenLabel(a.starts_at)}.${p.portal_token ? ` Seus horários: ${origin}/p/${p.portal_token}` : ""}\nQualquer dúvida, é só responder. 🙂`;
+                  return (
+                    <div key={t.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                      <span className="min-w-0 flex-1">
+                        <Link href={`/pacientes/${p.id}`} className="block truncate font-medium hover:underline">
+                          {p.name}
+                        </Link>
+                        <span className="text-sm text-muted">{sent ? `Avisado ${sentLabel(sent)}` : "Ainda não avisado"}</span>
+                      </span>
+                      {p.phone ? (
+                        <WaSendButton phone={p.phone} body={body} kind="outro" patientId={p.id} attendeeId={t.id} sentAt={sent} label="Avisar" />
+                      ) : (
+                        <span className="text-sm text-muted">Sem WhatsApp</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+      <p className="text-[13px] text-faint">Os alunos também veem a nova data no app deles. Com o WhatsApp conectado, este aviso sai sozinho.</p>
+    </div>
   );
 }

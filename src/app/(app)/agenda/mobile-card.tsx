@@ -21,7 +21,7 @@ const STATUS: Record<string, { l: string; c: string }> = {
 };
 
 /** Cartão de sessão do celular: hora | rosto | quem e o quê | selo. */
-export function MobileApptCard({ a, flag, now, href }: { a: MobileAppt; flag?: { l: string; c: string } | null; now: number; href?: string }) {
+export function MobileApptCard({ a, flag, now, href, move }: { a: MobileAppt; flag?: { l: string; c: string } | null; now: number; href?: string; move?: string }) {
   const aula = a.services?.kind === "turma" || a.capacity > 1;
   const people = a.appointment_attendees.filter((t) => isActiveAttendee(t.status));
   const mins = Math.round((Date.parse(a.ends_at) - Date.parse(a.starts_at)) / 60000);
@@ -39,6 +39,7 @@ export function MobileApptCard({ a, flag, now, href }: { a: MobileAppt; flag?: {
   return (
     <Link
       href={href ?? `/agenda/${a.id}`}
+      data-move={move}
       className={cx(
         "flex min-h-[86px] items-center gap-3 rounded-2xl border border-line border-l-4 bg-surface py-3 pr-3 pl-4 shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors active:bg-hover",
         aula ? "border-l-chart-out" : "border-l-chart-in",

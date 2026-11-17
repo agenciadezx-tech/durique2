@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
 import { friendlyError, toTimestamp } from "@/lib/format";
+import { formatTime } from "@/lib/format";
 import type { ActionState } from "@/components/forms";
 
 const NO_PERM = { error: "Você não tem permissão para alterar a agenda." };
@@ -230,24 +231,66 @@ export async function removeBlock(data: FormData) {
 }
 
 /** Corrige dia/horário de uma sessão (mantém a duração). */
-export async function rescheduleAppointment(_: ActionState, data: FormData): Promise<ActionState> {
+export type MoveResult = { ok?: string; error?: string; notify?: number };
+
+/**
+ * Muda uma sessão de dia/horário (só esta; a turma fixa continua igual nas outras semanas).
+ * Confere conflito do profissional e dia fechado, guarda o histórico para avisar os alunos.
+ */
+export async function moveAppointment(id: string, date: string, time: string): Promise<MoveResult> {
   const ctx = await getContext();
-  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
-  const id = String(data.get("id"));
-  const date = String(data.get("date") ?? "");
-  const time = String(data.get("time") ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Informe o dia e o horário." };
+  if (!ctx.canManageAgenda) return { error: "Só a recepção ou o administrador muda aulas de dia." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return { error: "Escolha o dia e o horário." };
   const supabase = await createClient();
-  const { data: a } = await supabase.from("appointments").select("starts_at, ends_at").eq("id", id).single();
+  const { data: a } = await supabase
+    .from("appointments")
+    .select("id, starts_at, ends_at, status, professional_id, professionals(name), appointment_attendees(status)")
+    .eq("id", id)
+    .single();
   if (!a) return { error: "Sessão não encontrada." };
+  if (a.status !== "agendado") return { error: "Esta sessão foi cancelada." };
   const dur = Date.parse(a.ends_at) - Date.parse(a.starts_at);
   const start = new Date(toTimestamp(date, time));
-  const { error } = await supabase
-    .from("appointments")
-    .update({ starts_at: start.toISOString(), ends_at: new Date(start.getTime() + dur).toISOString() })
-    .eq("id", id);
+  const end = new Date(start.getTime() + dur);
+  if (start.getTime() === Date.parse(a.starts_at)) return { ok: "Nada mudou." };
+
+  const [{ data: clash }, { data: blocks }] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select("id, starts_at, services(name), recurring_series(name)")
+      .eq("clinic_id", ctx.clinicId)
+      .eq("professional_id", a.professional_id)
+      .eq("status", "agendado")
+      .neq("id", id)
+      .lt("starts_at", end.toISOString())
+      .gt("ends_at", start.toISOString())
+      .limit(1),
+    supabase
+      .from("time_blocks")
+      .select("reason, professional_id")
+      .eq("clinic_id", ctx.clinicId)
+      .lt("starts_at", end.toISOString())
+      .gt("ends_at", start.toISOString()),
+  ]);
+  const pro = (a.professionals as unknown as { name: string } | null)?.name ?? "O profissional";
+  if (clash?.length) {
+    const c = clash[0] as unknown as { starts_at: string; services: { name: string } | null; recurring_series: { name: string | null } | null };
+    return { error: `${pro} já tem ${c.recurring_series?.name ?? c.services?.name ?? "outra sessão"} às ${formatTime(c.starts_at)} nesse dia. Escolha outro horário.` };
+  }
+  const block = (blocks ?? []).find((b) => !b.professional_id || b.professional_id === a.professional_id);
+  if (block) return { error: `Esse horário está bloqueado${block.reason ? ` (${block.reason})` : ""}.` };
+
+  const { error } = await supabase.from("appointments").update({ starts_at: start.toISOString(), ends_at: end.toISOString() }).eq("id", id);
   if (error) return { error: friendlyError(error) };
-  revalidatePath("/agenda");
-  revalidatePath(`/agenda/${id}`);
-  return { ok: "Data corrigida." };
+  await supabase.from("appointment_changes").insert({ clinic_id: ctx.clinicId, appointment_id: id, old_starts_at: a.starts_at, new_starts_at: start.toISOString() });
+  const notify = (a.appointment_attendees as { status: string }[]).filter((t) => t.status === "agendado" || t.status === "confirmado").length;
+  revalidatePath("/agenda", "layout");
+  revalidatePath("/horarios", "layout");
+  revalidatePath("/whatsapp");
+  return { ok: "Mudou!", notify };
+}
+
+export async function rescheduleAppointment(_: ActionState, data: FormData): Promise<ActionState> {
+  const r = await moveAppointment(String(data.get("id")), String(data.get("date") ?? ""), String(data.get("time") ?? ""));
+  return r.error ? { error: r.error } : { ok: "Data mudada." };
 }

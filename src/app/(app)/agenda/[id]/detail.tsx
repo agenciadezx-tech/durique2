@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CalendarClock, Check, ClipboardCheck, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PatientPicker } from "@/components/patient-picker";
-import { Alert, Avatar, Badge, buttonClass, Card, cx, Field, Input, PageHeader, Section } from "@/components/ui";
+import { Alert, Avatar, Badge, buttonClass, Card, cx, PageHeader, Section } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
 import { AttendeeStatus } from "./status-buttons";
 import { ChargeForm } from "./charge-form";
@@ -11,7 +11,8 @@ import { getContext } from "@/lib/context";
 import { EvolutionForm } from "./evolution-form";
 import { createClient } from "@/lib/supabase/server";
 import { formatDayLong, formatTime, formatTimestampShort, TZ, whatsappLink } from "@/lib/format";
-import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, rescheduleAppointment, restoreAppointment } from "../actions";
+import { MoveButton } from "../move";
+import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, restoreAppointment } from "../actions";
 import { WaSendButton } from "@/components/wa-send";
 import { firstName } from "@/lib/messages";
 
@@ -445,27 +446,22 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
         )}
 
         {ctx.canManageAgenda && !canceled && (
-          <details className="group rounded-2xl border border-line bg-surface">
-            <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 text-[15px] font-medium [&::-webkit-details-marker]:hidden">
-              <CalendarClock size={17} className="text-muted" /> Corrigir data da sessão
-            </summary>
-            <div className="border-t border-line p-4">
-              <ActionForm action={rescheduleAppointment} className="space-y-4">
-                <input type="hidden" name="id" value={appt.id} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Field label="Dia">
-                    <Input type="date" name="date" defaultValue={day} required />
-                  </Field>
-                  <Field label="Horário">
-                    <Input type="time" name="time" defaultValue={formatTime(appt.starts_at)} required />
-                  </Field>
-                </div>
-                <SubmitButton size="md" variant="secondary">
-                  Salvar nova data
-                </SubmitButton>
-              </ActionForm>
-            </div>
-          </details>
+          <Card className="flex flex-wrap items-center gap-3 p-4">
+            <CalendarClock size={20} className="shrink-0 text-muted" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Precisa mudar de dia ou horário?</span>
+              <span className="block text-sm text-muted">Muda só esta {isClass ? "aula" : "sessão"} e {occupied ? "avisa quem está marcado" : "mantém tudo o resto"}.</span>
+            </span>
+            <MoveButton
+              appt={{
+                id: appt.id,
+                title: (isClass ? (appt.recurring_series as unknown as { name: string | null } | null)?.name : attendees[0]?.patients?.name) ?? service?.name ?? "Sessão",
+                date: day,
+                time: formatTime(appt.starts_at),
+                people: occupied,
+              }}
+            />
+          </Card>
         )}
 
         {ctx.canManageAgenda && (

@@ -4,6 +4,7 @@ import {
   BellRing,
   Cake,
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardCheck,
@@ -32,6 +33,7 @@ import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { AppointmentDetail } from "./[id]/detail";
 import { AgendaFab } from "./fab";
+import { DragMove } from "./move";
 import { MobileApptCard, type MobileAppt } from "./mobile-card";
 import { addDaysISO, dayRange, formatDayLong, formatMoney, formatTime, isoWeekday, todayISO, TZ, WEEKDAYS, WEEKDAYS_SHORT } from "@/lib/format";
 
@@ -331,6 +333,21 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const shortDate = (d: string, month = true) =>
     month ? `${Number(d.slice(8))} ${new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`)).replace(".", "")}` : String(Number(d.slice(8)));
 
+  // Arrastar para mudar de dia (só recepção/admin, só o que ainda vai acontecer)
+  const canMove = ctx.canManageAgenda;
+  const moveJson = (a: MobileAppt) => {
+    if (!canMove || Date.parse(a.starts_at) < now) return undefined;
+    const people = a.appointment_attendees.filter((t) => isActiveAttendee(t.status));
+    const aula = isAula(a);
+    return JSON.stringify({
+      id: a.id,
+      title: aula ? (a.recurring_series?.name ?? a.services?.name ?? "Aula") : (people[0]?.patients?.name ?? a.services?.name ?? "Sessão"),
+      date: dayFmt.format(new Date(a.starts_at)),
+      time: formatTime(a.starts_at),
+      people: people.length,
+    });
+  };
+
   const chip = (on: boolean) =>
     cx(
       "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors",
@@ -446,7 +463,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       {view === "semana" ? (
         <div className="flex min-h-0 flex-1">
           <div className="min-w-0 flex-1 overflow-auto px-5 py-4">
+            <DragMove enabled={canMove}>
             <WeekGrid
+              movable={canMove}
               week={week.filter((d, i) => i < 5 || weekList.some((a) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(a.starts_at)) === d) || closedDays[d])}
               today={today}
               appts={weekList}
@@ -454,6 +473,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
               hrefFor={(a, d) => `/agenda?d=${d}&s=${a.id}`}
               dayHref={(d) => `/agenda?d=${d}`}
             />
+            </DragMove>
+            {canMove && <p className="mt-2 text-[13px] text-muted">Dica: arraste uma aula ou consulta para outro dia ou horário para mudar só aquela sessão.</p>}
           </div>
           <aside className="w-[310px] shrink-0 overflow-y-auto border-l border-line bg-surface px-4 py-5">
             <p className="text-[12px] font-semibold tracking-wide text-muted uppercase">Resumo da semana</p>
@@ -772,6 +793,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         </div>
       </div>
 
+      <DragMove enabled={canMove}>
       {/* Dias da semana */}
       {view !== "semana" && (
         <nav className="grid grid-cols-7 border-b border-line bg-surface px-2 pt-3 pb-2" aria-label="Dias da semana">
@@ -779,7 +801,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             const on = d === day;
             const n = perDay.get(d) ?? 0;
             return (
-              <Link key={d} href={href({ d: d === today ? undefined : d, f: undefined })} aria-current={on ? "date" : undefined} className="flex flex-col items-center gap-1 py-1">
+              <Link key={d} href={href({ d: d === today ? undefined : d, f: undefined })} aria-current={on ? "date" : undefined} data-drop-day={d} className="flex flex-col items-center gap-1 rounded-2xl py-1">
                 <span className={cx("text-[12px] font-semibold uppercase", d === today && !on ? "text-accent" : "text-muted")}>{WEEKDAYS_SHORT[isoWeekday(d)]}</span>
                 <span
                   className={cx("grid size-10 place-items-center rounded-full text-[18px] font-semibold tabular-nums", on ? bandFg : d === today && "text-accent")}
@@ -816,26 +838,37 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         )}
 
         {view === "semana" ? (
-          week.map((d) => {
-            const list = weekList.filter((a) => dayFmt.format(new Date(a.starts_at)) === d);
-            return (
-              <section key={d} className="pt-2">
-                <h2 className="mb-2 flex items-center gap-2 px-1">
-                  <span className={cx("text-[17px] font-semibold", d === today && "text-accent")}>{WEEKDAYS[isoWeekday(d)]}</span>
-                  <span className="text-[15px] text-muted">{shortDate(d)}</span>
-                  {d === today && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-semibold text-accent">Hoje</span>}
-                  <span className="ml-auto text-[13px] text-muted">
-                    {closedDays[d] ? `${closedDays[d]} · fechada` : list.length ? `${list.length} ${list.length === 1 ? "item" : "itens"}` : "Livre"}
-                  </span>
-                </h2>
-                <div className="space-y-2.5">
-                  {list.map((a) => (
-                    <MobileApptCard key={a.id} a={a} now={now} />
-                  ))}
-                </div>
-              </section>
-            );
-          })
+          <>
+            {canMove && weekList.some((a) => Date.parse(a.starts_at) > now) && (
+              <p className="px-1 text-[13px] text-muted">Para mudar uma aula de dia, segure o cartão e arraste até o dia novo.</p>
+            )}
+            {week.map((d) => {
+              const list = weekList.filter((a) => dayFmt.format(new Date(a.starts_at)) === d);
+              return (
+                <details key={d} open={d === today || (!week.includes(today) && d === week[0])} className="group/day rounded-2xl">
+                  <summary
+                    data-drop-day={d}
+                    className="flex min-h-14 cursor-pointer list-none items-center gap-2 rounded-2xl border border-line bg-surface px-4 [&::-webkit-details-marker]:hidden"
+                  >
+                    <span className={cx("text-[17px] font-semibold", d === today && "text-accent")}>{WEEKDAYS[isoWeekday(d)]}</span>
+                    <span className="text-[15px] text-muted">{shortDate(d)}</span>
+                    {d === today && <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[12px] font-semibold text-accent">Hoje</span>}
+                    <span className="ml-auto text-[13px] text-muted">
+                      {closedDays[d] ? `${closedDays[d]} · fechada` : list.length ? `${list.length} ${list.length === 1 ? "item" : "itens"}` : "Livre"}
+                    </span>
+                    <ChevronDown size={20} className="shrink-0 text-faint transition-transform group-open/day:rotate-180" />
+                  </summary>
+                  <div data-drop-day={d} className="space-y-2.5 rounded-2xl pt-2.5 pb-1">
+                    {list.length ? (
+                      list.map((a) => <MobileApptCard key={a.id} a={a} now={now} move={moveJson(a)} />)
+                    ) : (
+                      <p className="px-4 py-3 text-[14px] text-muted">Nada marcado neste dia.</p>
+                    )}
+                  </div>
+                </details>
+              );
+            })}
+          </>
         ) : (
           <>
             <details className="group rounded-2xl border border-line bg-surface" open={pendingCalls + pendingEvos + atRisk > 0}>
@@ -916,7 +949,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                       : f.evolucao
                         ? { l: "Evol. pendente", c: "bg-warn-soft text-warn" }
                         : null;
-                  return <MobileApptCard key={a.id} a={a} flag={flag} now={now} />;
+                  return <MobileApptCard key={a.id} a={a} flag={flag} now={now} move={moveJson(a)} />;
                 })}
               </div>
             )}
@@ -938,6 +971,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           </>
         )}
       </div>
+
+      </DragMove>
 
       {(ctx.canManageAgenda || ctx.professionalId) && <AgendaFab day={day} full={ctx.canManageAgenda} />}
     </div>

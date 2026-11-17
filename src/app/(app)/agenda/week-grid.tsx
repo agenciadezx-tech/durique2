@@ -69,6 +69,7 @@ export function WeekGrid({
   dayHref = (d) => `/agenda?d=${d}`,
   closed = {},
   variant = "agenda",
+  movable = false,
 }: {
   week: string[];
   appts: GridAppt[];
@@ -77,7 +78,10 @@ export function WeekGrid({
   dayHref?: (d: string) => string;
   closed?: Record<string, string>;
   variant?: "agenda" | "turmas";
+  /** Deixa arrastar os cartões para outro dia/horário (precisa estar dentro de <DragMove>). */
+  movable?: boolean;
 }) {
+  const nowMs = Date.now();
   const HOUR_PX = variant === "turmas" ? 96 : 64;
   const byDay = new Map<string, GridAppt[]>(week.map((d) => [d, []]));
   appts.forEach((a) => byDay.get(dayFmt.format(new Date(a.starts_at)))?.push(a));
@@ -100,7 +104,7 @@ export function WeekGrid({
             const n = byDay.get(d)?.length ?? 0;
             const isToday = d === today;
             return (
-              <Link key={d} href={dayHref(d)} className={cx("flex flex-col items-center gap-0.5 border-l border-line py-2 hover:bg-hover", isToday && "bg-accent-soft/40")}>
+              <Link key={d} href={dayHref(d)} data-drop-day={movable ? d : undefined} className={cx("flex flex-col items-center gap-0.5 border-l border-line py-2 hover:bg-hover", isToday && "bg-accent-soft/40")}>
                 <span className={cx("text-[12px] font-semibold tracking-wide uppercase", isToday ? "text-accent" : "text-muted")}>{WEEKDAYS_SHORT[isoWeekday(d)]}</span>
                 <span className={cx("grid size-8 place-items-center rounded-full text-[17px] font-semibold tabular-nums", isToday && "bg-accent text-white")}>{Number(d.slice(8))}</span>
                 {closed[d] ? (
@@ -130,6 +134,9 @@ export function WeekGrid({
           {week.map((d) => (
             <div
               key={d}
+              data-drop-day={movable ? d : undefined}
+              data-hour-px={movable ? HOUR_PX : undefined}
+              data-first-hour={movable ? firstHour : undefined}
               className={cx("relative border-l border-line", d === today && "bg-accent-soft/20")}
               style={closed[d] ? { backgroundImage: "repeating-linear-gradient(135deg, transparent 0 10px, rgba(217,122,43,.10) 10px 20px)" } : undefined}
             >
@@ -149,9 +156,15 @@ export function WeekGrid({
                   <Link
                     key={a.id}
                     href={hrefFor(a, d)}
+                    data-move={
+                      movable && Date.parse(a.starts_at) > nowMs
+                        ? JSON.stringify({ id: a.id, title: title ?? "Sessão", date: d, time: timeFmt.format(new Date(a.starts_at)), people: people.length })
+                        : undefined
+                    }
                     title={`${timeFmt.format(new Date(a.starts_at))} · ${title} · ${a.professionals?.name}`}
                     className={cx(
                       "absolute overflow-hidden rounded-lg border border-l-[3px] px-1.5 py-1 text-left shadow-sm transition-shadow hover:z-10 hover:shadow-md",
+                      movable && "cursor-grab active:cursor-grabbing",
                       variant === "turmas" ? "bg-surface" : aula ? "bg-chart-out/10" : "bg-chart-in/10",
                     )}
                     style={{

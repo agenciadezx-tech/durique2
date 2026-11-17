@@ -2,8 +2,8 @@
 -- slot_at = horário "de origem" da turma fixa; a geração automática usa ele para saber que a sessão já existe.
 alter table public.appointments add column if not exists slot_at timestamptz;
 update public.appointments set slot_at = starts_at where series_id is not null and slot_at is null;
-drop index if exists public.appointments_series_start_uq;
-create unique index appointments_series_slot_uq on public.appointments (series_id, slot_at) where series_id is not null;
+-- O índice antigo (series_id, starts_at) continua; a geração ignora qualquer conflito.
+create unique index if not exists appointments_series_slot_uq on public.appointments (series_id, slot_at) where series_id is not null;
 
 create or replace function public.generate_series_occurrences(p_series uuid, p_until date)
 returns integer
@@ -26,7 +26,7 @@ begin
       values
         (s.clinic_id, s.unit_id, s.service_id, s.professional_id, s.id,
          v_start, v_start + make_interval(mins => s.duration_min), s.capacity, v_start)
-      on conflict (series_id, slot_at) where series_id is not null do nothing
+      on conflict do nothing
       returning id into v_appt;
 
       if v_appt is not null then

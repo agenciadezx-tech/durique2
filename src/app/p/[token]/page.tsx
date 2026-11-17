@@ -15,6 +15,7 @@ import {
   MapPin,
   AtSign,
   AlertCircle,
+  CalendarClock,
   ChevronRight,
 } from "lucide-react";
 import { Badge, Card, cx } from "@/components/ui";
@@ -101,12 +102,18 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
   const { data } = await supabase.rpc("portal_get", { p_token: token });
   const d = data as Portal | null;
   if (!d) notFound();
-  const [{ data: plansData }, { data: feedbackDue }, { data: reviewUrl }, { data: chargesData }] = await Promise.all([
+  const [{ data: plansData }, { data: feedbackDue }, { data: reviewUrl }, { data: chargesData }, { data: changesData }] = await Promise.all([
     supabase.rpc("portal_exercises", { p_token: token }),
     supabase.rpc("portal_feedback_due", { p_token: token }),
     supabase.rpc("portal_review_url", { p_token: token }),
     supabase.rpc("portal_charges", { p_token: token }),
+    supabase.rpc("portal_changes", { p_token: token }),
   ]);
+  const changes = ((changesData ?? []) as { appointment_id: string; title: string | null; old_starts_at: string; new_starts_at: string }[]).filter(
+    (c) => Date.parse(c.old_starts_at) !== Date.parse(c.new_starts_at),
+  );
+  const whenTxt = (ts: string) =>
+    new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(ts));
   const ch = chargesData as {
     pix: { key: string; name: string; city: string } | null;
     charges: { id: string; description: string; amount_cents: number; due_date: string }[];
@@ -239,6 +246,23 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
                   </Link>
                 )}
               </section>
+            )}
+
+            {/* Aulas que mudaram de dia */}
+            {changes.length > 0 && (
+              <div className="space-y-2">
+                {changes.map((c) => (
+                  <div key={c.appointment_id} className="flex items-start gap-3 rounded-2xl border border-info/30 bg-info-soft px-4 py-3 text-info">
+                    <CalendarClock size={20} className="mt-0.5 shrink-0" />
+                    <span className="min-w-0 text-[15px]">
+                      <span className="block font-semibold">{c.title ?? "Sua sessão"} mudou de dia</span>
+                      <span className="block">
+                        <span className="line-through opacity-70">{whenTxt(c.old_starts_at)}</span> → <strong>{whenTxt(c.new_starts_at)}</strong>
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
 
             {/* Pendências */}
