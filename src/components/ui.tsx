@@ -80,6 +80,7 @@ export function PageHeader({
       {back && (
         <Link
           href={back.href}
+          data-back
           aria-label={`Voltar para ${back.label}`}
           title={back.label}
           className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-surface text-muted shadow-sm transition-colors hover:bg-hover hover:text-ink"

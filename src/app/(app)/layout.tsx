@@ -7,7 +7,7 @@ import { ClinicMark } from "@/components/clinic-mark";
 import { textOn } from "@/lib/colors";
 import { cx } from "@/components/ui";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children, drawer }: { children: React.ReactNode; drawer: React.ReactNode }) {
   const ctx = await getContext();
   const brand = ctx.brandColor ?? "#0f766e";
   const tone = textOn(brand);
@@ -52,6 +52,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
       <BottomNav />
+      {drawer}
     </div>
   );
 }

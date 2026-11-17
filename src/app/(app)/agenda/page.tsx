@@ -30,6 +30,7 @@ import { proColor } from "@/lib/colors";
 import { isActiveAttendee } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
+import { AppointmentDetail } from "./[id]/detail";
 import { addDaysISO, dayRange, formatDayLong, formatMoney, formatTime, isoWeekday, todayISO, TZ, WEEKDAYS_SHORT } from "@/lib/format";
 
 export const metadata = { title: "Hoje" };
@@ -57,7 +58,7 @@ type Appt = {
 const DOT: Record<string, string> = { agendado: "bg-faint", confirmado: "bg-info", presente: "bg-ok", falta: "bg-bad" };
 const isAula = (a: { capacity: number; services: { kind: string } | null }) => a.services?.kind === "turma" || a.capacity > 1;
 
-type Sp = { d?: string; bemvindo?: string; v?: string; t?: string; pro?: string; f?: string };
+type Sp = { d?: string; bemvindo?: string; v?: string; t?: string; pro?: string; f?: string; st?: string; s?: string };
 
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<Sp> }) {
   const ctx = await getContext();
@@ -67,6 +68,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const view = sp.v === "semana" ? "semana" : sp.v === "pro" ? "pro" : "dia";
   const tipo = sp.t === "consultas" || sp.t === "aulas" ? sp.t : "tudo";
   const filter = ["chamada", "evolucao", "confirmar", "risco"].includes(sp.f ?? "") ? sp.f! : null;
+  const st = ["agendados", "confirmados", "concluidas", "vagos"].includes(sp.st ?? "") ? sp.st! : null;
+  const selected = sp.s && /^[0-9a-f-]{36}$/.test(sp.s) ? sp.s : null;
   const weekStart = addDaysISO(day, 1 - isoWeekday(day));
   const week = Array.from({ length: 7 }, (_, i) => addDaysISO(weekStart, i));
   const supabase = await createClient();
@@ -152,6 +155,16 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     return true;
   });
 
+  // Filtro por situação (barra do computador)
+  const byStatus = visible.filter((a) => {
+    const act = a.appointment_attendees.filter((t) => isActiveAttendee(t.status));
+    if (st === "agendados") return a.appointment_attendees.some((t) => t.status === "agendado");
+    if (st === "confirmados") return a.appointment_attendees.some((t) => t.status === "confirmado");
+    if (st === "concluidas") return Date.parse(a.ends_at) < now || a.appointment_attendees.some((t) => t.status === "presente");
+    if (st === "vagos") return act.length < a.capacity;
+    return true;
+  });
+
   // Resumo do dia
   const consultas = scoped.filter((a) => !isAula(a));
   const aulas = scoped.filter(isAula);
@@ -185,7 +198,16 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
   const href = (patch: Partial<Sp>) => {
     const q = new URLSearchParams();
-    const m = { d: day === today ? undefined : day, v: view === "dia" ? undefined : view, t: tipo === "tudo" ? undefined : tipo, pro: proFilter ?? undefined, f: filter ?? undefined, ...patch };
+    const m = {
+      d: day === today ? undefined : day,
+      v: view === "dia" ? undefined : view,
+      t: tipo === "tudo" ? undefined : tipo,
+      pro: proFilter ?? undefined,
+      f: filter ?? undefined,
+      st: st ?? undefined,
+      s: undefined,
+      ...patch,
+    };
     Object.entries(m).forEach(([k, v]) => v && q.set(k, v));
     const s = q.toString();
     return `/agenda${s ? `?${s}` : ""}`;
@@ -287,8 +309,273 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       on ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
     );
 
+  const seg = (on: boolean) =>
+    cx("inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-medium whitespace-nowrap", on ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink");
+  const step = view === "semana" ? 7 : 1;
+  const sel = selected ? all.find((a) => a.id === selected) ?? null : null;
+
+  const desktop = (
+    <div className="hidden h-dvh flex-col lg:flex">
+      {/* Barra de filtros */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-5 py-3">
+        <div className="flex rounded-xl bg-hover p-1">
+          <Link href={href({ v: undefined })} className={seg(view !== "semana")}>
+            Dia
+          </Link>
+          <Link href={href({ v: "semana" })} className={seg(view === "semana")}>
+            Semana
+          </Link>
+        </div>
+        <Link href={href({ d: addDaysISO(day, -step) })} aria-label="Anterior" className="grid size-10 place-items-center rounded-xl border border-line hover:bg-hover">
+          <ChevronLeft size={18} />
+        </Link>
+        <Link href={href({ d: addDaysISO(day, step) })} aria-label="Próximo" className="grid size-10 place-items-center rounded-xl border border-line hover:bg-hover">
+          <ChevronRight size={18} />
+        </Link>
+        {day !== today && (
+          <Link href={href({ d: undefined })} className="px-1 text-sm font-medium text-accent hover:underline">
+            Hoje
+          </Link>
+        )}
+        <span className="mx-1 h-6 w-px bg-line" aria-hidden />
+        <div className="flex rounded-xl bg-hover p-1">
+          {(
+            [
+              { t: "tudo", label: "Tudo", dot: "" },
+              { t: "consultas", label: "Consultas", dot: "bg-chart-in" },
+              { t: "aulas", label: "Aulas", dot: "bg-chart-out" },
+            ] as const
+          ).map((o) => (
+            <Link key={o.t} href={href({ t: o.t === "tudo" ? undefined : o.t })} className={seg(tipo === o.t)}>
+              {o.dot && <span className={cx("size-2 rounded-full", o.dot)} />} {o.label}
+            </Link>
+          ))}
+        </div>
+        {view === "dia" && (
+          <div className="flex rounded-xl bg-hover p-1">
+            {(
+              [
+                { k: "", l: "Tudo" },
+                { k: "agendados", l: "Agendados" },
+                { k: "confirmados", l: "Confirmados" },
+                { k: "concluidas", l: "Concluídas" },
+                { k: "vagos", l: "Vagos" },
+              ] as const
+            ).map((o) => (
+              <Link key={o.k || "tudo"} href={href({ st: o.k || undefined })} className={seg((st ?? "") === o.k)}>
+                {o.l}
+              </Link>
+            ))}
+          </div>
+        )}
+        {pros.length > 1 && (
+          <div className="flex rounded-xl bg-hover p-1">
+            <Link href={href({ pro: undefined })} className={seg(!proFilter)}>
+              Todos
+            </Link>
+            {pros.map((p) => (
+              <Link key={p.id} href={href({ pro: p.id })} className={seg(proFilter === p.id)}>
+                <span className="size-2 rounded-full" style={{ background: proColor(p.color, p.id) }} /> {p.name.split(" ")[0]}
+              </Link>
+            ))}
+          </div>
+        )}
+        {view !== "semana" && (
+          <div className="ml-auto flex rounded-xl bg-hover p-1">
+            <Link href={href({ v: undefined })} className={seg(view === "dia")}>
+              Lista
+            </Link>
+            <Link href={href({ v: "pro" })} className={seg(view === "pro")}>
+              Por profissional
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {view === "semana" ? (
+        <div className="flex-1 overflow-auto px-6 py-5">
+          <p className="mb-4 text-[17px] font-semibold">
+            {formatDayLong(week[0]).split(", ")[1]} a {formatDayLong(week[6]).split(", ")[1]}
+          </p>
+          <WeekGrid
+            week={week}
+            today={today}
+            appts={((weekAppts ?? []) as unknown as GridAppt[])
+              .filter((a) => !proFilter || a.professionals?.id === proFilter)
+              .filter((a) => tipo === "tudo" || (tipo === "aulas" ? isAula(a) : !isAula(a)))}
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          {/* Coluna da esquerda: dia, atalhos e linha do tempo */}
+          <aside className="w-[300px] shrink-0 overflow-y-auto border-r border-line bg-surface px-4 py-5">
+            <h1 className="text-[22px] leading-tight font-semibold tracking-tight">{isTodayView ? "Hoje" : formatDayLong(day).split(",")[0]}</h1>
+            <p className="text-sm text-muted">
+              {formatDayLong(day).split(", ")[1]} · <strong className="text-ink">{consultas.length}</strong> consulta{consultas.length === 1 ? "" : "s"} ·{" "}
+              <strong className="text-ink">{aulas.length}</strong> aula{aulas.length === 1 ? "" : "s"}
+            </p>
+            {ctx.canManageAgenda ? (
+              <div className="mt-4 space-y-2">
+                <Link href={`/agenda/nova?d=${day}`} className="flex items-center gap-3 rounded-2xl bg-accent px-4 py-3.5 text-white transition-colors hover:bg-accent-strong">
+                  <span className="grid size-9 place-items-center rounded-xl bg-white/15">
+                    <Plus size={20} />
+                  </span>
+                  <span>
+                    <span className="block font-semibold">Agendar</span>
+                    <span className="block text-[12px] text-white/80">Consulta ou alguém numa aula</span>
+                  </span>
+                </Link>
+                <Link href={`/agenda/bloquear?d=${day}`} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm font-medium text-muted hover:bg-hover">
+                  <Lock size={15} /> Bloquear horário
+                </Link>
+                <Link href="/agenda/vagas?motivo=experimental" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line text-sm font-medium hover:bg-hover">
+                  <Sparkles size={15} className="text-accent" /> Aula experimental
+                </Link>
+                <Link href="/agenda/vagas?motivo=reposicao" className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line text-sm font-medium hover:bg-hover">
+                  <RefreshCcw size={15} className="text-accent" /> Repor aula
+                </Link>
+              </div>
+            ) : (
+              ctx.professionalId && (
+                <Link href={`/agenda/bloquear?d=${day}`} className="mt-4 flex min-h-11 items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm font-medium text-muted hover:bg-hover">
+                  <Lock size={15} /> Bloquear meu horário
+                </Link>
+              )
+            )}
+
+            <p className="mt-6 mb-2 text-[12px] font-semibold tracking-wide text-muted uppercase">Linha do tempo</p>
+            {filter && (
+              <Link href={href({ f: undefined })} className="mb-2 flex items-center justify-between rounded-lg bg-accent-soft px-3 py-2 text-[13px]">
+                <span>{actions.find((a) => a.key === filter)?.label ?? "A confirmar"}</span>
+                <span className="font-medium text-accent">Ver tudo</span>
+              </Link>
+            )}
+            {blocks.map((b) => (
+              <div key={b.id} className="mb-2 flex items-center gap-2 rounded-xl border border-dashed border-line bg-hover/50 px-3 py-2 text-[13px]">
+                <Lock size={14} className="shrink-0 text-muted" />
+                <span className="min-w-0 flex-1 truncate">
+                  {formatTime(b.starts_at)}–{formatTime(b.ends_at)} · {b.reason || "Bloqueado"}
+                </span>
+              </div>
+            ))}
+            {byStatus.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-sm text-muted">{filter || st ? "Nada aqui." : "Dia livre."}</p>
+            ) : (
+              <ol className="relative space-y-2">
+                {byStatus.map((a) => {
+                  const people = a.appointment_attendees.filter((t) => isActiveAttendee(t.status));
+                  const aula = isAula(a);
+                  const f = flags.get(a.id)!;
+                  const on = a.id === selected;
+                  const color = proColor(a.professionals?.color, a.professionals?.id);
+                  const title = aula ? a.services?.name : people[0]?.patients?.name ?? "Sem paciente";
+                  const sub = aula ? `${people.length}/${a.capacity} ocupadas` : a.services?.name;
+                  const tag = f.risco ? { t: "Em risco", c: "bg-bad-soft text-bad" } : f.chamada ? { t: "Chamada pendente", c: "bg-warn-soft text-warn" } : f.evolucao ? { t: "Evolução pendente", c: "bg-warn-soft text-warn" } : null;
+                  return (
+                    <li key={a.id} className="flex gap-2">
+                      <span className="w-10 shrink-0 pt-2.5 text-right text-[12px] font-semibold tabular-nums">{formatTime(a.starts_at)}</span>
+                      <span className="relative flex w-3 shrink-0 justify-center">
+                        <span className="absolute inset-y-0 w-px bg-line" />
+                        <span className="relative mt-3.5 size-2.5 rounded-full ring-2 ring-surface" style={{ background: aula ? "var(--color-chart-out)" : "var(--color-chart-in)" }} />
+                      </span>
+                      <Link
+                        href={href({ s: a.id })}
+                        aria-current={on ? "true" : undefined}
+                        className={cx("min-w-0 flex-1 rounded-xl border-l-[3px] border bg-surface px-2.5 py-2 transition-colors", on ? "border-accent bg-accent-soft/50 ring-1 ring-accent" : "border-line hover:bg-hover")}
+                        style={{ borderLeftColor: color }}
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className={cx("grid size-7 shrink-0 place-items-center rounded-lg text-[11px] font-semibold", aula ? "bg-chart-out/15 text-[#a85a17]" : "bg-chart-in/15 text-accent")}>
+                            {aula ? <Users size={14} /> : (title ?? "?").split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[14px] font-semibold">{title}</span>
+                            <span className="block truncate text-[12px] text-muted">{sub}</span>
+                          </span>
+                        </span>
+                        {tag && <span className={cx("mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold", tag.c)}>{tag.t}</span>}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            {canceled.length > 0 && !filter && (
+              <details className="mt-4 text-[13px] text-muted">
+                <summary className="cursor-pointer">{canceled.length} cancelada(s)</summary>
+                <ul className="mt-1 space-y-1">
+                  {canceled.map((a) => (
+                    <li key={a.id}>
+                      <Link href={href({ s: a.id })} className="hover:underline">
+                        {formatTime(a.starts_at)} · {a.services?.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </aside>
+
+          {/* Meio: o que foi escolhido abre aqui */}
+          <section className="min-w-0 flex-1 overflow-x-clip overflow-y-auto px-8 pt-10 pb-16">
+            {view === "pro" ? (
+              pros.length === 0 ? (
+                <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Configurações." />
+              ) : (
+                <ProGrid
+                  day={day}
+                  pros={pros.filter((p) => !proFilter || p.id === proFilter)}
+                  appts={byStatus.map((a) => ({ ...a, flag: flags.get(a.id)!.evolucao ? "Evol." : flags.get(a.id)!.chamada ? "Chamada" : null })) as ProGridAppt[]}
+                  blocks={blocks}
+                  canBook={ctx.canManageAgenda}
+                />
+              )
+            ) : sel ? (
+              <AppointmentDetail id={sel.id} embedded />
+            ) : (
+              <>
+                {ctx.isAdmin && isTodayView && <FirstSteps clinicId={ctx.clinicId} />}
+                {showWelcome && (
+                  <Card className="mb-6 p-5">
+                    <p className="font-semibold">Bem-vindo(a)! Comece cadastrando pacientes e turmas.</p>
+                    <div className="mt-3 flex gap-2">
+                      <LinkButton href="/pacientes" variant="secondary" size="sm">
+                        Pacientes
+                      </LinkButton>
+                      <LinkButton href="/horarios/novo" variant="secondary" size="sm">
+                        Criar turma
+                      </LinkButton>
+                    </div>
+                  </Card>
+                )}
+                <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
+                  <span className="grid size-16 place-items-center rounded-2xl border border-line bg-surface text-muted">
+                    <CalendarDays size={28} />
+                  </span>
+                  <p className="mt-4 text-lg font-semibold">Escolha um compromisso</p>
+                  <p className="mt-1 max-w-sm text-[15px] text-muted">
+                    Toque numa <strong className="text-ink">consulta</strong> para ver o paciente e marcar presença, ou numa <strong className="text-ink">aula</strong> para fazer a chamada. Tudo abre aqui, sem trocar de tela.
+                  </p>
+                </div>
+              </>
+            )}
+          </section>
+
+          {/* Direita: resumo do dia */}
+          <aside className="w-[310px] shrink-0 overflow-y-auto border-l border-line bg-surface px-4 py-5">
+            <p className="text-[12px] font-semibold tracking-wide text-muted uppercase">Resumo do dia</p>
+            <p className="mb-4 text-[18px] font-semibold">{formatDayLong(day)}</p>
+            {summary}
+          </aside>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div data-wide>
+    <div data-split>
+    {desktop}
+    <div className="px-5 pt-6 pb-28 lg:hidden">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-[26px] leading-tight font-semibold tracking-tight">
@@ -640,6 +927,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           </aside>
         </div>
       )}
+    </div>
     </div>
   );
 }
