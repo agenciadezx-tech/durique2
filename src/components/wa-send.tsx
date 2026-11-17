@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Check, MessageCircle } from "lucide-react";
-import { logMessage } from "@/app/(app)/whatsapp/actions";
+import { logMessage } from "@/app/(app)/(mais)/whatsapp/actions";
 import { waSendLink } from "@/lib/messages";
 import { buttonClass, cx } from "./ui";
 

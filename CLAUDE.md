@@ -76,10 +76,12 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 
 ## Conceitos do WhatsApp
 - `whatsapp_settings` (1 por clínica): modo (`manual` agora; `automatico` quando conectar o provedor Zapster), textos `tpl_lembrete`, `tpl_cobranca`, `tpl_renovacao` com variáveis `{nome}`, `{dia}` etc. (`src/lib/messages.ts`).
+- Avisos automáticos: `/whatsapp/avisos` — cartões por grupo (Agenda, Relacionamento, Satisfação, Pagamentos, Documentos) com Ligado/Desligado, "Desligar todos", quando sai, selo Equipe/Pela Central e texto editável com prévia. Catálogo dos avisos e textos padrão em `src/lib/automations.ts`; escolhas da clínica em `whatsapp_automations` (template nulo = padrão); horário de envio em `whatsapp_settings.send_from/send_to`. Lembrete, cobrança e renovação também gravam em `tpl_*` (usados pela Central). Os textos saíram de Minha clínica.
 - Modo manual: a Central `/whatsapp` monta a mensagem e abre `wa.me` com o texto; `message_log` registra o envio (`WaSendButton`).
 - Próximo passo: envio automático via Zapster (Edge Function + pg_cron), webhook para respostas 1/2.
 
 ## Interface (padrões)
+- Computador: trilho estreito à esquerda com os 5 itens. Telas em duas colunas (`data-split` no conteúdo tira o padding do `main`): tudo do Mais fica no route group `src/app/(app)/(mais)/` cujo layout mostra a lista do Mais à esquerda (`src/lib/mais-menu.ts` + `src/components/mais-nav.tsx`); Catálogo é lista + detalhe (`/catalogo?s=id|novo|geral&t=&q=`). No celular, lista e detalhe são telas separadas.
 - Menu (igual no celular e no computador): Hoje (`/agenda`), Pacientes, Turmas (`/horarios`), Catálogo (`/catalogo`: serviços + pacotes/planos, Consultas × Aulas, aviso do que falta), Mais (`/mais`: Dinheiro · Pacientes e divulgação · Sua clínica, filtrado por papel). Financeiro (abas Resumo, Cobranças, Lançamentos, Saúde do negócio, Comissões, Relatórios), WhatsApp e Minha clínica (`/ajustes`) ficam dentro de Mais.
 - Tela Hoje: visões Dia / Por profissional (`pro-grid.tsx`, toque no vazio abre `/agenda/nova?pro=&h=`) / Semana; filtros `t=consultas|aulas`, `pro=`, `f=chamada|evolucao|confirmar|risco`; selos Chamada pendente / Evolução pendente / Em risco (< 2h sem confirmar); resumo Consultas × Aulas e "Para fazer hoje". Cores: consultas `chart-in`, aulas `chart-out`. Atalhos: Agendar, Bloquear horário (`time_blocks`, respeitado no agendamento online), Aula experimental e Repor aula (`/agenda/vagas`).
 - Textos em português simples, sem jargão ("Veio / Faltou / Desmarcou", não "presença/ausência").

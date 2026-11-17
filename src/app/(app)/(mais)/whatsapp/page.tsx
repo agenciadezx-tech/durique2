@@ -40,14 +40,12 @@ export default async function WhatsappPage({ searchParams }: { searchParams: Pro
     <>
       <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">WhatsApp</h1>
+          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Central do WhatsApp</h1>
           <p className="text-[15px] text-muted">Toque em Enviar: o WhatsApp abre com a mensagem pronta. É só apertar enviar lá.</p>
         </div>
-        {ctx.isAdmin && (
-          <Link href="/ajustes#whatsapp" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-            <Settings2 size={16} /> Editar textos
-          </Link>
-        )}
+        <Link href="/whatsapp/avisos" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
+          <Settings2 size={16} /> Avisos e textos
+        </Link>
       </header>
 
       <nav className="-mx-1 mb-6 flex gap-1 overflow-x-auto border-b border-line" aria-label="Tipos de mensagem">

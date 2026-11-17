@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Check } from "lucide-react";
-import { markPaid } from "@/app/(app)/financeiro/actions";
+import { markPaid } from "@/app/(app)/(mais)/financeiro/actions";
 import { PAY_METHODS } from "@/lib/format";
 import { buttonClass, cx, Select } from "./ui";
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContext } from "@/lib/context";
 import { friendlyError, normalizePhone, parseMoney } from "@/lib/format";
@@ -86,13 +87,19 @@ export async function saveService(_: ActionState, data: FormData): Promise<Actio
     cancel_notice_hours: String(data.get("cancel_notice_hours") ?? "").trim() === "" ? null : Math.max(0, Math.min(72, Number(data.get("cancel_notice_hours")) || 0)),
   };
   const supabase = await createClient();
-  const { error } = id
-    ? await supabase.from("services").update(values).eq("id", id)
-    : await supabase.from("services").insert({ ...values, clinic_id: ctx.clinicId });
+  if (!id) {
+    const { data: row, error } = await supabase.from("services").insert({ ...values, clinic_id: ctx.clinicId }).select("id").single();
+    if (error) return { error: friendlyError(error) };
+    revalidatePath("/ajustes");
+    revalidatePath("/catalogo");
+    if (data.get("goto") === "catalogo") redirect(`/catalogo?s=${row.id}&novo=1`);
+    return { ok: `${name} foi adicionado.` };
+  }
+  const { error } = await supabase.from("services").update(values).eq("id", id);
   if (error) return { error: friendlyError(error) };
   revalidatePath("/ajustes");
   revalidatePath("/catalogo");
-  return { ok: id ? "Serviço atualizado." : `${name} foi adicionado.` };
+  return { ok: "Serviço atualizado." };
 }
 
 export async function toggleActive(data: FormData) {

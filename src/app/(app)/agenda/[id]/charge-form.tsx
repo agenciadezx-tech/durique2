@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Check, Receipt } from "lucide-react";
-import { chargeAttendee } from "@/app/(app)/financeiro/actions";
+import { chargeAttendee } from "@/app/(app)/(mais)/financeiro/actions";
 import { PaidNowFields } from "@/components/finance";
 import { buttonClass, cx, Input } from "@/components/ui";
 

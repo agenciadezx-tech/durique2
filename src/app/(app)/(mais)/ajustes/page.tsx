@@ -4,8 +4,6 @@ import { headers } from "next/headers";
 import { CopyButton } from "@/components/copy-button";
 import { ConfirmSubmit } from "@/components/forms";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { saveTemplates } from "../whatsapp/actions";
-import { TEMPLATE_VARS } from "@/lib/messages";
 import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textarea } from "@/components/ui";
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
@@ -21,9 +19,8 @@ export const metadata = { title: "Minha clínica" };
 export default async function AjustesPage() {
   const ctx = await getContext();
   const supabase = await createClient();
-  const [{ data: pros }, { data: wa }, { data: docTemplates }] = await Promise.all([
+  const [{ data: pros }, { data: docTemplates }] = await Promise.all([
     supabase.from("professionals").select("*").eq("clinic_id", ctx.clinicId).order("active", { ascending: false }).order("name"),
-    supabase.from("whatsapp_settings").select("*").eq("clinic_id", ctx.clinicId).maybeSingle(),
     supabase.from("document_templates").select("id, name, body").eq("clinic_id", ctx.clinicId).order("name"),
   ]);
   const admin = ctx.isAdmin;
@@ -58,7 +55,7 @@ export default async function AjustesPage() {
           { href: "#pix", title: "Pix", show: admin },
           { href: "#apps", title: "Wellhub e TotalPass", show: admin },
           { href: "#documentos", title: "Contratos e termos", show: true },
-          { href: "#whatsapp", title: "Mensagens do WhatsApp", show: true },
+          { href: "/whatsapp/avisos", title: "Avisos do WhatsApp", show: true },
           { href: "/financeiro/categorias", title: "Categorias do financeiro", show: ctx.canSeeExpenses },
           { href: "#conta", title: "Sua conta e exportar", show: true },
         ]
@@ -454,34 +451,15 @@ export default async function AjustesPage() {
 
         <section id="whatsapp" className="scroll-mt-20 space-y-3">
           <h2 className="text-[17px] font-semibold">WhatsApp</h2>
-          <Card className="p-5 sm:p-6">
-            <div className="mb-5 flex items-start gap-3 rounded-xl bg-bg p-4">
-              <span className="mt-1 size-2.5 shrink-0 rounded-full bg-warn" aria-hidden />
-              <div className="text-[15px]">
-                <p className="font-medium">Envio assistido</p>
-                <p className="text-muted">
-                  As mensagens saem prontas e você envia pelo WhatsApp da clínica, na tela WhatsApp. O envio automático (com respostas 1/2 que
-                  atualizam a agenda sozinhas) chega quando o número for conectado.
-                </p>
-              </div>
-            </div>
-            {wa && (
-              <ActionForm action={saveTemplates}>
-                {(
-                  [
-                    { k: "tpl_lembrete", t: "Lembrete de sessão", v: TEMPLATE_VARS.lembrete },
-                    { k: "tpl_cobranca", t: "Cobrança", v: TEMPLATE_VARS.cobranca },
-                    { k: "tpl_renovacao", t: "Fim de pacote", v: TEMPLATE_VARS.renovacao },
-                  ] as const
-                ).map((f) => (
-                  <Field key={f.k} label={f.t} hint={"Pode usar: " + f.v.map((x) => `{${x.key}} = ${x.label}`).join(" · ")}>
-                    <Textarea name={f.k} rows={3} defaultValue={wa[f.k]} disabled={!admin} />
-                  </Field>
-                ))}
-                {admin && <SubmitButton size="md">Salvar textos</SubmitButton>}
-              </ActionForm>
-            )}
-          </Card>
+          <Link href="/whatsapp/avisos" className="block">
+            <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Avisos automáticos e textos das mensagens</span>
+                <span className="text-sm text-muted">Lembrete, cobrança, aniversário, pacote acabando… ligue, desligue e edite cada um.</span>
+              </span>
+              <ChevronRight size={20} className="text-faint" />
+            </Card>
+          </Link>
         </section>
 
         <Section id="conta" title="Sua conta">

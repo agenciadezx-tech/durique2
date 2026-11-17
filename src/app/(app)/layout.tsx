@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { BottomNav, SideNav } from "@/components/nav";
@@ -7,19 +8,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const ctx = await getContext();
   return (
     <div className="lg:flex">
-      <aside className="sticky top-0 hidden print:!hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
-        <div className="px-2">
-          <Logo />
-          <p className="mt-4 truncate text-sm font-medium">{ctx.clinicName}</p>
-          <p className="truncate text-[13px] text-muted">{ROLE_LABEL[ctx.role]}</p>
-        </div>
-        <div className="mt-6 flex-1">
+      {/* Computador: trilho estreito com os 5 itens do menu */}
+      <aside className="sticky top-0 hidden h-dvh w-[92px] shrink-0 flex-col items-center border-r border-line bg-surface py-5 lg:flex print:!hidden">
+        <Link href="/agenda" title={`${ctx.clinicName} · ${ROLE_LABEL[ctx.role]}`} aria-label="Durique — início">
+          <Logo compact />
+        </Link>
+        <div className="mt-6 w-full flex-1 px-2">
           <SideNav />
         </div>
-        <form action="/auth/sair" method="post" className="px-1">
-          <p className="mb-2 truncate px-2 text-[13px] text-faint">{ctx.email}</p>
-          <button className="flex h-10 w-full items-center gap-3 rounded-xl px-2 text-sm text-muted hover:bg-hover hover:text-ink">
-            <LogOut size={18} /> Sair
+        <form action="/auth/sair" method="post" className="w-full px-2">
+          <button
+            title={ctx.email}
+            className="flex w-full flex-col items-center gap-1 rounded-xl py-2 text-[12px] font-medium text-muted hover:bg-hover hover:text-ink"
+          >
+            <LogOut size={19} /> Sair
           </button>
         </form>
       </aside>
@@ -29,7 +31,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Logo compact />
           <span className="truncate pl-3 text-sm font-medium text-muted">{ctx.clinicName}</span>
         </header>
-        <main className="mx-auto w-full max-w-4xl px-5 pt-6 pb-28 has-[[data-wide]]:max-w-6xl lg:px-10 lg:pt-10 lg:pb-16">{children}</main>
+        <main className="mx-auto w-full max-w-4xl px-5 pt-6 pb-28 has-[[data-wide]]:max-w-6xl has-[[data-split]]:max-w-none! has-[[data-split]]:p-0! lg:px-10 lg:pt-10 lg:pb-16">
+          {children}
+        </main>
       </div>
       <BottomNav />
     </div>

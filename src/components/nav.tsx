@@ -22,18 +22,18 @@ function useActive() {
 export function SideNav() {
   const isActive = useActive();
   return (
-    <nav className="space-y-1" aria-label="Menu principal">
+    <nav className="space-y-1.5" aria-label="Menu principal">
       {ITEMS.map(({ href, label, icon: Icon, match }) => (
         <Link
           key={href}
           href={href}
           aria-current={isActive(match) ? "page" : undefined}
           className={cx(
-            "flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-medium transition-colors",
+            "flex flex-col items-center gap-1 rounded-xl py-2.5 text-[12px] font-medium transition-colors",
             isActive(match) ? "bg-accent-soft text-accent" : "text-muted hover:bg-hover hover:text-ink",
           )}
         >
-          <Icon size={20} strokeWidth={isActive(match) ? 2.2 : 1.8} />
+          <Icon size={22} strokeWidth={isActive(match) ? 2.2 : 1.8} />
           {label}
         </Link>
       ))}
