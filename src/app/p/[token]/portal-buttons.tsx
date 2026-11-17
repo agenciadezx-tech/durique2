@@ -11,7 +11,7 @@ function useRun() {
   return { pending, res, run };
 }
 
-export function SessionButtons({ token, attendeeId, status, inTime }: { token: string; attendeeId: string; status: string; inTime: boolean }) {
+export function SessionButtons({ token, attendeeId, status, inTime, color }: { token: string; attendeeId: string; status: string; inTime: boolean; color?: string }) {
   const { pending, res, run } = useRun();
   if (res?.ok) return <p className="mt-3 text-sm font-medium text-ok">{res.ok}</p>;
   return (
@@ -23,8 +23,9 @@ export function SessionButtons({ token, attendeeId, status, inTime }: { token: s
             disabled={pending}
             onClick={() => run(() => portalConfirm(token, attendeeId))}
             className={cx(buttonClass("primary", "md"), "flex-1")}
+            style={color ? { background: color } : undefined}
           >
-            Vou sim
+            Confirmar presença
           </button>
         )}
         <button
@@ -32,8 +33,8 @@ export function SessionButtons({ token, attendeeId, status, inTime }: { token: s
           disabled={pending}
           onClick={() => {
             const q = inTime
-              ? "Desmarcar esta aula? Você ganha um crédito para repor em outro horário."
-              : "Desmarcar esta aula? Como falta pouco tempo, ela vai contar como sessão feita.";
+              ? "Desmarcar? Você ganha um crédito para repor em outro horário."
+              : "Desmarcar? Como falta pouco tempo, vai contar como sessão feita.";
             if (window.confirm(q)) run(() => portalCancel(token, attendeeId));
           }}
           className={cx(buttonClass("secondary", "md"), "flex-1")}

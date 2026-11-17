@@ -46,9 +46,9 @@ export default async function ComissoesPage({ searchParams }: { searchParams: Pr
 
       {noneConfigured && (
         <Card className="mb-5 flex flex-wrap items-center justify-between gap-3 p-4">
-          <p className="text-[15px] text-muted">Defina a comissão de cada profissional (% ou valor por sessão) em Minha clínica.</p>
-          <LinkButton href="/ajustes" variant="secondary" size="sm">
-            Ir para Minha clínica
+          <p className="text-[15px] text-muted">Defina a comissão de cada profissional (% ou valor por sessão) em Configurações.</p>
+          <LinkButton href="/ajustes/profissionais" variant="secondary" size="sm">
+            Ir para Configurações
           </LinkButton>
         </Card>
       )}

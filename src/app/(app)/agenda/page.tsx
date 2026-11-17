@@ -466,7 +466,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
               <>
                 <DayNav day={day} today={today} week={week} perDay={perDay} href={href} />
                 {pros.length === 0 ? (
-                  <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Minha clínica." />
+                  <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Configurações." />
                 ) : (
                   <ProGrid
                     day={day}

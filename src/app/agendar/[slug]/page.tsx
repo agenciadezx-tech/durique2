@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AtSign, Clock, MapPin, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { ClinicMark } from "@/components/clinic-mark";
 import { formatPhone } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { BookingFlow, type BookingService } from "./booking-flow";
@@ -10,6 +11,9 @@ export const dynamic = "force-dynamic";
 
 type Info = {
   clinic: string;
+  logo: string | null;
+  banner: string | null;
+  tagline: string | null;
   message: string | null;
   color: string | null;
   whatsapp: string | null;
@@ -53,25 +57,20 @@ export default async function BookingPage({
     const pt = (me as { patient?: { name: string; phone: string | null } } | null)?.patient;
     if (pt) prefill = { name: pt.name, phone: formatPhone(pt.phone) };
   }
-  const initials = d.clinic
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
 
   return (
     <main className="min-h-dvh pb-16">
-      <div className="h-28 w-full" style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }} />
+      <div
+        className="h-36 w-full bg-cover bg-center sm:h-44"
+        style={d.banner ? { backgroundImage: `url(${d.banner})` } : { background: `linear-gradient(135deg, ${color}, ${color}cc)` }}
+      />
       <div className="mx-auto -mt-14 max-w-lg px-5">
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="grid size-14 shrink-0 place-items-center rounded-2xl text-[18px] font-bold text-white" style={{ background: color }}>
-              {initials}
-            </span>
+            <ClinicMark brand={{ name: d.clinic, logo: d.logo, color }} size={56} />
             <div className="min-w-0">
               <h1 className="text-[22px] leading-tight font-semibold tracking-tight">{d.clinic}</h1>
+              {d.tagline && <p className="text-sm text-muted">{d.tagline}</p>}
               <div className="mt-1 flex flex-wrap gap-2">
                 {d.whatsapp && (
                   <a

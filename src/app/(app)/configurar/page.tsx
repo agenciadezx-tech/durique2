@@ -28,7 +28,19 @@ const fmtCnpj = (c: string | null) => (c ? c.replace(/^(\d{2})(\d{3})(\d{3})(\d{
 const toPrice = (c: number | null) => (c == null ? "" : (c / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
 
 /** Rodapé de cada passo: Voltar · Não preciso de ajuda · Pular · Salvar e continuar. */
-function Footer({ n, inForm, skip, primary }: { n: number; inForm: boolean; skip?: boolean; primary: ReactNode }) {
+function Footer({ n, inForm, skip, primary, solo }: { n: number; inForm: boolean; skip?: boolean; primary: ReactNode; solo?: boolean }) {
+  if (solo)
+    return (
+      <div className="flex flex-wrap items-center gap-3 border-t border-line bg-bg/70 px-5 py-3.5 sm:px-8">
+        <input type="hidden" name="so" value="1" />
+        <Link href="/ajustes" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-muted hover:text-ink">
+          <ArrowLeft size={16} /> Configurações
+        </Link>
+        <span className="ml-auto">
+          <SubmitButton size="md">Salvar</SubmitButton>
+        </span>
+      </div>
+    );
   const inner = (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line bg-bg/70 px-5 py-3.5 sm:px-8">
       {n > 1 && (
@@ -55,7 +67,7 @@ function Footer({ n, inForm, skip, primary }: { n: number; inForm: boolean; skip
 const formCls = "flex min-h-0 flex-1 flex-col space-y-0! [&>[role=alert]]:mx-5 [&>[role=alert]]:mt-4 sm:[&>[role=alert]]:mx-8 [&>[role=status]]:mx-5 [&>[role=status]]:mt-4";
 const bodyCls = "flex-1 space-y-5 overflow-y-auto px-5 py-6 sm:px-8";
 
-export default async function ConfigurarPage({ searchParams }: { searchParams: Promise<{ passo?: string }> }) {
+export default async function ConfigurarPage({ searchParams }: { searchParams: Promise<{ passo?: string; so?: string }> }) {
   const ctx = await getContext();
   if (!ctx.isAdmin) redirect("/agenda");
   const sp = await searchParams;
@@ -98,6 +110,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
   };
   const firstOpen = SETUP_STEPS.find((s) => !done[s.n])?.n ?? 8;
   const isEnd = sp.passo === "fim";
+  const solo = !!sp.so && (sp.passo === "4" || sp.passo === "6"); // aberto pelas Configurações: só este passo
   const n = isEnd ? 9 : Math.min(8, Math.max(1, Number(sp.passo) || firstOpen));
   const step = SETUP_STEPS.find((s) => s.n === n);
   const doneCount = SETUP_STEPS.filter((s) => done[s.n]).length;
@@ -294,10 +307,10 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
             </div>
           </details>
           <p className="text-[13px] text-muted">
-            Os profissionais que ainda não têm horário próprio passam a atender nesse horário. Feriados e folgas você marca depois em Minha clínica.
+            Os profissionais que ainda não têm horário próprio passam a atender nesse horário. Feriados e folgas você marca depois em Configurações.
           </p>
         </div>
-        <Footer n={4} inForm primary={<SubmitButton size="md">Salvar e continuar</SubmitButton>} />
+        <Footer n={4} inForm solo={solo} primary={<SubmitButton size="md">Salvar e continuar</SubmitButton>} />
       </ActionForm>
     );
   } else if (n === 5) {
@@ -331,7 +344,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
       <ActionForm action={saveProfile} className={formCls}>
         <div className={bodyCls}>
           <p className="rounded-xl bg-bg px-4 py-3 text-sm text-muted">
-            Só o nome é obrigatório. O resto aparece em recibos e contratos. Pode preencher agora ou depois em Minha clínica.
+            Só o nome é obrigatório. O resto aparece em recibos e contratos. Pode preencher agora ou depois em Configurações.
           </p>
           <Field label="Nome da clínica">
             <Input name="name" defaultValue={clinic.name} required maxLength={80} />
@@ -356,7 +369,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
             </Field>
           </div>
         </div>
-        <Footer n={6} inForm primary={<SubmitButton size="md">Salvar e continuar</SubmitButton>} />
+        <Footer n={6} inForm solo={solo} primary={<SubmitButton size="md">Salvar e continuar</SubmitButton>} />
       </ActionForm>
     );
   } else if (n === 7) {
@@ -527,7 +540,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
     <div data-split className="min-h-dvh lg:flex lg:items-center lg:justify-center lg:bg-ink/[0.04] lg:p-8">
       <div className="flex min-h-dvh w-full flex-col bg-surface pb-16 lg:h-[min(780px,calc(100dvh-4rem))] lg:min-h-0 lg:max-w-5xl lg:flex-row lg:overflow-hidden lg:rounded-3xl lg:border lg:border-line lg:pb-0 lg:shadow-xl">
         {/* Passos (computador) */}
-        <aside className="hidden w-64 shrink-0 flex-col border-r border-line bg-bg lg:flex">
+        <aside className={cx("hidden w-64 shrink-0 flex-col border-r border-line bg-bg", !solo && "lg:flex")}>
           <div className="border-b border-line px-5 py-5">
             <p className="font-semibold">Configurar clínica</p>
             <p className="text-sm text-muted">{isEnd ? "Revisão" : `${n} de ${SETUP_STEPS.length}`}</p>
@@ -566,7 +579,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
         {/* Conteúdo */}
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="border-b border-line px-5 pt-5 pb-4 sm:px-8 lg:pt-7">
-            <div className="mb-3 flex items-center gap-3 lg:hidden">
+            <div className={cx("mb-3 flex items-center gap-3 lg:hidden", solo && "hidden")}>
               <span className="text-sm font-medium text-muted">{isEnd ? "Revisão" : `Passo ${n} de ${SETUP_STEPS.length}`}</span>
               <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-hover">
                 <span className="block h-full rounded-full bg-accent" style={{ width: `${(Math.min(n, 8) / 8) * 100}%` }} />
@@ -583,7 +596,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
                 <h1 className="text-[24px] leading-tight font-semibold tracking-tight">{title}</h1>
                 <p className="mt-1 text-[15px] text-muted">{desc}</p>
               </div>
-              <Link href="/agenda" aria-label="Fechar e continuar depois" className="grid size-11 shrink-0 place-items-center rounded-xl text-muted hover:bg-hover">
+              <Link href={solo ? "/ajustes" : "/agenda"} aria-label="Fechar e continuar depois" className="grid size-11 shrink-0 place-items-center rounded-xl text-muted hover:bg-hover">
                 <X size={20} />
               </Link>
             </div>

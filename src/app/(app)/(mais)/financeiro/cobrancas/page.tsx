@@ -118,7 +118,7 @@ export default async function CobrancasPage({ searchParams }: { searchParams: Pr
             <span className="flex flex-wrap items-center gap-x-2">
               <QrCode size={18} className="shrink-0" />
               Cadastre a chave Pix da clínica para as cobranças saírem com o Pix copia e cola.{" "}
-              <Link href="/ajustes#pix" className="font-semibold underline">
+              <Link href="/ajustes/pix" className="font-semibold underline">
                 Cadastrar agora
               </Link>
             </span>

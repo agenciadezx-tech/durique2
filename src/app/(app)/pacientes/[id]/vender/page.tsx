@@ -30,7 +30,7 @@ export default async function VenderPage({ params }: { params: Promise<{ id: str
       {!products?.length ? (
         <EmptyState
           title="Nenhum pacote ou plano cadastrado"
-          text={ctx.isAdmin ? "Cadastre no Catálogo o que a clínica vende, por exemplo: Pacote 10 sessões ou Pilates 2x por semana." : "Peça ao administrador para cadastrar em Minha clínica."}
+          text={ctx.isAdmin ? "Cadastre no Catálogo o que a clínica vende, por exemplo: Pacote 10 sessões ou Pilates 2x por semana." : "Peça ao administrador para cadastrar em Configurações."}
           action={ctx.isAdmin && <LinkButton href="/catalogo">Ir para o Catálogo</LinkButton>}
         />
       ) : (

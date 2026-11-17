@@ -8,15 +8,17 @@ import {
   FileSignature,
   Home,
   MessageCircle,
-  Package,
   PlayCircle,
   RefreshCcw,
-  Repeat,
   Wallet,
+  UserRound,
+  MapPin,
+  AtSign,
+  AlertCircle,
+  ChevronRight,
 } from "lucide-react";
 import { Badge, Card, cx } from "@/components/ui";
 import { formatDateShort, formatMoney, TZ } from "@/lib/format";
-import { firstName } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 import { BookButton, SessionButtons } from "./portal-buttons";
 import { ExerciseDone } from "./exercise-done";
@@ -24,6 +26,7 @@ import { FeedbackCard } from "./feedback-card";
 import { safeUrl, youtubeId } from "@/lib/video";
 import { CopyButton } from "@/components/copy-button";
 import { pixCode } from "@/lib/pix";
+import { ClinicMark } from "@/components/clinic-mark";
 
 export const metadata = { title: "Meu painel", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -39,7 +42,17 @@ type ExPlan = {
 
 type Portal = {
   patient: { name: string; phone: string | null };
-  clinic: { name: string; whatsapp: string | null; instagram: string | null; color: string | null; booking_slug: string | null };
+  clinic: {
+    name: string;
+    whatsapp: string | null;
+    instagram: string | null;
+    color: string | null;
+    booking_slug: string | null;
+    logo: string | null;
+    address: string | null;
+    tagline: string | null;
+  };
+  fixed: { weekday: number; time: string; service: string }[];
   notice_hours: number;
   sessions: {
     attendee_id: string;
@@ -51,7 +64,16 @@ type Portal = {
     notice_hours: number;
   }[];
   credits: { expires_on: string }[];
-  packages: { name: string; kind: string; total: number | null; used: number; expires_on: string | null; price_cents: number; per_week: number | null }[];
+  packages: {
+    name: string;
+    kind: string;
+    service: string | null;
+    total: number | null;
+    used: number;
+    expires_on: string | null;
+    price_cents: number;
+    per_week: number | null;
+  }[];
   documents: { title: string; token: string }[];
   open_classes: { appointment_id: string; starts_at: string; service: string; professional: string; free: number }[];
   pre_assessments: { token: string; kind: string }[];
@@ -99,11 +121,23 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
 
   const TABS = [
     { key: "inicio", label: "Início", icon: Home, badge: 0 },
-    { key: "aulas", label: "Aulas", icon: CalendarCheck, badge: 0 },
+    { key: "aulas", label: "Agenda", icon: CalendarCheck, badge: 0 },
     { key: "pagar", label: "Pagar", icon: Wallet, badge: charges.length },
     ...(plans.length ? [{ key: "exercicios", label: "Exercícios", icon: Dumbbell, badge: plans.filter((p) => !p.done_today).length }] : []),
+    { key: "perfil", label: "Perfil", icon: UserRound, badge: 0 },
   ];
   const aba = TABS.some((t) => t.key === abaParam) ? abaParam! : "inicio";
+  const hourNow = Number(new Intl.DateTimeFormat("pt-BR", { timeZone: TZ, hour: "2-digit", hour12: false }).format(new Date()));
+  const hello = hourNow < 12 ? "Bom dia" : hourNow < 18 ? "Boa tarde" : "Boa noite";
+  const nameParts = d.patient.name.trim().split(/\s+/);
+  const lateCharges = charges.filter((c) => c.due_date < todayKey);
+  const ending = d.packages.filter((k) => k.total != null && k.total - k.used <= 2);
+  const sessionsLeft = d.packages.filter((k) => k.total != null).reduce((n, k) => n + Math.max(0, (k.total ?? 0) - k.used), 0);
+  const bookHref = d.clinic.booking_slug ? `/agendar/${d.clinic.booking_slug}?p=${token}` : null;
+  const dayKey = (ts: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(ts));
+  const tomorrowKey = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(Date.now() + 864e5));
+  const relDay = (ts: string) => (dayKey(ts) === todayKey ? "Hoje" : dayKey(ts) === tomorrowKey ? "Amanhã" : when(ts).split(",")[0]);
+  const WD = ["", "seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
   const tab = (k: string) => `/p/${token}${k === "inicio" ? "" : `?aba=${k}`}`;
   const next = d.sessions.find((s) => Date.parse(s.starts_at) > now && (s.status === "agendado" || s.status === "confirmado"));
 
@@ -125,117 +159,187 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
           </div>
           <Badge tone={st.tone}>{st.label}</Badge>
         </div>
-        {canAct && <SessionButtons token={token} attendeeId={s.attendee_id} status={s.status} inTime={inTime} />}
+        {canAct && <SessionButtons token={token} attendeeId={s.attendee_id} status={s.status} inTime={inTime} color={color} />}
       </Card>
     );
   };
 
   return (
-    <main className="min-h-dvh pb-28">
-      <header className="px-5 pt-6 pb-7 text-white" style={{ background: `linear-gradient(135deg, ${color}, ${color}d9)` }}>
-        <div className="mx-auto flex max-w-lg items-center justify-between">
-          <span className="text-sm font-medium text-white/85">{d.clinic.name}</span>
-          {d.clinic.whatsapp && (
-            <a href={wa("Olá!") ?? "#"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium">
-              <MessageCircle size={16} /> Falar com a clínica
-            </a>
-          )}
+    <main className="min-h-dvh bg-bg pb-28">
+      <header className="border-b border-line bg-surface px-5 pt-6 pb-4">
+        <div className="mx-auto max-w-lg">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[15px] text-muted">{hello},</p>
+              <h1 className="truncate text-[26px] leading-tight font-semibold tracking-tight">
+                {nameParts[0]} {nameParts.length > 1 && <span style={{ color }}>{nameParts[nameParts.length - 1]}</span>}
+              </h1>
+            </div>
+            <Link href={tab("perfil")} aria-label="Meu perfil" className="grid size-11 shrink-0 place-items-center rounded-full text-sm font-bold text-white" style={{ background: color }}>
+              {(nameParts[0][0] + (nameParts.length > 1 ? nameParts[nameParts.length - 1][0] : "")).toUpperCase()}
+            </Link>
+          </div>
+          <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-line bg-bg px-3 py-2">
+            <ClinicMark brand={{ name: d.clinic.name, logo: d.clinic.logo, color }} size={30} />
+            <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{d.clinic.name}</span>
+            {d.clinic.whatsapp && (
+              <a href={wa("Olá!") ?? "#"} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1 rounded-full bg-ok-soft px-3 text-sm font-medium text-ok">
+                <MessageCircle size={15} /> Falar
+              </a>
+            )}
+          </div>
         </div>
-        <h1 className="mx-auto mt-4 max-w-lg text-[26px] leading-tight font-semibold tracking-tight">Olá, {firstName(d.patient.name)}!</h1>
       </header>
 
       <div className="mx-auto mt-5 max-w-lg space-y-6 px-5">
         {aba === "inicio" && (
           <>
-            {(d.documents.length > 0 || d.pre_assessments.length > 0) && (
+            {/* O mais importante primeiro */}
+            {next ? (
+              <section className="overflow-hidden rounded-3xl border-2 bg-surface shadow-sm" style={{ borderColor: color }}>
+                <div className="px-5 pt-4 pb-4" style={{ background: `${color}14` }}>
+                  <p className="text-[12px] font-semibold tracking-wide uppercase" style={{ color }}>
+                    Sua próxima {next.service.toLowerCase().includes("pilates") ? "aula" : "sessão"}
+                  </p>
+                  <p className="mt-1 text-[30px] leading-none font-semibold tracking-tight">
+                    {relDay(next.starts_at)} · {hour(next.starts_at)}
+                  </p>
+                  <p className="mt-1.5 text-[15px] text-muted">
+                    {relDay(next.starts_at) === "Hoje" || relDay(next.starts_at) === "Amanhã" ? `${when(next.starts_at)} · ` : `${when(next.starts_at).split(", ")[1]} · `}
+                    {next.service} com {next.professional}
+                  </p>
+                  <span className="mt-2 inline-block">
+                    <Badge tone={(STATUS[next.status] ?? STATUS.agendado).tone}>{next.status === "confirmado" ? "Presença confirmada" : "Aguardando sua confirmação"}</Badge>
+                  </span>
+                </div>
+                <div className="px-5 pb-4">
+                  <SessionButtons
+                    token={token}
+                    attendeeId={next.attendee_id}
+                    status={next.status}
+                    inTime={Date.parse(next.starts_at) - now >= (next.notice_hours ?? d.notice_hours) * 36e5}
+                    color={color}
+                  />
+                </div>
+              </section>
+            ) : (
+              <section className="rounded-3xl border-2 bg-surface p-5 shadow-sm" style={{ borderColor: color }}>
+                <p className="text-[12px] font-semibold tracking-wide uppercase" style={{ color }}>
+                  {sessionsLeft > 0 ? "Você tem sessões para usar" : "Nenhuma sessão marcada"}
+                </p>
+                <p className="mt-1 text-[30px] leading-none font-semibold tracking-tight">
+                  {sessionsLeft > 0 ? `${sessionsLeft} sess${sessionsLeft === 1 ? "ão" : "ões"}` : "Que tal marcar?"}
+                </p>
+                <p className="mt-1.5 text-[15px] text-muted">
+                  {sessionsLeft > 0 ? "Escolha um horário para continuar seu tratamento." : "Escolha o melhor dia e horário para você."}
+                </p>
+                {bookHref && (
+                  <Link href={bookHref} className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-[16px] font-semibold text-white" style={{ background: color }}>
+                    <CalendarPlus size={19} /> Agendar agora
+                  </Link>
+                )}
+              </section>
+            )}
+
+            {/* Pendências */}
+            {(d.pre_assessments.length > 0 || d.documents.length > 0 || lateCharges.length > 0 || ending.length > 0) && (
               <div className="space-y-2">
+                {ending.map((k, i) => {
+                  const left = (k.total ?? 0) - k.used;
+                  const buy = wa(`Olá! Quero renovar o ${k.name}.`);
+                  return (
+                    <div key={`e${i}`} className="flex items-center gap-3 rounded-2xl border border-warn/30 bg-warn-soft px-4 py-3">
+                      <RefreshCcw size={20} className="shrink-0 text-warn" />
+                      <span className="min-w-0 flex-1 text-[15px]">
+                        <span className="block font-semibold text-warn">{left <= 0 ? `Seu ${k.name} acabou` : `Seu ${k.name} está acabando`}</span>
+                        <span className="block text-sm text-ink/80">
+                          {left <= 0 ? "Renove para manter seus horários." : `Resta${left === 1 ? "" : "m"} ${left} sess${left === 1 ? "ão" : "ões"}. Renove e não perca o ritmo.`}
+                        </span>
+                      </span>
+                      {buy && (
+                        <a href={buy} target="_blank" rel="noreferrer" className="shrink-0 rounded-xl bg-surface px-3 py-2 text-sm font-semibold text-warn">
+                          Renovar
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+                {lateCharges.length > 0 && (
+                  <Link href={tab("pagar")} className="flex items-center gap-3 rounded-2xl border border-bad/30 bg-bad-soft px-4 py-3 text-bad">
+                    <AlertCircle size={20} />
+                    <span className="flex-1 text-[15px] font-medium">
+                      {lateCharges.length} pagamento{lateCharges.length === 1 ? "" : "s"} em atraso · pagar com Pix
+                    </span>
+                    <ChevronRight size={18} />
+                  </Link>
+                )}
                 {d.pre_assessments.map((pa) => (
-                  <Link key={pa.token} href={`/pre/${pa.token}`} className="flex items-center gap-3 rounded-2xl bg-info-soft px-4 py-3 text-info shadow-sm">
+                  <Link key={pa.token} href={`/pre/${pa.token}`} className="flex items-center gap-3 rounded-2xl bg-info-soft px-4 py-3 text-info">
                     <ClipboardList size={20} />
                     <span className="flex-1 text-[15px]">
                       <span className="font-medium">Responder a pré-avaliação</span>
                       <span className="block text-sm">Leva 3 minutos e adianta sua consulta</span>
                     </span>
+                    <ChevronRight size={18} />
                   </Link>
                 ))}
                 {d.documents.map((doc) => (
-                  <Link key={doc.token} href={`/assinar/${doc.token}`} className="flex items-center gap-3 rounded-2xl bg-warn-soft px-4 py-3 text-warn shadow-sm">
+                  <Link key={doc.token} href={`/assinar/${doc.token}`} className="flex items-center gap-3 rounded-2xl bg-warn-soft px-4 py-3 text-warn">
                     <FileSignature size={20} />
                     <span className="flex-1 text-[15px]">
                       <span className="font-medium">Assinar: {doc.title}</span>
                       <span className="block text-sm">Toque para ler e assinar</span>
                     </span>
+                    <ChevronRight size={18} />
                   </Link>
                 ))}
               </div>
             )}
 
-            <section>
-              <h2 className="mb-2 text-[13px] font-semibold tracking-wide text-muted uppercase">Próxima aula</h2>
-              {next ? (
-                <SessionCard s={next} />
-              ) : (
-                <Card className="px-4 py-5 text-[15px] text-muted">Nenhuma aula marcada.</Card>
-              )}
-            </section>
-
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                d.clinic.booking_slug && { href: `/agendar/${d.clinic.booking_slug}?p=${token}`, icon: CalendarPlus, label: "Marcar sessão" },
-                { href: tab("aulas"), icon: CalendarCheck, label: "Minhas aulas" },
-                { href: tab("pagar"), icon: Wallet, label: charges.length ? `Pagar (${charges.length})` : "Pagamentos" },
-                credits > 0 ? { href: tab("aulas"), icon: RefreshCcw, label: `Repor aula (${credits})` } : plans.length ? { href: tab("exercicios"), icon: Dumbbell, label: "Exercícios" } : null,
-              ]
-                .filter((x): x is { href: string; icon: typeof Home; label: string } => !!x)
-                .map((a) => (
-                  <Link key={a.label} href={a.href} className="flex min-h-14 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-[15px] font-medium shadow-sm hover:bg-hover">
-                    <a.icon size={20} style={{ color }} /> {a.label}
-                  </Link>
-                ))}
-            </div>
-
-            {feedbackDue === true && <FeedbackCard token={token} clinic={d.clinic.name} reviewUrl={(reviewUrl as string | null) ?? null} />}
-
+            {/* Planos */}
             {d.packages.length > 0 && (
               <section>
-                <h2 className="mb-2 text-[13px] font-semibold tracking-wide text-muted uppercase">Seus planos</h2>
-                <div className="space-y-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h2 className="text-[13px] font-semibold tracking-wide text-muted uppercase">Seus planos</h2>
+                  <Link href={tab("aulas")} className="text-sm font-medium" style={{ color }}>
+                    Ver agenda
+                  </Link>
+                </div>
+                <div className={cx("grid gap-3", d.packages.length > 1 && "grid-cols-2")}>
                   {d.packages.map((k, i) => {
-                    const left = k.total != null ? k.total - k.used : null;
-                    const buy = wa(`Olá! Quero renovar/comprar mais sessões do ${k.name}.`);
+                    const left = k.total != null ? Math.max(0, k.total - k.used) : null;
+                    const buy = wa(k.kind === "plano" ? `Olá! Quero mudar meu plano (${k.name}).` : `Olá! Quero comprar mais sessões do ${k.name}.`);
+                    const fixed = d.fixed.filter((f) => !k.service || f.service === k.service);
                     return (
-                      <Card key={i} className="p-4">
-                        <div className="flex items-start gap-3">
-                          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent">
-                            {k.kind === "plano" ? <Repeat size={18} /> : <Package size={18} />}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{k.name}</p>
-                            {k.total != null ? (
-                              <>
-                                <p className="text-sm text-muted">
-                                  <span className="font-semibold text-ink">{k.used}</span> de {k.total} usadas · {left} restante{left === 1 ? "" : "s"}
-                                  {k.expires_on && ` · vence ${formatDateShort(k.expires_on)}`}
-                                </p>
-                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-hover">
-                                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, (k.used / k.total) * 100)}%`, background: color }} />
-                                </div>
-                              </>
-                            ) : (
-                              <p className="text-sm text-muted">
-                                {formatMoney(k.price_cents)}/mês{k.per_week ? ` · ${k.per_week}x por semana` : ""}
-                              </p>
+                      <Card key={i} className="flex flex-col p-3.5">
+                        <p className="truncate text-[11px] font-semibold tracking-wide text-muted uppercase">{k.name}</p>
+                        {k.service && <p className="truncate text-sm text-muted">{k.service}</p>}
+                        {left != null ? (
+                          <>
+                            <p className="mt-2 text-[28px] leading-none font-semibold tabular-nums">
+                              {left} <span className="text-sm font-normal text-muted">restante{left === 1 ? "" : "s"}</span>
+                            </p>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-hover">
+                              <div className="h-full rounded-full" style={{ width: `${Math.min(100, (k.used / (k.total ?? 1)) * 100)}%`, background: color }} />
+                            </div>
+                            <p className="mt-1.5 text-[12px] text-muted">
+                              {k.used} de {k.total} usadas{k.expires_on ? ` · vale até ${formatDateShort(k.expires_on).slice(0, 5)}` : ""}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className={cx("mt-2 text-[20px] font-semibold", lateCharges.length ? "text-bad" : "text-ok")}>{lateCharges.length ? "Em aberto" : "Em dia"}</p>
+                            {fixed.length > 0 && (
+                              <p className="mt-1 text-[12px] text-muted">{fixed.map((f) => `${WD[f.weekday]} ${f.time}`).join(" · ")}</p>
                             )}
-                          </div>
-                        </div>
-                        {left != null && left <= 2 && (
-                          <p className="mt-3 rounded-xl bg-warn-soft px-3 py-2 text-sm font-medium text-warn">
-                            {left <= 0 ? "Seu pacote acabou." : "Seu pacote está acabando."} Renove para manter seus horários.
-                          </p>
+                            <p className="text-[12px] text-muted">
+                              {formatMoney(k.price_cents)}/mês{k.per_week ? ` · ${k.per_week}x/sem` : ""}
+                            </p>
+                          </>
                         )}
-                        {buy && k.total != null && (
-                          <a href={buy} target="_blank" rel="noreferrer" className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold" style={{ color }}>
-                            + Comprar mais sessões
+                        {buy && (
+                          <a href={buy} target="_blank" rel="noreferrer" className="mt-auto inline-flex min-h-10 items-end pt-2 text-sm font-semibold" style={{ color }}>
+                            {k.kind === "plano" ? "Mudar plano" : "+ Comprar sessões"}
                           </a>
                         )}
                       </Card>
@@ -244,15 +348,93 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
                 </div>
               </section>
             )}
+
+            {bookHref && next && (
+              <Link href={bookHref} className="flex min-h-14 items-center justify-center gap-2 rounded-2xl text-[16px] font-semibold text-white shadow-sm" style={{ background: color }}>
+                <CalendarPlus size={20} /> Agendar
+              </Link>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <Link href={tab("aulas")} className="flex min-h-14 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-[15px] font-medium hover:bg-hover">
+                <CalendarCheck size={20} style={{ color }} /> Minha agenda
+              </Link>
+              {credits > 0 ? (
+                <Link href={tab("aulas")} className="flex min-h-14 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-[15px] font-medium hover:bg-hover">
+                  <RefreshCcw size={20} style={{ color }} /> Repor aula ({credits})
+                </Link>
+              ) : plans.length ? (
+                <Link href={tab("exercicios")} className="flex min-h-14 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-[15px] font-medium hover:bg-hover">
+                  <Dumbbell size={20} style={{ color }} /> Exercícios
+                </Link>
+              ) : (
+                <Link href={tab("pagar")} className="flex min-h-14 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-[15px] font-medium hover:bg-hover">
+                  <Wallet size={20} style={{ color }} /> Pagamentos
+                </Link>
+              )}
+            </div>
+
+            {feedbackDue === true && <FeedbackCard token={token} clinic={d.clinic.name} reviewUrl={(reviewUrl as string | null) ?? null} />}
+          </>
+        )}
+
+        {aba === "perfil" && (
+          <>
+            <Card className="p-5">
+              <p className="text-[13px] font-semibold tracking-wide text-muted uppercase">Seus dados</p>
+              <p className="mt-2 text-[18px] font-semibold">{d.patient.name}</p>
+              {d.patient.phone && <p className="text-[15px] text-muted">WhatsApp {d.patient.phone.replace(/^\+55(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3")}</p>}
+              <p className="mt-3 text-sm text-muted">Algum dado errado? Fale com a clínica que ela corrige para você.</p>
+            </Card>
+            <Card className="p-5">
+              <div className="flex items-center gap-3">
+                <ClinicMark brand={{ name: d.clinic.name, logo: d.clinic.logo, color }} size={48} />
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{d.clinic.name}</p>
+                  {d.clinic.tagline && <p className="truncate text-sm text-muted">{d.clinic.tagline}</p>}
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                {d.clinic.whatsapp && (
+                  <a href={wa("Olá!") ?? "#"} target="_blank" rel="noreferrer" className="flex min-h-12 items-center gap-3 rounded-xl border border-line px-3 text-[15px] font-medium">
+                    <MessageCircle size={19} className="text-ok" /> Falar no WhatsApp
+                  </a>
+                )}
+                {d.clinic.instagram && (
+                  <a href={`https://instagram.com/${d.clinic.instagram}`} target="_blank" rel="noreferrer" className="flex min-h-12 items-center gap-3 rounded-xl border border-line px-3 text-[15px] font-medium">
+                    <AtSign size={19} className="text-muted" /> @{d.clinic.instagram}
+                  </a>
+                )}
+                {d.clinic.address && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.clinic.address)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-h-12 items-center gap-3 rounded-xl border border-line px-3 py-2 text-[15px]"
+                  >
+                    <MapPin size={19} className="shrink-0 text-muted" />
+                    <span>
+                      <span className="block">{d.clinic.address}</span>
+                      <span className="text-sm font-medium" style={{ color }}>
+                        Ver no mapa
+                      </span>
+                    </span>
+                  </a>
+                )}
+              </div>
+            </Card>
+            <p className="text-center text-sm text-muted">
+              Para desmarcar sem perder a sessão, avise com {d.notice_hours}h de antecedência.
+            </p>
           </>
         )}
 
         {aba === "aulas" && (
           <>
             <section>
-              <h2 className="mb-2 text-[13px] font-semibold tracking-wide text-muted uppercase">Próximas aulas</h2>
+              <h2 className="mb-2 text-[13px] font-semibold tracking-wide text-muted uppercase">Próximas sessões e aulas</h2>
               {d.sessions.length === 0 ? (
-                <Card className="px-4 py-5 text-[15px] text-muted">Nenhuma aula marcada nos próximos 30 dias.</Card>
+                <Card className="px-4 py-5 text-[15px] text-muted">Nada marcado nos próximos 30 dias.</Card>
               ) : (
                 <div className="space-y-3">
                   {d.sessions.map((s) => (

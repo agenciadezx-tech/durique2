@@ -8,7 +8,8 @@ import { friendlyError, normalizePhone, parseMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
 const NOT_ADMIN = { error: "Somente o administrador configura a clínica." };
-const next = (n: number) => redirect(`/configurar?passo=${n}`);
+/** Vai para o próximo passo; aberto pelas Configurações (so=1), volta para lá. */
+const next = (n: number, data?: FormData) => redirect(data?.get("so") ? "/ajustes?salvo=1" : `/configurar?passo=${n}`);
 
 async function admin() {
   const ctx = await getContext();
@@ -79,7 +80,7 @@ export async function saveHours(_: ActionState, data: FormData): Promise<ActionS
       fresh.flatMap((p) => rows.map((r) => ({ clinic_id: ctx.clinicId, professional_id: p.id, weekday: r.weekday, start_time: r.opens, end_time: r.closes }))),
     );
   }
-  next(5);
+  next(5, data);
   return {};
 }
 
@@ -151,7 +152,7 @@ export async function saveProfile(_: ActionState, data: FormData): Promise<Actio
     .eq("id", ctx.clinicId);
   if (error) return { error: friendlyError(error) };
   revalidatePath("/", "layout");
-  next(7);
+  next(7, data);
   return {};
 }
 

@@ -19,6 +19,7 @@ import {
   MessageCircle,
   Percent,
   Wallet,
+  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { MaisGroup } from "@/lib/mais-menu";
@@ -40,6 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
   chart: BarChart3,
   calendar: CalendarDays,
   building: Building2,
+  settings: Settings,
 };
 
 /** Lista do "Mais". No computador fica fixa à esquerda e marca a seção aberta. */

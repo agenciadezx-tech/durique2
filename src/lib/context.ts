@@ -67,7 +67,7 @@ export const getContext = cache(async (): Promise<AppContext> => {
     userId: user.id,
     email: user.email ?? "",
     clinicId: member.clinic_id,
-    clinicName: clinic?.name ?? "Minha clínica",
+    clinicName: clinic?.name ?? "Configurações",
     unitId: unit?.id ?? "",
     role,
     canManageAgenda: role === "admin" || role === "recepcao",

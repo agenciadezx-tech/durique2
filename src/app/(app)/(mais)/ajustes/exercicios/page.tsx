@@ -50,7 +50,7 @@ export default async function ExercisesPage() {
       <PageHeader
         title="Exercícios para casa"
         description="Monte sua biblioteca uma vez e passe para cada paciente em segundos. O paciente vê com o vídeo no link dele."
-        back={{ href: "/ajustes", label: "Minha clínica" }}
+        back={{ href: "/ajustes", label: "Configurações" }}
       />
       <div className="space-y-10">
         <Section title="Novo exercício">

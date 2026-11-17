@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
-import { Logo } from "@/components/logo";
+import { BrandHeader, type PublicBrand } from "@/components/clinic-mark";
 import { Card } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { TZ } from "@/lib/format";
@@ -12,7 +12,10 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
   const { token } = await params;
   if (!/^[a-f0-9]{32,}$/.test(token)) notFound();
   const supabase = await createClient();
-  const { data } = await supabase.rpc("get_document_by_token", { p_token: token });
+  const [{ data }, { data: brandData }] = await Promise.all([
+    supabase.rpc("get_document_by_token", { p_token: token }),
+    supabase.rpc("public_brand", { p_token: token }),
+  ]);
   const doc = (data ?? [])[0] as
     | { title: string; body: string; status: string; clinic_name: string; patient_name: string; signed_at: string | null }
     | undefined;
@@ -20,10 +23,7 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
 
   return (
     <main className="mx-auto min-h-dvh max-w-2xl px-5 py-8">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <Logo compact />
-        <span className="text-sm font-medium text-muted">{doc.clinic_name}</span>
-      </div>
+      <BrandHeader brand={(brandData as PublicBrand | null) ?? { name: doc.clinic_name, logo: null, color: null }} />
       <Card className="p-5 sm:p-8">
         <h1 className="text-xl font-semibold">{doc.title}</h1>
         <p className="mt-1 text-sm text-muted">Para: {doc.patient_name}</p>

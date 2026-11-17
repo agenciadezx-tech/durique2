@@ -34,7 +34,7 @@ export function maisGroups(ctx: AppContext): MaisGroup[] {
         { href: "/atendimentos", icon: "check", title: "Atendimentos realizados", text: "Quantos no período, por profissional", show: finance },
         { href: "/financeiro/relatorios", icon: "chart", title: "Relatórios", text: "Sessões, faltas e satisfação por mês", show: ctx.canSeeExpenses },
         { href: "/ajustes/agenda-google", icon: "calendar", title: "Agenda no Google", text: "Ver os atendimentos no celular", show: ctx.isAdmin || !!ctx.professionalId },
-        { href: "/ajustes", icon: "building", title: "Minha clínica", text: "Dados, equipe, regras, Pix e documentos", show: true },
+        { href: "/ajustes", icon: "settings", title: "Configurações", text: "Clínica, agenda, financeiro, equipe e conta", show: true },
       ],
     },
   ];

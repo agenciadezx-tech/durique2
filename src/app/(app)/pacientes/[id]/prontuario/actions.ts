@@ -38,7 +38,7 @@ const hasContent = (v: Record<string, unknown>) =>
 
 export async function createRecord(_: ActionState, data: FormData): Promise<ActionState> {
   const ctx = await getContext();
-  if (!ctx.professionalId) return { error: "Seu usuário não está ligado a um profissional. Peça ao administrador em Minha clínica." };
+  if (!ctx.professionalId) return { error: "Seu usuário não está ligado a um profissional. Peça ao administrador em Configurações." };
   const patientId = String(data.get("patient_id"));
   const kind = data.get("kind") === "avaliacao" ? "avaliacao" : "evolucao";
   const values = readRecord(data, kind);

@@ -27,12 +27,12 @@ export default async function GoogleCalendarPage() {
       <PageHeader
         title="Agenda no Google"
         description="Veja seus atendimentos do Durique no Google Agenda ou no calendário do iPhone, junto com seus compromissos pessoais."
-        back={{ href: "/ajustes", label: "Minha clínica" }}
+        back={{ href: "/ajustes", label: "Configurações" }}
       />
       <div className="space-y-10">
         <Section title={ctx.isAdmin ? "Link de cada profissional" : "Seu link"}>
           {(pros ?? []).length === 0 ? (
-            <EmptyState icon={<CalendarDays size={28} />} title="Nenhum profissional ativo" text="Cadastre os profissionais em Minha clínica." />
+            <EmptyState icon={<CalendarDays size={28} />} title="Nenhum profissional ativo" text="Cadastre os profissionais em Configurações." />
           ) : (
             <div className="space-y-3">
               {(pros ?? []).map((p) => {

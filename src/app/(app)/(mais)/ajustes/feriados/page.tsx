@@ -33,7 +33,7 @@ export default async function FeriadosPage() {
       <PageHeader
         title="Feriados e dias fechados"
         description="Nos dias fechados ninguém consegue marcar pelo link. As sessões já marcadas continuam; remarque se precisar."
-        back={{ href: "/ajustes", label: "Minha clínica" }}
+        back={{ href: "/ajustes", label: "Configurações" }}
       />
       <div className="space-y-8">
         <Section title="Outro dia fechado">
