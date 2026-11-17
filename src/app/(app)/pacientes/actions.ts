@@ -136,8 +136,15 @@ export async function sellPackage(_: ActionState, data: FormData): Promise<Actio
     p_method: (paidNow ? method : null) as "pix" | null,
   });
   if (error) return { error: friendlyError(error) };
+  // Matrícula: já coloca o aluno nas turmas escolhidas
+  const seriesIds = data.getAll("series_id").map(String).filter(Boolean);
+  for (const sid of seriesIds) {
+    const { error: e2 } = await supabase.rpc("enroll_patient", { p_series: sid, p_patient: patientId });
+    if (e2) return { error: `Venda feita, mas não deu para entrar numa das turmas: ${friendlyError(e2)}` };
+  }
   revalidatePath(`/pacientes/${patientId}`);
   revalidatePath("/financeiro", "layout");
+  revalidatePath("/horarios");
   redirect(`/pacientes/${patientId}?vendido=1`);
 }
 
@@ -275,4 +282,60 @@ export async function setSkipConfirmation(id: string, skip: boolean): Promise<{ 
   revalidatePath("/agenda");
   revalidatePath("/whatsapp");
   return { ok: true };
+}
+
+// ===== Gerir aulas (matrícula) =====
+type Res = { ok?: string; error?: string };
+const refreshPatient = (id: string) => {
+  revalidatePath(`/pacientes/${id}`);
+  revalidatePath("/horarios");
+  revalidatePath("/agenda");
+};
+
+export async function addEnrollment(patientId: string, seriesId: string): Promise<Res> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("enroll_patient", { p_series: seriesId, p_patient: patientId });
+  if (error) return { error: friendlyError(error) };
+  refreshPatient(patientId);
+  return { ok: "Horário adicionado." };
+}
+
+export async function leaveEnrollment(patientId: string, enrollmentId: string): Promise<Res> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("end_enrollment", { p_enrollment: enrollmentId });
+  if (error) return { error: friendlyError(error) };
+  refreshPatient(patientId);
+  return { ok: "Saiu do horário. As próximas aulas foram liberadas." };
+}
+
+export async function swapEnrollment(patientId: string, enrollmentId: string, newSeriesId: string): Promise<Res> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("enroll_patient", { p_series: newSeriesId, p_patient: patientId });
+  if (error) return { error: friendlyError(error) };
+  const { error: e2 } = await supabase.rpc("end_enrollment", { p_enrollment: enrollmentId });
+  if (e2) return { error: friendlyError(e2) };
+  refreshPatient(patientId);
+  return { ok: "Horário trocado." };
+}
+
+/** Cancelar matrícula: sai de todas as turmas fixas e encerra o plano mensal (o histórico fica). */
+export async function cancelMembership(patientId: string, planId: string | null): Promise<Res> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda) return { error: "Sem permissão." };
+  const supabase = await createClient();
+  const today = todayISO();
+  const { data: enr } = await supabase.from("enrollments").select("id").eq("patient_id", patientId).or(`ends_on.is.null,ends_on.gte.${today}`);
+  for (const e of enr ?? []) {
+    const { error } = await supabase.rpc("end_enrollment", { p_enrollment: e.id });
+    if (error) return { error: friendlyError(error) };
+  }
+  if (planId) await supabase.from("patient_packages").update({ status: "encerrado", expires_on: today }).eq("id", planId);
+  refreshPatient(patientId);
+  return { ok: "Matrícula cancelada." };
 }

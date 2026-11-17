@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { Archive, ArchiveRestore, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Users, Stethoscope, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
+import { Archive, ArchiveRestore, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Dumbbell, TrendingUp, Wallet, CheckCircle2, XCircle, ExternalLink, Smartphone, FileSignature, Lock, MessageCircle, Package, Plus, Repeat } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PayButton } from "@/components/finance";
 import { WaSendButton } from "@/components/wa-send";
@@ -18,6 +18,7 @@ import { PatientFields } from "../patient-fields";
 import { levelLabel } from "@/lib/levels";
 import { SummaryEditor } from "./summary-editor";
 import { ConfirmBell, PatientMenu, type MenuItem } from "./header-actions";
+import { ManageClasses } from "./manage-classes";
 import { formatPhone } from "@/lib/format";
 
 export default async function PacientePage({
@@ -38,7 +39,7 @@ export default async function PacientePage({
   const [{ data: enrollments }, { data: upcoming }] = await Promise.all([
     supabase
       .from("enrollments")
-      .select("id, ends_on, recurring_series(id, weekday, start_time, active, services(name), professionals(name))")
+      .select("id, starts_on, ends_on, recurring_series(id, name, weekday, start_time, duration_min, active, services(name), professionals(name))")
       .eq("patient_id", id)
       .or(`ends_on.is.null,ends_on.gte.${new Date().toISOString().slice(0, 10)}`),
     supabase
@@ -235,6 +236,54 @@ export default async function PacientePage({
   }
   const doneWeek = new Set((plans ?? []).flatMap((p) => p.exercise_logs.filter((l) => l.done_on > weekAgo).map((l) => l.done_on))).size;
 
+  // Vínculos: selo do pacote, atraso, horários fixos e turmas com vaga (para "Gerir")
+  const leftSessions = consultaPkg?.total_sessions != null ? consultaPkg.total_sessions - (usedOf.get(consultaPkg.id) ?? 0) : null;
+  const pkgChip = !consultaPkg
+    ? { l: "Sem pacote", c: "bg-hover text-muted" }
+    : leftSessions != null && leftSessions <= 2
+      ? { l: "Acabando", c: "bg-warn-soft text-warn" }
+      : { l: "Em tratamento", c: "bg-ok-soft text-ok" };
+  const lateCents = open.filter((t) => t.due_date < today).reduce((a, t) => a + t.amount_cents, 0);
+  type EnrRow = { id: string; starts_on: string; recurring_series: { id: string; name: string | null; weekday: number; start_time: string; duration_min: number; active: boolean; services: { name: string } | null; professionals: { name: string } | null } | null };
+  const enrRows = ((enrollments ?? []) as unknown as EnrRow[]).filter((e) => e.recurring_series?.active);
+  const hhmm = (t: string, plus = 0) => {
+    const [h, m] = t.split(":").map(Number);
+    const x = h * 60 + m + plus;
+    return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`;
+  };
+  const myEnrollments = enrRows.map((e) => {
+    const r = e.recurring_series!;
+    return {
+      id: e.id,
+      label: `${WEEKDAYS[r.weekday].slice(0, 3)} · ${hhmm(r.start_time)}–${hhmm(r.start_time, r.duration_min)}`,
+      sub: [r.name ?? r.services?.name, r.professionals?.name].filter(Boolean).join(" · "),
+    };
+  });
+  const startedOn = [...enrRows.map((e) => e.starts_on), ...(plano ? [plano.starts_on] : [])].filter(Boolean).sort()[0] ?? null;
+  let classOptions: { id: string; label: string; sub: string; free: number }[] = [];
+  if (ctx.canManageAgenda && (plano || enrRows.length)) {
+    const [{ data: allSeries }, { data: allEnr }] = await Promise.all([
+      supabase
+        .from("recurring_series")
+        .select("id, name, weekday, start_time, duration_min, capacity, services(name), professionals(name)")
+        .eq("clinic_id", ctx.clinicId)
+        .eq("active", true)
+        .gt("capacity", 1)
+        .order("weekday")
+        .order("start_time"),
+      supabase.from("enrollments").select("series_id").eq("clinic_id", ctx.clinicId).or(`ends_on.is.null,ends_on.gte.${today}`),
+    ]);
+    const mine = new Set(enrRows.map((e) => e.recurring_series!.id));
+    classOptions = (allSeries ?? [])
+      .filter((x) => !mine.has(x.id))
+      .map((x) => ({
+        id: x.id,
+        label: `${WEEKDAYS[x.weekday].slice(0, 3)} · ${hhmm(x.start_time)}–${hhmm(x.start_time, x.duration_min)}`,
+        sub: [x.name ?? (x.services as unknown as { name: string } | null)?.name, (x.professionals as unknown as { name: string } | null)?.name].filter(Boolean).join(" · "),
+        free: x.capacity - (allEnr ?? []).filter((e) => e.series_id === x.id).length,
+      }));
+  }
+
   const exercisesCard = ctx.canSeeClinical && (
 <Link href={`/pacientes/${patient.id}/exercicios`} className="block">
             <Card className="flex items-center gap-4 p-4 transition-colors hover:border-faint sm:p-5">
@@ -333,11 +382,11 @@ export default async function PacientePage({
           </p>
           {ctx.canManageAgenda && (
             <div className="mt-4 flex flex-wrap gap-2">
-              <LinkButton href={`/pacientes/${patient.id}/vender`} size="md">
-                <Package size={18} /> Vender pacote ou plano
+              <LinkButton href={`/pacientes/${patient.id}/vender?tipo=pacote`} size="md">
+                <Package size={18} /> Vender pacote de sessões
               </LinkButton>
-              <LinkButton href="/horarios?v=fixos" size="md" variant="secondary">
-                <Users size={18} /> Colocar numa turma
+              <LinkButton href={`/pacientes/${patient.id}/vender?tipo=plano`} size="md" variant="secondary">
+                <Dumbbell size={18} /> Matricular em aulas
               </LinkButton>
               <LinkButton href={`/agenda/nova?paciente=${patient.id}`} size="md" variant="ghost">
                 <CalendarDays size={18} /> Só agendar
@@ -346,79 +395,99 @@ export default async function PacientePage({
           )}
         </Card>
       ) : (
-      <div className="mb-5 grid gap-3 sm:grid-cols-2">
+      <div className="mb-5 space-y-2">
+        <p className="text-[12px] font-semibold tracking-wide text-muted uppercase">Vínculos</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+        {/* Consultas · pacote */}
         <Card className="p-4">
-          <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-muted uppercase">
-            <Stethoscope size={14} /> Consultas
-            {consultaPkg && <Badge tone="ok">Em tratamento</Badge>}
-          </p>
+          <div className="flex items-center gap-2">
+            <Package size={16} className="text-chart-in" />
+            <span className="text-[12px] font-semibold tracking-wide text-chart-in uppercase">Pacote · Consultas</span>
+            <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-semibold", pkgChip.c)}>{pkgChip.l}</span>
+            <Link href={`/pacientes/${patient.id}?aba=financeiro`} aria-label="Ver no financeiro" className="ml-auto grid size-9 place-items-center rounded-xl border border-line text-muted hover:bg-hover">
+              <ChevronRight size={17} />
+            </Link>
+          </div>
           {consultaPkg ? (
             <>
-              <p className="font-semibold">
-                {consultaPkg.name}
-                {consultaPkg.total_sessions != null && (
-                  <span className="font-normal text-muted">
-                    {" "}
-                    · {usedOf.get(consultaPkg.id) ?? 0}/{consultaPkg.total_sessions} · {consultaPkg.total_sessions - (usedOf.get(consultaPkg.id) ?? 0)} restantes
-                  </span>
-                )}
-              </p>
+              <p className="mt-2 text-[17px] font-semibold">{consultaPkg.name}</p>
               {consultaPkg.total_sessions != null && (
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-hover">
-                  <div
-                    className="h-full rounded-full bg-chart-in"
-                    style={{ width: `${Math.min(100, ((usedOf.get(consultaPkg.id) ?? 0) / consultaPkg.total_sessions) * 100)}%` }}
-                  />
-                </div>
+                <>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-hover">
+                    <div className="h-full rounded-full bg-chart-in" style={{ width: `${Math.min(100, ((usedOf.get(consultaPkg.id) ?? 0) / consultaPkg.total_sessions) * 100)}%` }} />
+                  </div>
+                  <p className="mt-1.5 text-sm text-muted">
+                    {usedOf.get(consultaPkg.id) ?? 0} de {consultaPkg.total_sessions} feitas · <strong className="text-ink">{consultaPkg.total_sessions - (usedOf.get(consultaPkg.id) ?? 0)} restantes</strong>
+                  </p>
+                </>
               )}
-              <p className="mt-2 text-sm text-muted">
-                {nextConsulta ? `Próxima: ${formatTimestampShort(nextConsulta.appt.starts_at)}` : "Sem consulta marcada"}
-                {consultaPkg.expires_on && ` · vence ${formatDateShort(consultaPkg.expires_on)}`}
+              <p className="mt-1 text-sm text-muted">
+                {nextConsulta ? `Próxima · ${formatTimestampShort(nextConsulta.appt.starts_at)}` : "Sem consulta marcada"}
+                {consultaPkg.expires_on && ` · vale até ${formatDateShort(consultaPkg.expires_on)}`}
               </p>
             </>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[15px] text-muted">Sem pacote ativo</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span>
+                <span className="block text-[17px] font-semibold text-muted">Sem pacote ativo</span>
+                <span className="text-sm text-muted">Venda um pacote para começar as sessões.</span>
+              </span>
               {ctx.canManageAgenda && patient.active && (
-                <LinkButton href={`/pacientes/${patient.id}/vender`} size="sm" variant="secondary">
+                <LinkButton href={`/pacientes/${patient.id}/vender?tipo=pacote`} size="sm" variant="secondary">
                   Vender pacote
                 </LinkButton>
               )}
             </div>
           )}
         </Card>
+
+        {/* Aulas · matrícula */}
         <Card className="p-4">
-          <p className="mb-2 flex items-center gap-2 text-[12px] font-semibold tracking-wide text-muted uppercase">
-            <Users size={14} /> Aulas
-            {plano && <Badge tone="ok">Mensalista</Badge>}
-          </p>
+          <div className="flex items-center gap-2">
+            <Dumbbell size={16} className="text-chart-out" />
+            <span className="text-[12px] font-semibold tracking-wide text-chart-out uppercase">Matrícula · Aulas</span>
+            <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-semibold", plano ? "bg-ok-soft text-ok" : series.length ? "bg-info-soft text-info" : "bg-hover text-muted")}>
+              {plano ? "Mensalista" : series.length ? "Turma fixa" : "Sem matrícula"}
+            </span>
+            {ctx.canManageAgenda && patient.active && (plano || series.length > 0) && (
+              <span className="ml-auto">
+                <ManageClasses
+                  patientId={patient.id}
+                  plan={plano ? { id: plano.id, name: plano.name, price_cents: plano.price_cents } : null}
+                  late={lateCents}
+                  enrollments={myEnrollments}
+                  options={classOptions}
+                  startedOn={startedOn}
+                />
+              </span>
+            )}
+          </div>
           {series.length > 0 || plano ? (
             <>
-              {plano && (
-                <p className="font-semibold">
-                  {plano.name} <span className="font-normal text-muted">· {formatMoney(plano.price_cents)}/mês</span>
-                </p>
-              )}
-              {series.length > 0 ? (
-                <p className="mt-1 text-sm text-muted">
-                  {series.map((x) => `${WEEKDAYS[x.weekday].slice(0, 3).toLowerCase()} ${x.start_time.slice(0, 5)}`).join(" · ")} · {series[0].services?.name}
-                  {nextAula && ` · próxima ${formatTimestampShort(nextAula.appt.starts_at)}`}
-                </p>
-              ) : (
-                <p className="mt-1 text-sm text-muted">Sem turma fixa ainda</p>
-              )}
+              <p className="mt-2 text-[17px] font-semibold">
+                {plano?.name ?? series[0].services?.name ?? "Turma fixa"}
+                {plano && <span className="text-[15px] font-normal text-muted"> · {formatMoney(plano.price_cents)}/mês</span>}
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                {series.length > 0 ? series.map((x) => `${WEEKDAYS[x.weekday].slice(0, 3)} ${x.start_time.slice(0, 5)}`).join(" · ") : "Sem horário fixo ainda"}
+              </p>
+              {nextAula && <p className="mt-0.5 text-sm text-muted">Próxima · {formatTimestampShort(nextAula.appt.starts_at)}</p>}
             </>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[15px] text-muted">Sem turma</p>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <span>
+                <span className="block text-[17px] font-semibold text-muted">Sem turma</span>
+                <span className="text-sm text-muted">Matricule para entrar nas aulas fixas.</span>
+              </span>
               {ctx.canManageAgenda && patient.active && (
-                <LinkButton href="/horarios" size="sm" variant="secondary">
-                  Colocar numa turma
+                <LinkButton href={`/pacientes/${patient.id}/vender?tipo=plano`} size="sm" variant="secondary">
+                  Matricular
                 </LinkButton>
               )}
             </div>
           )}
         </Card>
+        </div>
       </div>
       )}
 

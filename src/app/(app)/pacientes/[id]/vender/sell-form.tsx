@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Package, Repeat } from "lucide-react";
+import { Check, Package, Repeat } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { PaidNowFields } from "@/components/finance";
-import { cx, Field, Input, Select } from "@/components/ui";
+import { buttonClass, cx, Field, Input, Select } from "@/components/ui";
 import { formatMoney, parseMoney } from "@/lib/format";
 import { sellPackage } from "../../actions";
 
@@ -17,92 +17,256 @@ type Product = {
   validity_days: number | null;
   sessions_per_week: number | null;
 };
+export type SeriesOption = { id: string; label: string; sub: string; free: number };
 
-export function SellForm({ patientId, products, today }: { patientId: string; products: Product[]; today: string }) {
-  const [id, setId] = useState(products[0]?.id ?? "");
+const STEPS = ["Quem", "O quê", "Quando", "Quanto e como paga", "Pronto"] as const;
+const br = (iso: string) => iso.split("-").reverse().join("/");
+
+/**
+ * Venda de pacote / matrícula em passos: Quem (já vem da ficha) → O quê → Quando → Quanto e como paga → Pronto.
+ * Todos os campos ficam no mesmo formulário; os passos só mostram/escondem.
+ */
+export function SellForm({
+  patientId,
+  patientName,
+  products,
+  today,
+  series = [],
+}: {
+  patientId: string;
+  patientName: string;
+  products: Product[];
+  today: string;
+  series?: SeriesOption[];
+}) {
+  const [step, setStep] = useState(2);
+  const [id, setId] = useState(products.length === 1 ? products[0].id : "");
   const p = products.find((x) => x.id === id);
   const [price, setPrice] = useState(p ? (p.price_cents / 100).toFixed(2).replace(".", ",") : "");
   const [n, setN] = useState(1);
+  const [startsOn, setStartsOn] = useState(today);
+  const [firstDue, setFirstDue] = useState(today);
+  const [picked, setPicked] = useState<string[]>([]);
   const cents = parseMoney(price) ?? 0;
+  const plano = p?.kind === "plano";
+  const groups = [
+    { kind: "pacote", title: "Consultas · pacote de sessões", items: products.filter((x) => x.kind !== "plano") },
+    { kind: "plano", title: "Aulas · plano mensal", items: products.filter((x) => x.kind === "plano") },
+  ].filter((g) => g.items.length);
+
+  const canNext = step === 2 ? !!p : step === 4 ? cents > 0 : true;
+  const summary: Record<number, string> = {
+    1: patientName,
+    2: p ? `${p.name} · ${formatMoney(p.price_cents)}${plano ? "/mês" : ""}` : "",
+    3: `começa ${br(startsOn)}${picked.length ? ` · ${picked.length} horário${picked.length === 1 ? "" : "s"}` : ""}`,
+    4: `${formatMoney(cents)}${plano ? "/mês" : n > 1 ? ` em ${n}x` : " à vista"} · vence ${br(firstDue)}`,
+  };
 
   return (
-    <ActionForm action={sellPackage}>
+    <ActionForm action={sellPackage} className="space-y-0!">
       <input type="hidden" name="patient_id" value={patientId} />
       <input type="hidden" name="product_id" value={id} />
+      {picked.map((s) => (
+        <input key={s} type="hidden" name="series_id" value={s} />
+      ))}
 
-      <fieldset className="space-y-2">
-        <legend className="mb-2 text-sm font-medium">O que o paciente está comprando?</legend>
-        {products.map((x) => (
-          <button
-            key={x.id}
-            type="button"
-            onClick={() => {
-              setId(x.id);
-              setPrice((x.price_cents / 100).toFixed(2).replace(".", ","));
-              setN(1);
-            }}
-            aria-pressed={id === x.id}
-            className={cx(
-              "flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors",
-              id === x.id ? "border-accent bg-accent-soft" : "border-line bg-surface hover:bg-hover",
-            )}
-          >
-            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-surface text-accent">
-              {x.kind === "plano" ? <Repeat size={18} /> : <Package size={18} />}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">{x.name}</span>
-              <span className="text-sm text-muted">
-                {x.kind === "plano"
-                  ? `${x.sessions_per_week}x por semana · cobrado todo mês`
-                  : `${x.sessions} sessões${x.validity_days ? ` · válido por ${x.validity_days} dias` : ""}`}
-              </span>
-            </span>
-            <span className="font-semibold tabular-nums">
-              {formatMoney(x.price_cents)}
-              {x.kind === "plano" && <span className="text-sm font-normal text-muted">/mês</span>}
-            </span>
-          </button>
-        ))}
-      </fieldset>
+      {/* Progresso */}
+      <div className="mb-4">
+        <p className="mb-2 text-[12px] font-semibold tracking-wide text-muted uppercase">
+          Passo {step} de 5 <span className="font-medium tracking-normal text-accent normal-case">· quem já veio preenchido</span>
+        </p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {STEPS.map((_, i) => (
+            <span key={i} className={cx("h-1.5 rounded-full", i + 1 < step ? "bg-accent" : i + 1 === step ? "bg-accent/50" : "bg-line")} />
+          ))}
+        </div>
+      </div>
 
-      {p && (
-        <>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label={p.kind === "plano" ? "Mensalidade (R$)" : "Valor total (R$)"} hint="Pode dar desconto aqui.">
-              <Input name="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required />
-            </Field>
-            <Field label="Começa em">
-              <Input name="starts_on" type="date" defaultValue={today} required />
-            </Field>
-            {p.kind === "pacote" && (
-              <Field label="Parcelas">
-                <Select name="installments" value={n} onChange={(e) => setN(Number(e.target.value))}>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((k) => (
-                    <option key={k} value={k}>
-                      {k === 1 ? "À vista" : `${k}x de ${formatMoney(Math.floor(cents / k))}`}
-                    </option>
+      <ol className="space-y-2.5">
+        {STEPS.map((title, i) => {
+          const k = i + 1;
+          const done = k < step;
+          const current = k === step;
+          return (
+            <li key={title} className={cx("rounded-2xl border bg-surface", current ? "border-accent p-4 shadow-sm" : "border-line px-4 py-3", !done && !current && "opacity-60")}>
+              <div className="flex items-center gap-3">
+                <span
+                  className={cx(
+                    "grid size-8 shrink-0 place-items-center rounded-full text-[14px] font-semibold",
+                    done ? "bg-accent text-white" : current ? "border-2 border-accent text-accent" : "bg-hover text-muted",
+                  )}
+                >
+                  {done ? <Check size={16} /> : k}
+                </span>
+                <span className="font-semibold">{title}</span>
+                {k === 1 && <span className="rounded-full bg-ok-soft px-2 py-0.5 text-[12px] font-semibold text-ok">da ficha</span>}
+                {done && <span className="min-w-0 flex-1 truncate text-right text-sm text-muted">{summary[k]}</span>}
+                {done && k > 1 && (
+                  <button type="button" onClick={() => setStep(k)} className="shrink-0 text-sm font-semibold text-accent">
+                    alterar
+                  </button>
+                )}
+              </div>
+
+              {/* 2. O quê */}
+              <div hidden={!(current && k === 2)} className="mt-4 space-y-4">
+                {groups.map((g) => (
+                  <div key={g.kind}>
+                    <p className="mb-2 text-[12px] font-semibold tracking-wide text-muted uppercase">{g.title}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {g.items.map((x) => (
+                        <button
+                          key={x.id}
+                          type="button"
+                          aria-pressed={id === x.id}
+                          onClick={() => {
+                            setId(x.id);
+                            setPrice((x.price_cents / 100).toFixed(2).replace(".", ","));
+                            setN(1);
+                            if (x.kind !== "plano") setPicked([]);
+                          }}
+                          className={cx(
+                            "inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[15px] font-medium transition-colors",
+                            id === x.id ? "border-accent bg-accent text-white" : "border-line bg-surface hover:bg-hover",
+                          )}
+                        >
+                          {x.kind === "plano" ? <Repeat size={16} /> : <Package size={16} />}
+                          {x.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {p && (
+                  <p className="rounded-xl bg-accent-soft/50 px-3 py-2 text-[14px]">
+                    <strong>{formatMoney(p.price_cents)}</strong>
+                    {plano
+                      ? ` por mês · ${p.sessions_per_week}x por semana`
+                      : ` · ${p.sessions} sessões${p.validity_days ? ` · vale ${p.validity_days} dias` : ""}`}
+                  </p>
+                )}
+              </div>
+
+              {/* 3. Quando */}
+              <div hidden={!(current && k === 3)} className="mt-4 space-y-4">
+                <Field label="Começa em">
+                  <Input name="starts_on" type="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} required />
+                </Field>
+                {plano && (
+                  <div>
+                    <p className="mb-1 text-sm font-medium">Horários fixos {p?.sessions_per_week ? `(escolha até ${p.sessions_per_week})` : ""}</p>
+                    <p className="mb-2 text-[13px] text-muted">O aluno já entra nessas turmas. Dá para mudar depois em “Gerir”.</p>
+                    {series.length === 0 ? (
+                      <p className="rounded-xl bg-hover px-3 py-3 text-sm text-muted">Nenhuma turma com vaga. Crie em Turmas › Nova turma.</p>
+                    ) : (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {series.map((s) => {
+                          const on = picked.includes(s.id);
+                          const full = s.free <= 0;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              disabled={full && !on}
+                              aria-pressed={on}
+                              onClick={() => setPicked((l) => (on ? l.filter((x) => x !== s.id) : [...l, s.id]))}
+                              className={cx(
+                                "flex min-h-14 items-center gap-3 rounded-xl border px-3 py-2 text-left transition-colors disabled:opacity-50",
+                                on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:bg-hover",
+                              )}
+                            >
+                              <span className={cx("grid size-6 shrink-0 place-items-center rounded-md border", on ? "border-accent bg-accent text-white" : "border-line")}>
+                                {on && <Check size={14} />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate font-medium">{s.label}</span>
+                                <span className="block truncate text-[12px] text-muted">{s.sub}</span>
+                              </span>
+                              <span className={cx("text-[12px] font-semibold", full ? "text-warn" : "text-muted")}>{full ? "lotada" : `${s.free} vaga${s.free === 1 ? "" : "s"}`}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {p?.sessions_per_week && picked.length > p.sessions_per_week && (
+                      <p className="mt-2 text-[13px] font-medium text-warn">O plano é {p.sessions_per_week}x por semana e você marcou {picked.length} horários.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Quanto e como paga */}
+              <div hidden={!(current && k === 4)} className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label={plano ? "Mensalidade (R$)" : "Valor total (R$)"} hint="Pode dar desconto aqui.">
+                    <Input name="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} required />
+                  </Field>
+                  {!plano ? (
+                    <Field label="Parcelas">
+                      <Select name="installments" value={n} onChange={(e) => setN(Number(e.target.value))}>
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((k2) => (
+                          <option key={k2} value={k2}>
+                            {k2 === 1 ? "À vista" : `${k2}x de ${formatMoney(Math.floor(cents / k2))}`}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  ) : (
+                    <span />
+                  )}
+                  <Field label={plano ? "Vence a 1ª mensalidade" : n > 1 ? "Vence a 1ª parcela" : "Vencimento"}>
+                    <Input name="first_due" type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} required />
+                  </Field>
+                </div>
+                <PaidNowFields label={plano ? "1ª mensalidade já foi paga" : n > 1 ? "1ª parcela já foi paga" : "Já foi pago"} />
+              </div>
+
+              {/* 5. Pronto */}
+              <div hidden={!(current && k === 5)} className="mt-4 space-y-3">
+                <dl className="divide-y divide-line rounded-xl border border-line text-[15px]">
+                  {[
+                    ["Paciente", patientName],
+                    [plano ? "Plano" : "Pacote", p?.name ?? "—"],
+                    ["Começa", br(startsOn)],
+                    ...(plano ? [["Horários", picked.length ? series.filter((s) => picked.includes(s.id)).map((s) => s.label).join(" · ") : "escolher depois"]] : []),
+                    ["Valor", `${formatMoney(cents)}${plano ? " por mês" : n > 1 ? ` em ${n}x de ${formatMoney(Math.floor(cents / n))}` : " à vista"}`],
+                  ].map(([a, b]) => (
+                    <div key={a} className="flex items-start justify-between gap-3 px-3 py-2.5">
+                      <dt className="text-muted">{a}</dt>
+                      <dd className="text-right font-medium">{b}</dd>
+                    </div>
                   ))}
-                </Select>
-              </Field>
-            )}
-            <Field label={p.kind === "plano" ? "Vencimento da 1ª mensalidade" : n > 1 ? "Vencimento da 1ª parcela" : "Vencimento"}>
-              <Input name="first_due" type="date" defaultValue={today} required />
-            </Field>
+                </dl>
+                <p className="text-[14px] text-muted">
+                  {plano
+                    ? "A mensalidade entra em Contas a receber todo mês, até o plano ser encerrado."
+                    : n > 1
+                      ? `Vamos lançar ${n} parcelas mensais em Contas a receber.`
+                      : "O valor entra em Contas a receber (ou como recebido, se já foi pago)."}
+                </p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+      {/* Barra de baixo */}
+      <div className="sticky bottom-0 -mx-5 mt-4 flex gap-2 border-t border-line bg-surface/95 px-5 py-3 backdrop-blur sm:-mx-7 sm:px-7">
+        <button type="button" disabled={step <= 2} onClick={() => setStep((s) => s - 1)} className={buttonClass("secondary", "lg")}>
+          Voltar
+        </button>
+        {step < 5 ? (
+          <button type="button" disabled={!canNext} onClick={() => setStep((s) => s + 1)} className={cx(buttonClass("primary", "lg"), "flex-1")}>
+            Continuar
+          </button>
+        ) : (
+          <div className="flex-1">
+            <SubmitButton full pendingText="Registrando…">
+              {plano ? "Confirmar matrícula" : "Confirmar venda"}
+            </SubmitButton>
           </div>
-          <PaidNowFields label={p.kind === "plano" ? "1ª mensalidade já foi paga" : n > 1 ? "1ª parcela já foi paga" : "Já foi pago"} />
-          <p className="text-[15px] text-muted">
-            {p.kind === "plano"
-              ? `Vamos lançar ${formatMoney(cents)} todo mês em Contas a receber, até o plano ser encerrado.`
-              : n > 1
-                ? `Vamos lançar ${n} parcelas mensais em Contas a receber.`
-                : "Vamos lançar o valor em Contas a receber (ou como recebido, se já foi pago)."}
-          </p>
-          <SubmitButton full pendingText="Registrando venda…">
-            Confirmar venda
-          </SubmitButton>
-        </>
-      )}
+        )}
+      </div>
     </ActionForm>
   );
 }
