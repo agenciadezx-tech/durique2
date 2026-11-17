@@ -7,9 +7,9 @@ import { cx } from "@/components/ui";
 import { setAttendeeStatus } from "../actions";
 
 const BUTTONS = [
-  { key: "presente", label: "Veio", icon: Check, on: "border-ok bg-ok text-white" },
-  { key: "falta", label: "Faltou", icon: X, on: "border-bad bg-bad text-white" },
-  { key: "desmarcou", label: "Desmarcou", icon: RotateCcw, on: "border-warn bg-warn text-white" },
+  { key: "presente", label: "Veio", icon: Check, on: "bg-ok text-white shadow-sm" },
+  { key: "falta", label: "Faltou", icon: X, on: "bg-bad text-white shadow-sm" },
+  { key: "desmarcou", label: "Desmarcou", icon: RotateCcw, on: "bg-warn text-white shadow-sm" },
 ] as const;
 
 /** Badge + botões Veio/Faltou/Desmarcou com resposta instantânea (grava em segundo plano). */
@@ -49,8 +49,8 @@ export function AttendeeStatus({
   }
 
   return (
-    <>
-      <div className="flex items-center gap-3">
+    <div className="sm:flex sm:items-center sm:gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         {avatar}
         <div className="min-w-0 flex-1">
           {title}
@@ -63,7 +63,7 @@ export function AttendeeStatus({
         {trailing}
       </div>
       {canEdit && (
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-hover p-1 sm:mt-0 sm:w-[320px] sm:shrink-0">
           {BUTTONS.map(({ key, label, icon: Icon, on }) => {
             const active = current === key;
             return (
@@ -73,8 +73,8 @@ export function AttendeeStatus({
                 aria-pressed={active}
                 onClick={() => choose(key)}
                 className={cx(
-                  "flex h-11 items-center justify-center gap-1.5 rounded-xl border px-1 text-[14px] font-medium transition-colors sm:text-[15px]",
-                  active ? on : "border-line bg-surface text-ink hover:bg-hover",
+                  "flex h-10 items-center justify-center gap-1.5 rounded-lg px-1 text-[14px] font-semibold transition-colors",
+                  active ? on : "text-muted hover:bg-surface hover:text-ink",
                 )}
               >
                 <Icon size={16} className="hidden min-[400px]:block" />
@@ -84,6 +84,6 @@ export function AttendeeStatus({
           })}
         </div>
       )}
-    </>
+    </div>
   );
 }

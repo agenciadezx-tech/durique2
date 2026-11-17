@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, Check, ClipboardCheck, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
+import { Check, CheckCheck, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
 import { PatientPicker } from "@/components/patient-picker";
 import { Alert, Avatar, Badge, buttonClass, Card, cx, PageHeader, Section } from "@/components/ui";
@@ -12,6 +12,8 @@ import { EvolutionForm } from "./evolution-form";
 import { createClient } from "@/lib/supabase/server";
 import { formatDayLong, formatTime, formatTimestampShort, TZ, whatsappLink } from "@/lib/format";
 import { MoveButton } from "../move";
+import { ConcludeButton } from "./conclude";
+import { OpenOnHash } from "./open-on-hash";
 import { addAttendee, addToWaitlist, cancelAppointment, cancelWaitlist, fitFromWaitlist, removeAttendee, restoreAppointment } from "../actions";
 import { WaSendButton } from "@/components/wa-send";
 import { firstName } from "@/lib/messages";
@@ -133,15 +135,22 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
   }`;
   const { data: recs } =
     main && ctx.canSeeClinical ? await supabase.from("clinical_records").select("id").eq("attendee_id", main.id).limit(1) : { data: [] as { id: string }[] };
-  const STATUS_LABEL: Record<string, string> = {
-    agendado: "Agendado",
-    confirmado: "Confirmado",
-    presente: "Atendido ✓",
-    falta: "Faltou",
-    desmarcado_no_prazo: "Desmarcou no prazo",
-    desmarcado_fora_prazo: "Desmarcou em cima da hora",
-  };
-  const ended = Date.parse(appt.ends_at) < Date.now();
+  const nowMs = Date.now();
+  const ended = Date.parse(appt.ends_at) < nowMs;
+  const pendingPeople = attendees.filter((t) => t.status === "agendado" || t.status === "confirmado");
+  const cameCount = attendees.filter((t) => t.status === "presente").length;
+  const missedCount = attendees.filter((t) => t.status === "falta").length;
+  const concluded = !canceled && attendees.length > 0 && pendingPeople.length === 0 && cameCount + missedCount > 0;
+  const canConclude = nowMs >= Date.parse(appt.starts_at) - 30 * 60e3;
+  const situation = canceled
+    ? { l: "Cancelada", c: "bg-bad-soft text-bad" }
+    : concluded
+      ? { l: "Concluída", c: "bg-ok-soft text-ok" }
+      : nowMs >= Date.parse(appt.starts_at) && !ended
+        ? { l: "Acontecendo agora", c: "bg-info-soft text-info" }
+        : ended && pendingPeople.length
+          ? { l: "Falta concluir", c: "bg-warn-soft text-warn" }
+          : { l: "Agendada", c: "bg-hover text-muted" };
   const callDone = isClass && attendees.length > 0 && attendees.every((t) => !["agendado", "confirmado"].includes(t.status));
 
   return (
@@ -168,56 +177,104 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
       )}
 
       <div className="space-y-6">
-        {/* Atalhos do topo */}
-        {isClass && !canceled && (
-          <>
-            <Card className="flex flex-wrap items-center gap-3 p-4">
-              <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-semibold tracking-wide text-muted uppercase">Professor da turma</span>
-                <span className="font-medium">{pro?.name ?? "Sem professor"}</span>
-              </span>
-              {appt.series_id && ctx.canManageAgenda && (
-                <Link href={`/horarios/${appt.series_id}`} className={buttonClass("secondary", "sm")}>
-                  Turma e alunos fixos
-                </Link>
-              )}
-            </Card>
-            <div className="grid grid-cols-2 gap-2">
-              <a href="#chamada" className={cx(buttonClass(callDone ? "secondary" : "primary", "lg"), "w-full")}>
-                <ClipboardCheck size={18} /> {callDone ? "Chamada feita" : "Fazer chamada"}
-              </a>
-              <a href="#evolucao" className={cx(buttonClass("secondary", "lg"), "w-full")}>
-                <NotebookPen size={18} /> Fazer evolução
-              </a>
-            </div>
-          </>
-        )}
-        {!isClass && main?.patients && (
-          <div className="grid grid-cols-2 gap-2">
-            <Link href={`/pacientes/${main.patients.id}`} className={cx(buttonClass("primary", "lg"), "w-full")}>
-              <UserRound size={18} /> Abrir ficha
-            </Link>
-            {ctx.canSeeClinical && ctx.professionalId ? (
-              <Link href={`/pacientes/${main.patients.id}/prontuario/novo?tipo=evolucao&sessao=${main.id}`} className={cx(buttonClass("secondary", "lg"), "w-full")}>
-                <NotebookPen size={18} /> Realizar evolução
-              </Link>
-            ) : (
-              <Link href={`/pacientes/${main.patients.id}?aba=historico`} className={cx(buttonClass("secondary", "lg"), "w-full")}>
-                Linha do tempo
-              </Link>
-            )}
-          </div>
-        )}
         {nova && <Alert tone="ok">Sessão marcada!</Alert>}
+
+        {/* Resumo da sessão */}
+        <Card className="overflow-hidden">
+          <dl className="grid grid-cols-2 divide-line sm:grid-cols-4 sm:divide-x [&>div]:border-line [&>div:nth-child(-n+2)]:border-b sm:[&>div:nth-child(-n+2)]:border-b-0 [&>div:nth-child(odd)]:border-r sm:[&>div:nth-child(odd)]:border-r-0">
+            <div className="px-4 py-3">
+              <dt className="text-[12px] font-semibold tracking-wide text-muted uppercase">Situação</dt>
+              <dd className="mt-1">
+                <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold", situation.c)}>
+                  <span className="size-1.5 rounded-full bg-current" /> {situation.l}
+                </span>
+              </dd>
+            </div>
+            <div className="px-4 py-3">
+              <dt className="text-[12px] font-semibold tracking-wide text-muted uppercase">Horário</dt>
+              <dd className="mt-1 font-semibold tabular-nums">
+                {formatTime(appt.starts_at)}–{formatTime(appt.ends_at)}
+              </dd>
+            </div>
+            <div className="px-4 py-3">
+              <dt className="text-[12px] font-semibold tracking-wide text-muted uppercase">{isClass ? "Professor" : "Profissional"}</dt>
+              <dd className="mt-1 truncate font-semibold">{pro?.name ?? "—"}</dd>
+            </div>
+            <div className="px-4 py-3">
+              <dt className="text-[12px] font-semibold tracking-wide text-muted uppercase">{isClass ? "Vagas" : "Serviço"}</dt>
+              {isClass ? (
+                <dd className="mt-1">
+                  <span className={cx("font-semibold tabular-nums", free <= 0 && "text-warn")}>
+                    {occupied}/{appt.capacity}
+                  </span>
+                  <span className="ml-1 text-[13px] text-muted">{free <= 0 ? "lotada" : `${free} livre${free === 1 ? "" : "s"}`}</span>
+                  <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-hover">
+                    <span className="block h-full rounded-full bg-chart-out" style={{ width: `${Math.min(100, (occupied / appt.capacity) * 100)}%` }} />
+                  </span>
+                </dd>
+              ) : (
+                <dd className="mt-1 truncate font-semibold">{service?.name ?? "—"}</dd>
+              )}
+            </div>
+          </dl>
+
+          {!canceled && (
+            <div className="space-y-3 border-t border-line bg-bg/50 p-4">
+              {pendingPeople.length > 0 && canConclude ? (
+                <ConcludeButton
+                  appointmentId={appt.id}
+                  isClass={isClass}
+                  people={pendingPeople.map((t) => ({ id: t.id, name: t.patients?.name ?? "Paciente", confirmed: t.status === "confirmado" }))}
+                />
+              ) : concluded ? (
+                <p className="flex flex-wrap items-center gap-2 rounded-xl bg-ok-soft px-4 py-3 text-[15px] text-ok">
+                  <CheckCheck size={19} className="shrink-0" />
+                  <span className="font-semibold">{isClass ? "Aula concluída" : "Atendimento concluído"}</span>
+                  <span>
+                    · {cameCount} {cameCount === 1 ? "veio" : "vieram"}
+                    {missedCount > 0 && ` · ${missedCount} faltou${missedCount === 1 ? "" : "aram"}`}
+                  </span>
+                </p>
+              ) : pendingPeople.length > 0 ? (
+                <p className="text-[14px] text-muted">O botão “Concluir” aparece meia hora antes do horário.</p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {isClass && appt.series_id && ctx.canManageAgenda && (
+                  <Link href={`/horarios/${appt.series_id}`} className={buttonClass("secondary", "sm")}>
+                    <Repeat size={16} /> Turma e alunos fixos
+                  </Link>
+                )}
+                {!isClass && main?.patients && (
+                  <Link href={`/pacientes/${main.patients.id}`} className={buttonClass("secondary", "sm")}>
+                    <UserRound size={16} /> Abrir ficha
+                  </Link>
+                )}
+                {isClass && canEvolve && evoPeople.length > 0 && (
+                  <a href="#evolucao" className={buttonClass("secondary", "sm")}>
+                    <NotebookPen size={16} /> {sessEvo ? "Evolução feita ✓" : "Fazer evolução"}
+                  </a>
+                )}
+                {!isClass && main?.patients && ctx.canSeeClinical && ctx.professionalId && (
+                  <Link href={`/pacientes/${main.patients.id}/prontuario/novo?tipo=evolucao&sessao=${main.id}`} className={buttonClass("secondary", "sm")}>
+                    <NotebookPen size={16} /> {(recs ?? []).length ? "Evolução feita ✓" : "Realizar evolução"}
+                  </Link>
+                )}
+                {ctx.canManageAgenda && (
+                  <MoveButton
+                    appt={{
+                      id: appt.id,
+                      title: (isClass ? seriesName : main?.patients?.name) ?? service?.name ?? "Sessão",
+                      date: day,
+                      time: formatTime(appt.starts_at),
+                      people: occupied,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+        </Card>
         {canceled && <Alert tone="info">Esta sessão foi cancelada.</Alert>}
-        {appt.series_id && !canceled && (
-          <p className="-mt-3 flex items-center gap-2 text-sm text-muted">
-            <Repeat size={16} /> Faz parte de uma{" "}
-            <Link href={`/horarios/${appt.series_id}`} className="font-medium text-accent hover:underline">
-              turma fixa
-            </Link>
-          </p>
-        )}
 
         <Section
           id="chamada"
@@ -239,12 +296,12 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
           }
         >
           {attendees.length ? (
-            <ul className="space-y-3">
+            <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
               {attendees.map((t) => {
                 const wa = whatsappLink(t.patients?.phone);
                 return (
-                  <li key={t.id}>
-                    <Card className="p-4">
+                  <li key={t.id} className="p-4">
+                    <div>
                       <AttendeeStatus
                         attendeeId={t.id}
                         appointmentId={appt.id}
@@ -324,7 +381,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
                           </ConfirmSubmit>
                         </form>
                       )}
-                    </Card>
+                    </div>
                   </li>
                 );
               })}
@@ -352,9 +409,17 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
           </Section>
         )}
 
+        <OpenOnHash id="adicionar" />
         {ctx.canManageAgenda && !canceled && free > 0 && (
-          <Section id="adicionar" title={appt.capacity > 1 ? "Adicionar aluno nesta aula" : "Escolher paciente"}>
-            <Card className="p-5">
+          <details id="adicionar" open={attendees.length === 0} className="group scroll-mt-24 rounded-2xl border border-line bg-surface">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 font-semibold text-accent [&::-webkit-details-marker]:hidden">
+              <span className="grid size-9 place-items-center rounded-full bg-accent-soft">
+                <Plus size={18} />
+              </span>
+              {appt.capacity > 1 ? "Adicionar aluno nesta aula" : "Escolher paciente"}
+              <span className="ml-auto text-sm font-normal text-muted">{free} vaga{free === 1 ? "" : "s"}</span>
+            </summary>
+            <div className="border-t border-line p-5">
               <ActionForm action={addAttendee} resetOnSuccess>
                 <input type="hidden" name="appointment_id" value={appt.id} />
                 <PatientPicker key={occupied} patients={available} />
@@ -368,8 +433,8 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
                   Adicionar
                 </SubmitButton>
               </ActionForm>
-            </Card>
-          </Section>
+            </div>
+          </details>
         )}
 
         {ctx.canManageAgenda && !canceled && (waiting.length > 0 || free <= 0) && (
@@ -426,43 +491,7 @@ export async function AppointmentDetail({ id, nova, embedded }: { id: string; no
           </Section>
         )}
 
-        {!isClass && main && (
-          <Card className="p-5">
-            <p className="mb-3 text-[12px] font-semibold tracking-wide text-muted uppercase">Sessão</p>
-            <dl className="divide-y divide-line text-[15px]">
-              {[
-                ["Serviço", service?.name ?? "—"],
-                ["Status", STATUS_LABEL[main.status] ?? main.status],
-                ["Evolução", !ctx.canSeeClinical ? "—" : (recs ?? []).length ? "Feita ✓" : main.status === "presente" || ended ? "Pendente" : "—"],
-                ["Profissional", pro?.name ?? "—"],
-              ].map(([k, v]) => (
-                <div key={k} className="flex items-center justify-between gap-3 py-2">
-                  <dt className="text-muted">{k}</dt>
-                  <dd className={cx("font-medium", v === "Pendente" && "rounded-full bg-warn-soft px-2 text-[13px] text-warn", v === "Atendido ✓" && "rounded-full bg-ok-soft px-2 text-[13px] text-ok")}>{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
-        )}
 
-        {ctx.canManageAgenda && !canceled && (
-          <Card className="flex flex-wrap items-center gap-3 p-4">
-            <CalendarClock size={20} className="shrink-0 text-muted" />
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium">Precisa mudar de dia ou horário?</span>
-              <span className="block text-sm text-muted">Muda só esta {isClass ? "aula" : "sessão"} e {occupied ? "avisa quem está marcado" : "mantém tudo o resto"}.</span>
-            </span>
-            <MoveButton
-              appt={{
-                id: appt.id,
-                title: (isClass ? (appt.recurring_series as unknown as { name: string | null } | null)?.name : attendees[0]?.patients?.name) ?? service?.name ?? "Sessão",
-                date: day,
-                time: formatTime(appt.starts_at),
-                people: occupied,
-              }}
-            />
-          </Card>
-        )}
 
         {ctx.canManageAgenda && (
           <div className="border-t border-line pt-6">

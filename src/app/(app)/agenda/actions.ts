@@ -294,3 +294,31 @@ export async function rescheduleAppointment(_: ActionState, data: FormData): Pro
   const r = await moveAppointment(String(data.get("id")), String(data.get("date") ?? ""), String(data.get("time") ?? ""));
   return r.error ? { error: r.error } : { ok: "Data mudada." };
 }
+
+/**
+ * Concluir aula/atendimento: quem ainda está "agendado" ou "confirmado" vira Veio,
+ * menos quem o profissional marcou como Faltou. Desfazer = tocar no status de cada um.
+ */
+export async function concludeAppointment(appointmentId: string, absentIds: string[]): Promise<{ ok?: boolean; error?: string }> {
+  const ctx = await getContext();
+  if (!ctx.canManageAgenda && !ctx.professionalId) return { error: "Sem permissão." };
+  const supabase = await createClient();
+  const pending = ["agendado", "confirmado"] as ("agendado" | "confirmado")[];
+  if (absentIds.length) {
+    const { error } = await supabase
+      .from("appointment_attendees")
+      .update({ status: "falta" })
+      .eq("appointment_id", appointmentId)
+      .in("id", absentIds)
+      .in("status", pending);
+    if (error) return { error: friendlyError(error) };
+  }
+  let q = supabase.from("appointment_attendees").update({ status: "presente" }).eq("appointment_id", appointmentId).in("status", pending);
+  if (absentIds.length) q = q.not("id", "in", `(${absentIds.join(",")})`);
+  const { error } = await q;
+  if (error) return { error: friendlyError(error) };
+  revalidatePath(`/agenda/${appointmentId}`);
+  revalidatePath("/agenda", "layout");
+  revalidatePath("/horarios");
+  return { ok: true };
+}
