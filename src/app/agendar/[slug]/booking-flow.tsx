@@ -6,7 +6,7 @@ import { Alert, buttonClass, Card, cx, Field, Input } from "@/components/ui";
 import { addDaysISO, formatMoney, todayISO, TZ } from "@/lib/format";
 import { book, joinWaitlist, loadClasses, loadFullClasses, loadSlots, type ClassSlot, type FullClass, type Slot } from "./actions";
 
-export type BookingService = { id: string; name: string; kind: string; duration: number; price_cents: number | null };
+export type BookingService = { id: string; name: string; kind: string; duration: number; price_cents: number | null; pros?: { id: string; name: string }[] };
 
 type Pick = { serviceId: string; professionalId?: string; professionalName: string; startsAt: string; appointmentId?: string; waitlist?: boolean };
 type Prefill = { name: string; phone: string } | null;
@@ -101,6 +101,8 @@ function SlotStep({ slug, service, onPick }: { slug: string; service: BookingSer
   const [day, setDay] = useState(days[0]);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [pending, start] = useTransition();
+  const [who, setWho] = useState<string>("");
+  const pros = service.pros ?? [];
 
   useEffect(() => {
     setSlots(null);
@@ -108,10 +110,31 @@ function SlotStep({ slug, service, onPick }: { slug: string; service: BookingSer
   }, [slug, service.id, day]);
 
   const byPro = new Map<string, Slot[]>();
-  (slots ?? []).forEach((s) => byPro.set(s.professional_id, [...(byPro.get(s.professional_id) ?? []), s]));
+  (slots ?? []).filter((s) => !who || s.professional_id === who).forEach((s) => byPro.set(s.professional_id, [...(byPro.get(s.professional_id) ?? []), s]));
 
   return (
     <>
+      {pros.length > 1 && (
+        <div>
+          <h2 className="mb-2 text-[17px] font-semibold">Com quem?</h2>
+          <div className="flex flex-wrap gap-2">
+            {[{ id: "", name: "Qualquer um" }, ...pros].map((p) => (
+              <button
+                key={p.id || "any"}
+                type="button"
+                aria-pressed={who === p.id}
+                onClick={() => setWho(p.id)}
+                className={cx(
+                  "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-[15px] font-medium transition-colors",
+                  who === p.id ? "border-accent bg-accent text-white" : "border-line bg-surface hover:bg-hover",
+                )}
+              >
+                {p.id && <User size={15} />} {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div>
         <h2 className="mb-2 text-[17px] font-semibold">2. Escolha o dia</h2>
         <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
@@ -138,8 +161,8 @@ function SlotStep({ slug, service, onPick }: { slug: string; service: BookingSer
         <h2 className="mb-2 text-[17px] font-semibold">3. Escolha o horário</h2>
         {pending || slots == null ? (
           <p className="py-6 text-center text-muted">Procurando horários…</p>
-        ) : slots.length === 0 ? (
-          <Card className="px-4 py-5 text-[15px] text-muted">Sem horários livres neste dia. Tente outro dia.</Card>
+        ) : byPro.size === 0 ? (
+          <Card className="px-4 py-5 text-[15px] text-muted">Sem horários livres neste dia{who ? " com esse profissional" : ""}. Tente outro dia.</Card>
         ) : (
           <div className="space-y-4">
             {[...byPro.values()].map((list) => (

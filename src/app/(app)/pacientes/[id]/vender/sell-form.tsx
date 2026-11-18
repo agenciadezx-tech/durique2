@@ -16,6 +16,9 @@ type Product = {
   sessions: number | null;
   validity_days: number | null;
   sessions_per_week: number | null;
+  cycle_months?: number;
+  family_pct?: number | null;
+  punctual_pct?: number | null;
 };
 export type SeriesOption = { id: string; label: string; sub: string; free: number };
 export type ClassOption = { id: string; day: string; dayLabel: string; time: string; sub: string; free: number; price_cents: number };
@@ -58,8 +61,11 @@ export function SellForm({
   const [startsOn, setStartsOn] = useState(today);
   const [firstDue, setFirstDue] = useState(today);
   const [picked, setPicked] = useState<string[]>([]);
+  const [family, setFamily] = useState(false);
   const cents = parseMoney(price) ?? 0;
   const plano = p?.kind === "plano";
+  const cycle = plano ? (p?.cycle_months ?? 1) : 1;
+  const cycleLabel = cycle === 3 ? "trimestral" : cycle === 6 ? "semestral" : cycle === 12 ? "anual" : "";
   const groups = [
     { kind: "pacote", title: "Consultas · pacote de sessões", items: products.filter((x) => x.kind !== "plano") },
     { kind: "plano", title: "Aulas · plano mensal", items: products.filter((x) => x.kind === "plano") },
@@ -155,6 +161,7 @@ export function SellForm({
                           onClick={() => {
                             setId(x.id);
                             setSingle(null);
+                            setFamily(false);
                             setPrice((x.price_cents / 100).toFixed(2).replace(".", ","));
                             setN(1);
                             if (x.kind !== "plano") setPicked([]);
@@ -362,7 +369,26 @@ export function SellForm({
                     <Input name="first_due" type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} required />
                   </Field>
                 </div>
-                <PaidNowFields label={plano ? "1ª mensalidade já foi paga" : n > 1 ? "1ª parcela já foi paga" : "Já foi pago"} />
+                {p?.family_pct ? (
+                  <label className="flex items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-3 text-[15px]">
+                    <input
+                      type="checkbox"
+                      checked={family}
+                      onChange={(e) => {
+                        setFamily(e.target.checked);
+                        const base = p.price_cents;
+                        const v = e.target.checked ? Math.round(base * (1 - (p.family_pct ?? 0) / 100)) : base;
+                        setPrice((v / 100).toFixed(2).replace(".", ","));
+                      }}
+                      className="size-5 accent-[var(--color-accent)]"
+                    />
+                    <span>
+                      <b>Desconto família</b> ({p.family_pct}%) · alguém da família já é aluno
+                    </span>
+                  </label>
+                ) : null}
+                {cycle > 1 && <p className="rounded-xl bg-accent-soft/50 px-3 py-2 text-[14px]">Plano {cycleLabel}: cobra {formatMoney(cents * cycle)} adiantado a cada {cycle} meses.</p>}
+                <PaidNowFields label={plano ? (cycle > 1 ? "1º pagamento já foi feito" : "1ª mensalidade já foi paga") : n > 1 ? "1ª parcela já foi paga" : "Já foi pago"} />
                 </>
                 )}
               </div>
@@ -382,7 +408,8 @@ export function SellForm({
                     [plano ? "Plano" : "Pacote", p?.name ?? "—"],
                     ["Começa", br(startsOn)],
                     ...(plano ? [["Horários", picked.length ? series.filter((s) => picked.includes(s.id)).map((s) => s.label).join(" · ") : "escolher depois"]] : []),
-                    ["Valor", `${formatMoney(cents)}${plano ? " por mês" : n > 1 ? ` em ${n}x de ${formatMoney(Math.floor(cents / n))}` : " à vista"}`],
+                    ["Valor", `${formatMoney(cents)}${plano ? ` por mês${cycle > 1 ? ` · ${formatMoney(cents * cycle)} a cada ${cycle} meses` : ""}` : n > 1 ? ` em ${n}x de ${formatMoney(Math.floor(cents / n))}` : " à vista"}${family ? " · com desconto família" : ""}`],
+                    ...(p?.punctual_pct ? [["Pagando em dia", `${formatMoney(Math.round(cents * cycle * (1 - p.punctual_pct / 100)))} (−${p.punctual_pct}%)`]] : []),
                   ]).map(([a, b]) => (
                     <div key={a} className="flex items-start justify-between gap-3 px-3 py-2.5">
                       <dt className="text-muted">{a}</dt>

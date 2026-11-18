@@ -8,7 +8,7 @@ import { Avatar, Badge, Card, Field, Input, PageHeader, Section, Select, Textare
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { formatMoney, formatPhone } from "@/lib/format";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { saveApps, savePix, createInvite, revokeInvite, setMemberActive, renameClinic, saveRules, saveDocTemplate, saveProfessional, toggleActive } from "../actions";
 import { ColorField, CommissionFields } from "../product-fields";
 import { Disclosure } from "../shared";
@@ -30,6 +30,7 @@ const TITLES: Record<string, { t: string; d: string }> = {
 
 export default async function AjustesSecaoPage({ params }: { params: Promise<{ secao: string }> }) {
   const { secao } = await params;
+  if (secao === "equipe" || secao === "profissionais") redirect("/equipe");
   if (!TITLES[secao]) notFound();
   const ctx = await getContext();
   const supabase = await createClient();

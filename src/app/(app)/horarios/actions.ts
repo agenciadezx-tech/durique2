@@ -66,7 +66,8 @@ export async function createSeries(_: ActionState, data: FormData): Promise<Acti
         duration_min: x.duration,
         capacity,
         starts_on: startsOn,
-      })),
+        room_id: String(data.get("room_id") ?? "") || null,
+      })) as never,
     )
     .select("id");
   if (error || !created) return { error: friendlyError(error) };
@@ -152,6 +153,7 @@ export async function updateSeries(_: ActionState, data: FormData): Promise<Acti
     p_capacity: Number(data.get("capacity")),
   } as never);
   if (error) return { error: friendlyError(error) };
+  if (data.has("room_id")) await supabase.from("recurring_series").update({ room_id: String(data.get("room_id") ?? "") || null } as never).eq("id", id);
   revalidatePath("/horarios", "layout");
   revalidatePath("/agenda", "layout");
   redirect(`/horarios/${id}?editado=${Number(moved) || 0}`);

@@ -45,3 +45,10 @@ export async function portalFeedback(token: string, score: number, comment: stri
   const { error } = await supabase.rpc("portal_feedback", { p_token: token, p_score: score, p_comment: comment.slice(0, 1000) });
   return error ? { error: msg(error) } : { ok: "Obrigado pela sua opinião!" };
 }
+
+export async function portalReschedule(token: string, attendeeId: string, appointmentId: string): Promise<Result> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("portal_reschedule" as never, { p_token: token, p_attendee: attendeeId, p_appointment: appointmentId } as never);
+  revalidatePath(`/p/${token}`);
+  return error ? { error: msg(error) } : { ok: "Pronto! Sua aula foi remarcada." };
+}

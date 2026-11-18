@@ -91,8 +91,8 @@ export default async function ConfiguracoesPage({ searchParams }: { searchParams
       text: "Pessoas, acessos, contratos e seus dados",
       icon: Users,
       items: [
-        { title: "Equipe e acessos", state: `${members.count ?? 0} pessoa(s)${invites.count ? ` · ${invites.count} convite(s)` : ""}`, href: "/ajustes/equipe", show: admin },
-        { title: "Profissionais e comissões", state: `${pros.count ?? 0} atendendo`, href: "/ajustes/profissionais", show: true },
+        { title: "Equipe e acessos", state: `${members.count ?? 0} pessoa(s)${invites.count ? ` · ${invites.count} convite(s)` : ""}`, href: "/equipe", show: admin },
+        { title: "Profissionais e comissões", state: `${pros.count ?? 0} atendendo`, href: "/equipe", show: true },
         { title: "Equipe, funções e comissões do mês", state: "Quem vê o quê e quanto pagar", href: "/equipe", show: admin || ctx.canSeeExpenses },
         { title: "Contratos e termos", state: `${docs.count ?? 0} modelo(s)`, href: "/ajustes/documentos", show: ctx.role !== "financeiro" },
         { title: "Assistente de configuração", state: "Refazer o passo a passo inicial", href: "/configurar", show: admin },

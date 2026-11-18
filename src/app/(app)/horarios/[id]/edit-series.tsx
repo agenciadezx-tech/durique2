@@ -21,6 +21,7 @@ export type SeriesData = {
   professional_id: string;
   capacity: number;
   enrolled: number;
+  room_id?: string | null;
 };
 
 const plus = (t: string, m: number) => {
@@ -32,7 +33,8 @@ const label = "mb-2 block text-[14px] font-semibold text-accent";
 const DAYS = [7, 1, 2, 3, 4, 5, 6];
 
 /** Botão Editar da turma: abre uma janela de baixo com dia, horário, serviço, professor, vagas e nome. */
-export function EditSeries({ s, services, pros, endSlot }: { s: SeriesData; services: Service[]; pros: Pro[]; endSlot: React.ReactNode }) {
+export function EditSeries({ s, services, pros, endSlot, rooms = [] }: { s: SeriesData; services: Service[]; pros: Pro[]; endSlot: React.ReactNode; rooms?: { id: string; name: string }[] }) {
+  const [roomId, setRoomId] = useState(s.room_id ?? "");
   const [open, setOpen] = useState(false);
   const [day, setDay] = useState(s.weekday);
   const [start, setStart] = useState(s.start);
@@ -82,6 +84,7 @@ export function EditSeries({ s, services, pros, endSlot }: { s: SeriesData; serv
               <input type="hidden" name="service_id" value={serviceId} />
               <input type="hidden" name="professional_id" value={proId} />
               <input type="hidden" name="capacity" value={cap} />
+              <input type="hidden" name="room_id" value={roomId} />
               <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-5">
                 <div>
                   <span className={label}>Dia da semana</span>
@@ -167,6 +170,27 @@ export function EditSeries({ s, services, pros, endSlot }: { s: SeriesData; serv
                     ))}
                   </div>
                 </div>
+                {rooms.length > 0 && (
+                  <div>
+                    <span className={label}>Sala</span>
+                    <div className="flex flex-wrap gap-2">
+                      {[{ id: "", name: "Sem sala" }, ...rooms].map((r) => (
+                        <button
+                          key={r.id || "none"}
+                          type="button"
+                          aria-pressed={roomId === r.id}
+                          onClick={() => setRoomId(r.id)}
+                          className={cx(
+                            "inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] font-medium transition-colors",
+                            roomId === r.id ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface hover:bg-hover",
+                          )}
+                        >
+                          {r.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <span className={label}>Vagas</span>
                   <div className="flex items-center gap-3">

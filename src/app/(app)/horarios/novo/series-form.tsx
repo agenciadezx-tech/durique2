@@ -9,7 +9,7 @@ import { proColor } from "@/lib/colors";
 import { createSeries } from "../actions";
 
 type Service = { id: string; name: string; kind: string; duration_min: number; default_capacity: number };
-type Pro = { id: string; name: string; color?: string | null };
+type Pro = { id: string; name: string; color?: string | null; services?: string[] };
 type Row = { key: number; start: string; end: string; days: number[] };
 
 const plus = (t: string, m: number) => {
@@ -19,13 +19,28 @@ const plus = (t: string, m: number) => {
 const label = "mb-2 block text-[14px] font-semibold text-accent";
 
 /** Nova turma: serviço e professor em botões, grade de horários (vários horários × dias), vagas com − e +. */
-export function SeriesForm({ services, pros, today }: { services: Service[]; pros: Pro[]; today: string }) {
+export function SeriesForm({
+  services,
+  pros,
+  today,
+  rooms = [],
+  initial = {},
+}: {
+  services: Service[];
+  pros: Pro[];
+  today: string;
+  rooms?: { id: string; name: string }[];
+  initial?: { service?: string; day?: number; start?: string; room?: string };
+}) {
   const turmas = services.filter((s) => s.kind === "turma");
   const list = turmas.length ? turmas : services;
-  const [serviceId, setServiceId] = useState(list[0]?.id ?? "");
+  const [serviceId, setServiceId] = useState(list.some((s) => s.id === initial.service) ? initial.service! : (list[0]?.id ?? ""));
   const service = services.find((s) => s.id === serviceId);
-  const [proId, setProId] = useState(pros.length === 1 ? pros[0].id : "");
-  const [rows, setRows] = useState<Row[]>([{ key: 1, start: "08:00", end: plus("08:00", service?.duration_min ?? 50), days: [] }]);
+  const fits = pros.filter((p) => !p.services?.length || p.services.includes(serviceId));
+  const [proId, setProId] = useState(fits.length === 1 ? fits[0].id : pros.length === 1 ? pros[0].id : "");
+  const [roomId, setRoomId] = useState(rooms.some((r) => r.id === initial.room) ? initial.room! : "");
+  const first = initial.start ?? "08:00";
+  const [rows, setRows] = useState<Row[]>([{ key: 1, start: first, end: plus(first, service?.duration_min ?? 50), days: initial.day ? [initial.day] : [] }]);
   const [cap, setCap] = useState(service?.default_capacity ?? 4);
   const slots = rows.flatMap((r) => r.days.map((d) => `${d}|${r.start}|${r.end}`));
   const ready = !!serviceId && !!proId && slots.length > 0;
@@ -35,6 +50,7 @@ export function SeriesForm({ services, pros, today }: { services: Service[]; pro
     <ActionForm action={createSeries} className="space-y-6">
       <input type="hidden" name="service_id" value={serviceId} />
       <input type="hidden" name="professional_id" value={proId} />
+      <input type="hidden" name="room_id" value={roomId} />
       <input type="hidden" name="capacity" value={cap} />
       {slots.map((s) => (
         <input key={s} type="hidden" name="slot" value={s} />
@@ -71,10 +87,32 @@ export function SeriesForm({ services, pros, today }: { services: Service[]; pro
         <Input id="nome-turma" name="name" maxLength={60} placeholder="Ex.: Pilates Seg/Qua 08:00" />
       </div>
 
+      {rooms.length > 0 && (
+        <div>
+          <span className={label}>Sala</span>
+          <div className="flex flex-wrap gap-2">
+            {[{ id: "", name: "Sem sala" }, ...rooms].map((r) => (
+              <button
+                key={r.id || "none"}
+                type="button"
+                aria-pressed={roomId === r.id}
+                onClick={() => setRoomId(r.id)}
+                className={cx(
+                  "inline-flex min-h-11 items-center rounded-full border px-4 text-[15px] font-medium transition-colors",
+                  roomId === r.id ? "border-accent bg-accent-soft text-accent" : "border-line bg-surface hover:bg-hover",
+                )}
+              >
+                {r.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <span className={label}>Professor</span>
         <div className="flex flex-wrap gap-2">
-          {pros.map((p) => (
+          {(pros.filter((p) => !p.services?.length || p.services.includes(serviceId)).length ? pros.filter((p) => !p.services?.length || p.services.includes(serviceId)) : pros).map((p) => (
             <button
               key={p.id}
               type="button"

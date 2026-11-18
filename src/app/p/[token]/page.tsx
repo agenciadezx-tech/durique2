@@ -63,6 +63,10 @@ type Portal = {
     professional: string;
     is_makeup: boolean;
     notice_hours: number;
+    service_id?: string;
+    deadline?: string;
+    can_cancel?: boolean;
+    can_reschedule?: boolean;
   }[];
   credits: { expires_on: string }[];
   packages: {
@@ -76,7 +80,7 @@ type Portal = {
     per_week: number | null;
   }[];
   documents: { title: string; token: string }[];
-  open_classes: { appointment_id: string; starts_at: string; service: string; professional: string; free: number }[];
+  open_classes: { appointment_id: string; starts_at: string; service: string; service_id?: string; professional: string; free: number }[];
   pre_assessments: { token: string; kind: string }[];
 };
 
@@ -148,10 +152,17 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
   const tab = (k: string) => `/p/${token}${k === "inicio" ? "" : `?aba=${k}`}`;
   const next = d.sessions.find((s) => Date.parse(s.starts_at) > now && (s.status === "agendado" || s.status === "confirmado"));
 
+  // Para remarcar: outras aulas do mesmo serviço com vaga
+  const optionsFor = (s: Portal["sessions"][number]) =>
+    d.open_classes
+      .filter((c) => c.service_id === s.service_id)
+      .slice(0, 12)
+      .map((c) => ({ id: c.appointment_id, label: `${when(c.starts_at).split(",")[0]} ${formatDateShort(dayKey(c.starts_at)).slice(0, 5)} · ${hour(c.starts_at)}`, sub: `com ${c.professional} · ${c.free} vaga${c.free === 1 ? "" : "s"}` }));
+
   const SessionCard = ({ s }: { s: Portal["sessions"][number] }) => {
     const st = STATUS[s.status] ?? STATUS.agendado;
     const future = Date.parse(s.starts_at) > now;
-    const inTime = Date.parse(s.starts_at) - now >= (s.notice_hours ?? d.notice_hours) * 36e5;
+    const inTime = s.deadline ? now <= Date.parse(s.deadline) : Date.parse(s.starts_at) - now >= (s.notice_hours ?? d.notice_hours) * 36e5;
     const canAct = future && (s.status === "agendado" || s.status === "confirmado");
     return (
       <Card className={cx("p-4", !canAct && "opacity-80")}>
@@ -166,7 +177,7 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
           </div>
           <Badge tone={st.tone}>{st.label}</Badge>
         </div>
-        {canAct && <SessionButtons token={token} attendeeId={s.attendee_id} status={s.status} inTime={inTime} color={color} />}
+        {canAct && <SessionButtons token={token} attendeeId={s.attendee_id} status={s.status} inTime={inTime} color={color} canCancel={s.can_cancel !== false} options={s.can_reschedule ? optionsFor(s) : undefined} />}
       </Card>
     );
   };
@@ -224,8 +235,10 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
                     token={token}
                     attendeeId={next.attendee_id}
                     status={next.status}
-                    inTime={Date.parse(next.starts_at) - now >= (next.notice_hours ?? d.notice_hours) * 36e5}
+                    inTime={next.deadline ? now <= Date.parse(next.deadline) : Date.parse(next.starts_at) - now >= (next.notice_hours ?? d.notice_hours) * 36e5}
                     color={color}
+                    canCancel={next.can_cancel !== false}
+                    options={next.can_reschedule ? optionsFor(next) : undefined}
                   />
                 </div>
               </section>

@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { ArrowLeft, Package, Plus, Repeat, Search, Stethoscope, Tags, Users } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Alert, Badge, buttonClass, Card, cx, EmptyState, Section } from "@/components/ui";
+import { Badge, buttonClass, Card, cx, EmptyState } from "@/components/ui";
 import { getContext } from "@/lib/context";
-import { formatMoney, WEEKDAYS } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { saveProduct, saveService, toggleActive } from "../(mais)/ajustes/actions";
 import { ProductFields } from "../(mais)/ajustes/product-fields";
 import { Disclosure, ServiceFields } from "../(mais)/ajustes/shared";
+import { ServiceDetail, type FullService } from "./service-detail";
 
 export const metadata = { title: "Catálogo" };
 
@@ -48,7 +49,7 @@ const productLine = (p: Product) =>
     ? `Plano mensal · ${p.sessions_per_week}x por semana · ${formatMoney(p.price_cents)}/mês`
     : `${p.sessions} sessões · ${formatMoney(p.price_cents)}${p.validity_days ? ` · vale ${p.validity_days} dias` : ""}`;
 
-export default async function CatalogoPage({ searchParams }: { searchParams: Promise<{ s?: string; t?: string; q?: string; novo?: string }> }) {
+export default async function CatalogoPage({ searchParams }: { searchParams: Promise<{ s?: string; t?: string; q?: string; novo?: string; aba?: string; b?: string; sala?: string; arquivado?: string }> }) {
   const ctx = await getContext();
   const admin = ctx.isAdmin;
   const sp = await searchParams;
@@ -321,124 +322,16 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
       </>
     );
   } else if (selected && typeof selected === "object") {
-    const s = selected;
-    const own = products.filter((p) => p.service_id === s.id);
-    const turmas = series.filter((r) => r.service_id === s.id);
-    const missing = missingOf(s);
-    const Icon = isAula(s) ? Users : Stethoscope;
     detail = (
-      <>
-        {sp.novo && (
-          <div className="mb-4">
-            <Alert tone="ok">Serviço criado. Agora coloque os preços{isAula(s) ? ", o plano mensal e as turmas" : " e os pacotes"}.</Alert>
-          </div>
-        )}
-        <header className="mb-6 flex items-start gap-4">
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent">
-            <Icon size={26} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[22px] leading-tight font-semibold tracking-tight">{s.name}</h2>
-            <p className="mt-1 flex flex-wrap items-center gap-2 text-[15px] text-muted">
-              <span className={cx("size-2.5 rounded-full", isAula(s) ? "bg-chart-out" : "bg-chart-in")} />
-              {isAula(s) ? `Aula em grupo · ${s.default_capacity} vagas` : "Consulta individual"} · {s.duration_min} min
-              {s.price_cents != null && ` · avulsa ${formatMoney(s.price_cents)}`}
-              {!s.active && <Badge>Inativo</Badge>}
-            </p>
-          </div>
-        </header>
-
-        <div className="space-y-8">
-          {missing.length > 0 && (
-            <Card className="border-warn/40 bg-warn-soft/40 p-4">
-              <p className="font-medium text-warn">Falta para ficar pronto</p>
-              <ul className="mt-1 list-inside list-disc text-[15px]">
-                {missing.map((m) => (
-                  <li key={m}>
-                    {m === "Sem preço"
-                      ? "Coloque o preço da sessão avulsa ou crie um pacote"
-                      : m === "Sem turma"
-                        ? "Crie pelo menos uma turma (dia e horário fixos)"
-                        : "Crie o plano mensal (ex.: 2x por semana)"}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          <Section title={isAula(s) ? "Planos e pacotes" : "Pacotes"}>
-            <Card className="divide-y divide-line overflow-hidden">
-              {own.map((p) => (
-                <ProductItem key={p.id} p={p} />
-              ))}
-              {own.length === 0 && <p className="px-4 py-3 text-sm text-muted">Nenhum ainda. Só a sessão avulsa.</p>}
-              <NewProduct serviceId={s.id} label={isAula(s) ? "Novo plano mensal ou pacote" : "Novo pacote de sessões"} />
-            </Card>
-          </Section>
-
-          {isAula(s) && (
-            <Section
-              title={`Turmas · ${turmas.length}`}
-              action={
-                ctx.canManageAgenda ? (
-                  <Link href="/horarios/novo" className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-accent">
-                    <Plus size={16} /> Nova turma
-                  </Link>
-                ) : undefined
-              }
-            >
-              {turmas.length === 0 ? (
-                <Card className="p-4 text-[15px] text-muted">Nenhuma turma ainda. Crie o dia e o horário fixos em Turmas.</Card>
-              ) : (
-                <Card className="divide-y divide-line">
-                  {turmas.map((r) => {
-                    const n = r.enrollments.filter((e) => !e.ends_on || e.ends_on >= today).length;
-                    return (
-                      <Link key={r.id} href={`/horarios/${r.id}`} className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-hover">
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-medium">
-                            {r.name ? `${r.name} · ` : ""}
-                            {WEEKDAYS[r.weekday]} · {r.start_time.slice(0, 5)}
-                          </span>
-                          <span className="block text-sm text-muted">{r.professionals?.name}</span>
-                        </span>
-                        <span className="text-sm font-medium tabular-nums">
-                          {n}/{r.capacity} alunos
-                        </span>
-                        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-hover">
-                          <span className="block h-full rounded-full bg-chart-out" style={{ width: `${Math.min(100, (n / r.capacity) * 100)}%` }} />
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </Card>
-              )}
-            </Section>
-          )}
-
-          <Section title="Preço e regras">
-            {admin ? (
-              <Card className="p-5">
-                <ActionForm action={saveService}>
-                  <input type="hidden" name="id" value={s.id} />
-                  <ServiceFields s={s} />
-                  <SubmitButton size="md">Salvar</SubmitButton>
-                </ActionForm>
-                <form action={toggleActive} className="mt-4 border-t border-line pt-4">
-                  <input type="hidden" name="table" value="services" />
-                  <input type="hidden" name="id" value={s.id} />
-                  <input type="hidden" name="active" value={String(!s.active)} />
-                  <SubmitButton variant="ghost" size="sm" className="text-muted" pendingText="Aguarde…">
-                    {s.active ? "Desativar serviço" : "Reativar serviço"}
-                  </SubmitButton>
-                </form>
-              </Card>
-            ) : (
-              <Card className="p-4 text-sm text-muted">Somente o administrador pode editar.</Card>
-            )}
-          </Section>
-        </div>
-      </>
+      <ServiceDetail
+        s={selected as unknown as FullService}
+        own={products.filter((p) => p.service_id === selected.id) as unknown as Parameters<typeof ServiceDetail>[0]["own"]}
+        aba={sp.aba}
+        bloco={sp.b}
+        sala={sp.sala}
+        novo={!!sp.novo}
+        arquivado={!!sp.arquivado}
+      />
     );
   } else {
     detail = (

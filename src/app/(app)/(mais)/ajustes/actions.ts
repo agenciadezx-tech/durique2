@@ -59,12 +59,27 @@ export async function saveProfessional(_: ActionState, data: FormData): Promise<
     commission_percent,
     commission_fixed_cents,
   };
-  const { error } = id
-    ? await supabase.from("professionals").update(values).eq("id", id)
-    : await supabase.from("professionals").insert({ ...values, clinic_id: ctx.clinicId });
-  if (error) return { error: friendlyError(error) };
+  const res = id
+    ? await supabase.from("professionals").update(values).eq("id", id).select("id").single()
+    : await supabase.from("professionals").insert({ ...values, clinic_id: ctx.clinicId }).select("id").single();
+  if (res.error) return { error: friendlyError(res.error) };
+  // Serviços que a pessoa faz (nenhum marcado = faz todos)
+  if (data.get("services_present") === "1") {
+    const proId = res.data.id;
+    const wanted = data.getAll("service_id").map(String).filter(Boolean);
+    const { error: e1 } = await supabase.from("professional_services" as never).delete().eq("professional_id", proId);
+    if (e1) return { error: friendlyError(e1) };
+    if (wanted.length) {
+      const { error: e2 } = await supabase
+        .from("professional_services" as never)
+        .insert(wanted.map((sid) => ({ clinic_id: ctx.clinicId, professional_id: proId, service_id: sid })) as never);
+      if (e2) return { error: friendlyError(e2) };
+    }
+  }
   revalidatePath("/ajustes");
-  return { ok: id ? "Profissional atualizado." : `${name} foi adicionado(a).` };
+  revalidatePath("/equipe", "layout");
+  if (!id && data.get("back") === "equipe") redirect(`/equipe/${res.data.id}`);
+  return { ok: id ? "Salvo." : `${name} foi adicionado(a).` };
 }
 
 export async function saveService(_: ActionState, data: FormData): Promise<ActionState> {
@@ -113,6 +128,7 @@ export async function toggleActive(data: FormData) {
     .eq("id", String(data.get("id")));
   revalidatePath("/ajustes");
   revalidatePath("/catalogo");
+  revalidatePath("/equipe", "layout");
 }
 
 export async function saveProduct(_: ActionState, data: FormData): Promise<ActionState> {
@@ -186,17 +202,34 @@ export async function createInvite(_: ActionState, data: FormData): Promise<Acti
   if (!ctx) return NOT_ADMIN;
   const email = String(data.get("email") ?? "").trim().toLowerCase();
   const role = String(data.get("role") ?? "");
+  const name = String(data.get("name") ?? "").trim();
+  const phoneRaw = String(data.get("phone") ?? "").trim();
+  const phone = phoneRaw ? normalizePhone(phoneRaw) : null;
+  if (data.has("name") && !name) return { error: "Informe o nome da pessoa." };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Informe um e-mail válido." };
+  if (phoneRaw && !phone) return { error: "WhatsApp inválido. Use DDD + número." };
   if (!["admin", "recepcao", "profissional", "financeiro"].includes(role)) return { error: "Escolha o papel." };
   const supabase = await createClient();
-  const { error } = await supabase.from("invites").insert({
-    clinic_id: ctx.clinicId,
-    email,
-    role: role as "admin",
-    professional_id: role === "profissional" ? String(data.get("professional_id") ?? "") || null : null,
-  });
+  let professionalId = String(data.get("professional_id") ?? "") || null;
+  // "Já entra atendendo": cria o cadastro de profissional e liga ao convite
+  if (!professionalId && data.get("attends") === "on") {
+    const { data: pro, error: e1 } = await supabase
+      .from("professionals")
+      .insert({ clinic_id: ctx.clinicId, name: name || email.split("@")[0], phone, email })
+      .select("id")
+      .single();
+    if (e1) return { error: friendlyError(e1) };
+    professionalId = pro.id;
+  }
+  const { data: inv, error } = await supabase
+    .from("invites")
+    .insert({ clinic_id: ctx.clinicId, email, role: role as "admin", professional_id: professionalId, name: name || null, phone } as never)
+    .select("id")
+    .single();
   if (error) return { error: friendlyError(error) };
   revalidatePath("/ajustes");
+  revalidatePath("/equipe");
+  if (data.get("back") === "equipe") redirect(`/equipe?convite=${(inv as { id: string }).id}`);
   return { ok: "Convite criado. Envie o link abaixo para a pessoa." };
 }
 
@@ -205,6 +238,7 @@ export async function revokeInvite(data: FormData) {
   const supabase = await createClient();
   await supabase.from("invites").update({ revoked: true }).eq("id", String(data.get("id")));
   revalidatePath("/ajustes");
+  revalidatePath("/equipe");
 }
 
 export async function setMemberActive(data: FormData) {
@@ -217,6 +251,7 @@ export async function setMemberActive(data: FormData) {
     .eq("id", String(data.get("id")))
     .neq("user_id", ctx.userId);
   revalidatePath("/ajustes");
+  revalidatePath("/equipe", "layout");
 }
 
 export async function savePix(_: ActionState, data: FormData): Promise<ActionState> {

@@ -21,7 +21,7 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
     supabase.from("patients").select("id, name").eq("id", id).maybeSingle(),
     supabase
       .from("products")
-      .select("id, name, kind, price_cents, sessions, validity_days, sessions_per_week")
+      .select("id, name, kind, price_cents, sessions, validity_days, sessions_per_week, cycle_months, services(family_discount_pct, punctual_discount_pct)")
       .eq("clinic_id", ctx.clinicId)
       .eq("active", true)
       .order("kind")
@@ -49,7 +49,9 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
           .limit(300),
   ]);
   if (!patient) notFound();
-  const list = (products ?? []).filter((p) => !kind || (kind === "plano" ? p.kind === "plano" : p.kind !== "plano"));
+  const list = ((products ?? []) as unknown as (Record<string, unknown> & { kind: string; services: { family_discount_pct: number | null; punctual_discount_pct: number | null } | null })[])
+    .map((p) => ({ ...p, family_pct: p.services?.family_discount_pct != null ? Number(p.services.family_discount_pct) : null, punctual_pct: p.services?.punctual_discount_pct != null ? Number(p.services.punctual_discount_pct) : null }))
+    .filter((p) => !kind || (kind === "plano" ? p.kind === "plano" : p.kind !== "plano"));
   const mine = new Set((enr ?? []).filter((e) => e.patient_id === id).map((e) => e.series_id));
   const series: SeriesOption[] = (seriesData ?? [])
     .filter((s) => !mine.has(s.id))
@@ -100,7 +102,7 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
         />
       ) : (
         <Card className="p-5 pb-0 sm:p-7 sm:pb-0">
-          <SellForm patientId={id} patientName={patient.name} products={list} today={today} series={series} classes={classes} initialSingle={single} initialClass={classes.some((c) => c.id === aula) ? aula : undefined} />
+          <SellForm patientId={id} patientName={patient.name} products={list as unknown as Parameters<typeof SellForm>[0]["products"]} today={today} series={series} classes={classes} initialSingle={single} initialClass={classes.some((c) => c.id === aula) ? aula : undefined} />
         </Card>
       )}
     </>

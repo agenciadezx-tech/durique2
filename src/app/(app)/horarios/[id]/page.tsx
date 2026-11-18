@@ -32,7 +32,7 @@ export default async function HorarioPage({
   const service = s.services as unknown as { name: string; kind: string } | null;
   const pro = s.professionals as unknown as { name: string } | null;
 
-  const [{ data: enrollments }, { data: next }, { data: patients }, { data: services }, { data: pros }] = await Promise.all([
+  const [{ data: enrollments }, { data: next }, { data: patients }, { data: services }, { data: pros }, { data: rooms }] = await Promise.all([
     supabase
       .from("enrollments")
       .select("id, starts_on, patients(id, name)")
@@ -52,6 +52,7 @@ export default async function HorarioPage({
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     supabase.from("services").select("id, name, kind, duration_min").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("professionals").select("id, name, color").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
+    supabase.from("rooms" as never).select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
   ]);
 
   const enrolled = (enrollments ?? []).map((e) => ({ ...e, patient: e.patients as unknown as { id: string; name: string } }));
@@ -79,7 +80,9 @@ export default async function HorarioPage({
                 professional_id: s.professional_id,
                 capacity: s.capacity,
                 enrolled: (enrollments ?? []).length,
+                room_id: (s as { room_id?: string | null }).room_id ?? null,
               }}
+              rooms={(rooms ?? []) as { id: string; name: string }[]}
               services={services ?? []}
               pros={pros ?? []}
               endSlot={

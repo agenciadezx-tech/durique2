@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { buttonClass, cx } from "@/components/ui";
-import { portalBook, portalCancel, portalConfirm } from "./actions";
+import { portalBook, portalCancel, portalConfirm, portalReschedule } from "./actions";
 
 function useRun() {
   const [pending, start] = useTransition();
@@ -11,12 +11,29 @@ function useRun() {
   return { pending, res, run };
 }
 
-export function SessionButtons({ token, attendeeId, status, inTime, color }: { token: string; attendeeId: string; status: string; inTime: boolean; color?: string }) {
+export function SessionButtons({
+  token,
+  attendeeId,
+  status,
+  inTime,
+  color,
+  canCancel = true,
+  options,
+}: {
+  token: string;
+  attendeeId: string;
+  status: string;
+  inTime: boolean;
+  color?: string;
+  canCancel?: boolean;
+  options?: { id: string; label: string; sub: string }[];
+}) {
   const { pending, res, run } = useRun();
+  const [moving, setMoving] = useState(false);
   if (res?.ok) return <p className="mt-3 text-sm font-medium text-ok">{res.ok}</p>;
   return (
     <div className="mt-3">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {status === "agendado" && (
           <button
             type="button"
@@ -28,6 +45,12 @@ export function SessionButtons({ token, attendeeId, status, inTime, color }: { t
             Confirmar presença
           </button>
         )}
+        {options && (
+          <button type="button" disabled={pending} onClick={() => setMoving((m) => !m)} aria-expanded={moving} className={cx(buttonClass("secondary", "md"), "flex-1")}>
+            Remarcar
+          </button>
+        )}
+        {canCancel && (
         <button
           type="button"
           disabled={pending}
@@ -41,7 +64,36 @@ export function SessionButtons({ token, attendeeId, status, inTime, color }: { t
         >
           Não vou poder
         </button>
+        )}
       </div>
+      {moving && options && (
+        <div className="mt-3 space-y-2 rounded-2xl border border-line bg-bg p-3">
+          <p className="text-[14px] font-semibold">Escolha o novo horário</p>
+          {options.length === 0 ? (
+            <p className="text-[14px] text-muted">Sem outro horário com vaga nos próximos dias. Fale com a clínica.</p>
+          ) : (
+            options.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                disabled={pending}
+                onClick={() => {
+                  if (window.confirm(`Trocar para ${o.label}?`)) run(() => portalReschedule(token, attendeeId, o.id));
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-line bg-surface px-3 py-2.5 text-left hover:border-accent"
+              >
+                <span>
+                  <span className="block font-medium">{o.label}</span>
+                  <span className="block text-[13px] text-muted">{o.sub}</span>
+                </span>
+                <span className="text-[14px] font-semibold" style={color ? { color } : undefined}>
+                  Trocar
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
       {res?.error && <p className="mt-2 text-sm text-bad">{res.error}</p>}
     </div>
   );

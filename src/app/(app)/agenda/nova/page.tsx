@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { PatientPicker } from "@/components/patient-picker";
-import { Card, EmptyState, Field, Input, LinkButton, PageHeader, Select } from "@/components/ui";
+import { Card, EmptyState, Field, Input, LinkButton, PageHeader } from "@/components/ui";
+import { ServiceProFields } from "@/components/service-pro-fields";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/format";
@@ -16,11 +17,14 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
   const hour = h && /^\d{2}:\d{2}$/.test(h) ? h : "08:00";
   const day = d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : todayISO();
   const supabase = await createClient();
-  const [{ data: services }, { data: pros }, { data: patients }] = await Promise.all([
+  const [{ data: services }, { data: pros }, { data: patients }, { data: ps }] = await Promise.all([
     supabase.from("services").select("id, name, kind").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("professionals").select("id, name").eq("clinic_id", ctx.clinicId).eq("active", true).order("name"),
     supabase.from("patients").select("id, name, phone").eq("clinic_id", ctx.clinicId).eq("active", true).order("name").limit(2000),
+    supabase.from("professional_services" as never).select("professional_id, service_id").eq("clinic_id", ctx.clinicId),
   ]);
+  const links = (ps ?? []) as { professional_id: string; service_id: string }[];
+  const prosWith = (pros ?? []).map((p) => ({ ...p, services: links.filter((l) => l.professional_id === p.id).map((l) => l.service_id) }));
 
   return (
     <>
@@ -32,8 +36,8 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
       {!pros?.length || !services?.length ? (
         <EmptyState
           title={!pros?.length ? "Cadastre um profissional primeiro" : "Cadastre um serviço primeiro"}
-          text={!pros?.length ? "Leva 10 segundos, em Configurações." : "Leva 10 segundos, no Catálogo."}
-          action={<LinkButton href={!pros?.length ? "/ajustes/profissionais" : "/catalogo"}>{!pros?.length ? "Ir para Configurações" : "Ir para o Catálogo"}</LinkButton>}
+          text={!pros?.length ? "Leva 10 segundos, em Mais › Equipe." : "Leva 10 segundos, no Catálogo."}
+          action={<LinkButton href={!pros?.length ? "/equipe" : "/catalogo"}>{!pros?.length ? "Ir para Equipe" : "Ir para o Catálogo"}</LinkButton>}
         />
       ) : (
         <Card className="p-5 sm:p-7">
@@ -42,25 +46,12 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
               <PatientPicker patients={patients ?? []} initialId={paciente} allowNew />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Serviço">
-                <Select name="service_id" required defaultValue={services.find((s) => s.kind === (tipo === "aula" ? "turma" : "individual"))?.id ?? services[0]?.id}>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Profissional">
-                <Select name="professional_id" required defaultValue={pros.some((p) => p.id === pro) ? pro : pros.length === 1 ? pros[0].id : ""}>
-                  {pros.length !== 1 && <option value="">Escolha…</option>}
-                  {pros.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              <ServiceProFields
+                services={services}
+                pros={prosWith}
+                defaultService={services.find((s) => s.kind === (tipo === "aula" ? "turma" : "individual"))?.id ?? services[0]?.id}
+                defaultPro={pro}
+              />
               <Field label="Dia">
                 <Input name="date" type="date" required defaultValue={day} />
               </Field>

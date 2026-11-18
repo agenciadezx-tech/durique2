@@ -44,7 +44,7 @@ export default async function CobrancasPage({ searchParams }: { searchParams: Pr
   const [{ data: openData }, { data: paidData }, { data: settings }, { data: wa }] = await Promise.all([
     supabase
       .from("transactions")
-      .select("id, description, amount_cents, due_date, paid_on, payment_method, patients(id, name, phone)")
+      .select("id, description, amount_cents, due_date, paid_on, payment_method, patients(id, name, phone), patient_packages(services(punctual_discount_pct))")
       .eq("clinic_id", ctx.clinicId)
       .eq("type", "receita")
       .is("paid_on", null)
@@ -175,7 +175,9 @@ export default async function CobrancasPage({ searchParams }: { searchParams: Pr
                   valor: formatMoney(t.amount_cents),
                   vencimento: formatDateShort(t.due_date),
                   clinica: ctx.clinicName,
-                }) + pixMessage(pix, t.amount_cents, t.id.slice(0, 8));
+                }) +
+                punctualLine(t, today) +
+                pixMessage(pix, t.amount_cents, t.id.slice(0, 8));
               return (
                 <div key={t.id} className={cx("flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3.5", isLate && "bg-bad-soft/30")}>
                   <div className="min-w-0 flex-1 basis-full sm:basis-0">
@@ -224,4 +226,12 @@ export default async function CobrancasPage({ searchParams }: { searchParams: Pr
       </div>
     </>
   );
+}
+
+/** Desconto pontualidade do serviço: “pagando até o vencimento, sai por …” (só antes de vencer). */
+function punctualLine(t: unknown, today: string) {
+  const x = t as { amount_cents: number; due_date: string; patient_packages?: { services?: { punctual_discount_pct: number | null } | null } | null };
+  const pct = x.patient_packages?.services?.punctual_discount_pct;
+  if (!pct || x.due_date < today) return "";
+  return `\n\nPagando até ${formatDateShort(x.due_date)}, sai por ${formatMoney(Math.round(x.amount_cents * (1 - Number(pct) / 100)))} (${Number(pct)}% de desconto).`;
 }
