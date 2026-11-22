@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Dumbbell, LayoutGrid, Tags, Users } from "lucide-react";
+import { CalendarCheck, Dumbbell, Layers, LayoutGrid, UsersRound } from "lucide-react";
 import { cx } from "./ui";
 
 /** Menu principal: os mesmos 5 itens no celular e no computador. O resto fica em "Mais". */
 const ITEMS = [
-  { href: "/agenda", label: "Hoje", icon: CalendarDays, match: ["/agenda"] },
-  { href: "/pacientes", label: "Pacientes", icon: Users, match: ["/pacientes"] },
+  { href: "/agenda", label: "Agenda", icon: CalendarCheck, match: ["/agenda"] },
+  { href: "/pacientes", label: "Pacientes", icon: UsersRound, match: ["/pacientes"] },
   { href: "/horarios", label: "Turmas", icon: Dumbbell, match: ["/horarios"] },
-  { href: "/catalogo", label: "Catálogo", icon: Tags, match: ["/catalogo"], desktopOnly: true },
-  { href: "/mais", label: "Mais", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes", "/contatos", "/atendimentos", "/equipe"] },
+  { href: "/catalogo", label: "Serviços", icon: Layers, match: ["/catalogo"], desktopOnly: true },
+  { href: "/mais", label: "Menu", icon: LayoutGrid, match: ["/mais", "/financeiro", "/whatsapp", "/ajustes", "/contatos", "/atendimentos", "/equipe"] },
 ];
 
 function useActive() {
@@ -45,7 +45,7 @@ export function SideNav({ tone = "light" }: { tone?: "light" | "dark" }) {
 
 export function BottomNav() {
   const isActive = useActive();
-  // No celular o Catálogo fica dentro do Mais
+  // No celular a tela Serviços fica dentro do Mais
   const items = ITEMS.filter((i) => !i.desktopOnly).map((i) => (i.href === "/mais" ? { ...i, match: [...i.match, "/catalogo"] } : i));
   return (
     <nav

@@ -458,7 +458,7 @@ export async function ServiceDetail({ s, own, aba, bloco, sala, novo, arquivado 
 
           <Block n={isAula ? "1.4" : "1.3"} title="Convênios e parceiros" hint={[settings?.wellhub_enabled && "Wellhub", settings?.totalpass_enabled && "TotalPass"].filter(Boolean).join(" · ") || "nenhum"}>
             <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-line p-4">
-              <p className="min-w-0 flex-1 text-[15px] text-muted">Aceita Wellhub, TotalPass ou convênio? Ligue e coloque o valor por check-in em Configurações.</p>
+              <p className="min-w-0 flex-1 text-[15px] text-muted">Aceita Wellhub, TotalPass ou convênio? Ligue e coloque o valor por check-in em Ajustes.</p>
               <Link href="/ajustes/apps" className="inline-flex min-h-10 items-center rounded-xl border border-line px-3 text-[14px] font-semibold text-accent">
                 + Abrir
               </Link>
@@ -532,7 +532,7 @@ export async function ServiceDetail({ s, own, aba, bloco, sala, novo, arquivado 
               </div>
               <p className="text-[13px] text-muted">
                 {isAula ? "Quem entra aqui pode dar todas as turmas deste serviço." : "Os horários de cada um ficam em Página da clínica › horários de atendimento."}
-                {" "}Também dá para marcar pela ficha da pessoa em Mais › Equipe.
+                {" "}Também dá para marcar pela ficha da pessoa em Menu › Equipe.
               </p>
               {admin && <SubmitButton size="md">Salvar</SubmitButton>}
             </ActionForm>

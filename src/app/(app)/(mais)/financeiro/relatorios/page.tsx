@@ -190,7 +190,7 @@ export default async function ReportsPage() {
                   key={a.k}
                   label={`${a.name}: check-ins`}
                   value={a.n}
-                  hint={a.total != null ? `≈ ${formatMoney(a.total)} a receber` : "Informe o valor por check-in em Configurações"}
+                  hint={a.total != null ? `≈ ${formatMoney(a.total)} a receber` : "Informe o valor por check-in em Ajustes"}
                 />
               ))}
             </div>

@@ -44,9 +44,7 @@ function Sparkline({ points, max, better }: { points: { v: number; d: string }[]
       <polyline fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" points={points.map((p, i) => `${x(i)},${y(p.v)}`).join(" ")} />
       {points.map((p, i) => (
         <circle key={i} cx={x(i)} cy={y(p.v)} r={i === points.length - 1 ? 3.5 : 2.5} fill={color}>
-          <title>
-            {formatDateShort(p.d)}: {p.v}
-          </title>
+          <title>{`${formatDateShort(p.d)}: ${p.v}`}</title>
         </circle>
       ))}
     </svg>

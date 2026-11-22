@@ -14,7 +14,7 @@ export const metadata = { title: "WhatsApp" };
 
 const TABS = [
   { key: "lembretes", label: "Lembretes", icon: BellRing },
-  { key: "cobrancas", label: "Cobranças", icon: Receipt },
+  { key: "cobrancas", label: "A receber", icon: Receipt },
   { key: "renovacoes", label: "Renovações", icon: Package },
   { key: "mudancas", label: "Aulas que mudaram", icon: CalendarSync },
 ] as const;

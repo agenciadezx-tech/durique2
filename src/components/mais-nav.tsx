@@ -3,51 +3,54 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
-  BarChart3,
-  Bell,
-  Building2,
-  CalendarDays,
+  BellRing,
+  CalendarSync,
+  ChartPie,
   ChevronRight,
+  CircleCheckBig,
   ClipboardList,
-  Coins,
-  Dumbbell,
   FileText,
-  Funnel,
-  Link2,
-  ListChecks,
+  Globe,
+  HandCoins,
+  Layers,
+  Magnet,
   MessageCircle,
-  Percent,
   PlayCircle,
+  ReceiptText,
+  Settings2,
+  Target,
+  UsersRound,
   Wallet,
-  Settings,
-  Tags,
-  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { MaisGroup } from "@/lib/mais-menu";
+import type { MaisGroup, MaisTone } from "@/lib/mais-menu";
 import { cx } from "./ui";
 
 const ICONS: Record<string, LucideIcon> = {
-  users: Users,
-  tag: Tags,
-  play: PlayCircle,
+  pie: ChartPie,
+  target: Target,
   wallet: Wallet,
-  coins: Coins,
-  percent: Percent,
-  file: FileText,
-  link: Link2,
-  funnel: Funnel,
-  bell: Bell,
+  coins: HandCoins,
+  users: UsersRound,
+  receipt: ReceiptText,
+  globe: Globe,
+  magnet: Magnet,
+  bell: BellRing,
   message: MessageCircle,
   clipboard: ClipboardList,
-  dumbbell: Dumbbell,
-  activity: Activity,
-  check: ListChecks,
-  chart: BarChart3,
-  calendar: CalendarDays,
-  building: Building2,
-  settings: Settings,
+  play: PlayCircle,
+  layers: Layers,
+  check: CircleCheckBig,
+  calendar: CalendarSync,
+  settings: Settings2,
+};
+
+/** Cada grupo tem sua cor de ícone (fixa, não muda com a cor da clínica) para achar rápido. */
+const TONE: Record<MaisTone, string> = {
+  violet: "bg-[#f1ecfd] text-[#6d3fd1]",
+  green: "bg-[#e7f6ec] text-[#16803c]",
+  sky: "bg-[#e6f2fb] text-[#1f6fb2]",
+  amber: "bg-[#fdf1e3] text-[#b45d0b]",
 };
 
 /** Lista do "Mais". No computador fica fixa à esquerda e marca a seção aberta. */
@@ -63,6 +66,7 @@ export function MaisNav({ groups, compact }: { groups: MaisGroup[]; compact?: bo
           <h2 className="mb-2 px-1 text-[12px] font-semibold tracking-wide text-muted uppercase">{g.title}</h2>
           <div className={compact ? "space-y-1" : "grid gap-2 sm:grid-cols-2"}>
             {g.items.map(({ href, icon, title, text, mobileOnly }) => {
+              const tone = TONE[g.tone] ?? TONE.green;
               const Icon = ICONS[icon] ?? FileText;
               const on = href === active;
               return (
@@ -81,7 +85,7 @@ export function MaisNav({ groups, compact }: { groups: MaisGroup[]; compact?: bo
                     className={cx(
                       "grid shrink-0 place-items-center rounded-xl",
                       compact ? "size-10" : "size-11",
-                      on ? "bg-accent text-white" : compact ? "border border-line bg-bg text-muted" : "bg-accent-soft text-accent",
+                      on ? "bg-accent text-white" : tone,
                     )}
                   >
                     <Icon size={compact ? 19 : 21} />

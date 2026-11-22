@@ -641,7 +641,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           <section className="min-w-0 flex-1 overflow-x-clip overflow-y-auto px-8 pt-10 pb-16">
             {view === "pro" ? (
               pros.length === 0 ? (
-                <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Configurações." />
+                <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Ajustes." />
               ) : (
                 <ProGrid
                   day={day}
@@ -925,7 +925,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
             {view === "pro" ? (
               pros.length === 0 ? (
-                <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Configurações." />
+                <EmptyState title="Nenhum profissional ativo" text="Cadastre os profissionais em Ajustes." />
               ) : (
                 <ProGrid
                   day={day}

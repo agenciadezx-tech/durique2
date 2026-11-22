@@ -9,7 +9,7 @@ import { firstName, waSendLink } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 import { convertLead, createLead, moveLead, updateLead } from "./actions";
 
-export const metadata = { title: "Novos contatos" };
+export const metadata = { title: "Interessados" };
 
 const STAGES = [
   { key: "novo", label: "Novos", next: "contato", nextLabel: "Já conversei" },
@@ -202,7 +202,7 @@ export default async function ContatosPage({ searchParams }: { searchParams: Pro
   return (
     <div data-wide>
       <PageHeader
-        title="Novos contatos"
+        title="Interessados"
         description="Quem se interessou pela clínica e em que passo está, até virar paciente."
         back={{ href: "/mais", label: "Mais" }}
       />

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { brandCss } from "@/lib/theme";
 import { CheckCircle2 } from "lucide-react";
 import { BrandHeader, type PublicBrand } from "@/components/clinic-mark";
 import { Card } from "@/components/ui";
@@ -23,6 +24,7 @@ export default async function AssinarPage({ params }: { params: Promise<{ token:
 
   return (
     <main className="mx-auto min-h-dvh max-w-2xl px-5 py-8">
+      <style>{brandCss((brandData as PublicBrand | null)?.color)}</style>
       <BrandHeader brand={(brandData as PublicBrand | null) ?? { name: doc.clinic_name, logo: null, color: null }} />
       <Card className="p-5 sm:p-8">
         <h1 className="text-xl font-semibold">{doc.title}</h1>

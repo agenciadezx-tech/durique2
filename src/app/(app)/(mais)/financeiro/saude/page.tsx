@@ -263,7 +263,7 @@ export default async function SaudePage({ searchParams }: { searchParams: Promis
 
         <Section title="Sinais de alerta">
           <Card className="divide-y divide-line px-4">
-            <GoalBar label="Novos contatos" value={h.sinais.leads} shown={String(h.sinais.leads)} goal={goal.novos_contatos} goalShown={String(goal.novos_contatos)} />
+            <GoalBar label="Interessados novos" value={h.sinais.leads} shown={String(h.sinais.leads)} goal={goal.novos_contatos} goalShown={String(goal.novos_contatos)} />
             <GoalBar
               label="Faltas"
               value={missRate}

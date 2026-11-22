@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { brandPalette } from "@/lib/theme";
 import { AtSign, CalendarPlus, ImagePlus, MessageCircle, Trash2 } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Alert, buttonClass, cx, Field, Input, Textarea } from "@/components/ui";
@@ -270,6 +271,19 @@ export function BrandEditor({ initial, canEdit }: { initial: Brand; canEdit: boo
   const [tab, setTab] = useState<(typeof TABS)[number]["k"]>("pagina");
   const set = (patch: Partial<Brand>) => setB((x) => ({ ...x, ...patch }));
   const custom = !PALETTE.includes(b.color);
+  // Mostra a cor no app inteiro na hora (antes de salvar); ao sair sem salvar, volta a cor da clínica
+  useEffect(() => {
+    const p = brandPalette(b.color);
+    const r = document.documentElement.style;
+    r.setProperty("--color-accent", p.accent);
+    r.setProperty("--color-accent-strong", p.strong);
+    r.setProperty("--color-accent-soft", p.soft);
+    return () => {
+      r.removeProperty("--color-accent");
+      r.removeProperty("--color-accent-strong");
+      r.removeProperty("--color-accent-soft");
+    };
+  }, [b.color]);
 
   return (
     <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -296,7 +310,8 @@ export function BrandEditor({ initial, canEdit }: { initial: Brand; canEdit: boo
 
         <ActionForm action={saveBrand} className="space-y-5 rounded-2xl border border-line bg-surface p-5">
           <fieldset>
-            <legend className="mb-2 text-sm font-medium">Cor da marca</legend>
+            <legend className="mb-1 text-[14px] font-semibold text-accent">Cor da marca</legend>
+            <p className="mb-2 text-[13px] text-muted">Pinta o app inteiro: menu, botões, abas e destaques, o app do paciente e a página de agendamento. Cores muito claras ficam um pouco mais escuras nos textos, para dar para ler.</p>
             <div className="flex flex-wrap items-center gap-2">
               {PALETTE.map((c) => (
                 <button

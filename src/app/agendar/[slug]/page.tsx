@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { brandCss } from "@/lib/theme";
 import { AtSign, Clock, MapPin, MessageCircle } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { ClinicMark } from "@/components/clinic-mark";
@@ -60,6 +61,7 @@ export default async function BookingPage({
 
   return (
     <main className="min-h-dvh pb-16">
+      <style>{brandCss(color)}</style>
       <div
         className="h-36 w-full bg-cover bg-center sm:h-44"
         style={d.banner ? { backgroundImage: `url(${d.banner})` } : { background: `linear-gradient(135deg, ${color}, ${color}cc)` }}

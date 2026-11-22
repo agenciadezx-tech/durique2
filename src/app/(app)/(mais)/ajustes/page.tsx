@@ -7,7 +7,7 @@ import { getContext } from "@/lib/context";
 import { WEEKDAYS_SHORT } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Configurações" };
+export const metadata = { title: "Ajustes" };
 
 type Item = { title: string; state: string; href?: string; show: boolean; soon?: boolean };
 
@@ -57,7 +57,7 @@ export default async function ConfiguracoesPage({ searchParams }: { searchParams
       text: "Do agendamento até o paciente chegar",
       icon: CalendarDays,
       items: [
-        { title: "Página da clínica", state: c?.booking_enabled ? `Ligada · /agendar/${c.booking_slug}` : "Desligada", href: "/ajustes/agendamento-online", show: admin },
+        { title: "Link de agendamento", state: c?.booking_enabled ? `Ligada · /agendar/${c.booking_slug}` : "Desligada", href: "/ajustes/agendamento-online", show: admin },
         {
           title: "Regras de desmarcar e reposição",
           state: `${rules?.cancel_notice_hours ?? 12}h antes · reposição vale ${rules?.makeup_validity_days ?? 30} dias`,
@@ -105,7 +105,7 @@ export default async function ConfiguracoesPage({ searchParams }: { searchParams
     <div data-wide>
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Configurações</h1>
+          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Ajustes</h1>
           <p className="text-[15px] text-muted">Tudo que regula a clínica, separado por assunto.</p>
         </div>
         {!admin && (

@@ -19,7 +19,7 @@ export default async function IdentidadePage() {
       <PageHeader
         title="Identidade da clínica"
         description="Logo, cor e textos. Valem para a página de agendamento, o app do paciente, os documentos e a pré-avaliação."
-        back={{ href: "/ajustes", label: "Configurações" }}
+        back={{ href: "/ajustes", label: "Ajustes" }}
       />
       <BrandEditor
         canEdit={ctx.isAdmin}

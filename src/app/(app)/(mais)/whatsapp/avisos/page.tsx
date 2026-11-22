@@ -28,7 +28,7 @@ import { renderTemplate } from "@/lib/messages";
 import { createClient } from "@/lib/supabase/server";
 import { saveAutomationText, saveSendWindow, toggleAutomation } from "../actions";
 
-export const metadata = { title: "Avisos automáticos" };
+export const metadata = { title: "Mensagens automáticas" };
 
 const ICONS: Record<Automation["icon"], LucideIcon> = {
   check: Check,

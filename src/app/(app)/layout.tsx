@@ -6,6 +6,7 @@ import { getContext, ROLE_LABEL } from "@/lib/context";
 import { ClinicMark } from "@/components/clinic-mark";
 import { textOn } from "@/lib/colors";
 import { cx } from "@/components/ui";
+import { brandCss } from "@/lib/theme";
 
 export default async function AppLayout({ children, drawer }: { children: React.ReactNode; drawer: React.ReactNode }) {
   const ctx = await getContext();
@@ -21,6 +22,7 @@ export default async function AppLayout({ children, drawer }: { children: React.
   );
   return (
     <div className="lg:flex">
+      <style>{brandCss(ctx.brandColor)}</style>
       {/* Computador: trilho estreito com os 5 itens do menu */}
       <aside className="sticky top-0 hidden h-dvh w-[92px] shrink-0 flex-col items-center py-5 lg:flex print:!hidden" style={{ background: brand }}>
         <Link href="/agenda" title={`${ctx.clinicName} · ${ROLE_LABEL[ctx.role]}`} aria-label={`${ctx.clinicName}: início`}>

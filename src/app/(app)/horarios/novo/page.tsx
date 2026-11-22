@@ -27,8 +27,8 @@ export default async function NovoHorarioPage({ searchParams }: { searchParams: 
       {!pros?.length || !services?.length ? (
         <EmptyState
           title={!pros?.length ? "Cadastre um profissional primeiro" : "Cadastre um serviço primeiro"}
-          text={!pros?.length ? "Leva 10 segundos, em Configurações." : "Leva 10 segundos, no Catálogo."}
-          action={<LinkButton href={!pros?.length ? "/equipe" : "/catalogo"}>{!pros?.length ? "Ir para Equipe" : "Ir para o Catálogo"}</LinkButton>}
+          text={!pros?.length ? "Leva 10 segundos, em Ajustes." : "Leva 10 segundos, em Serviços."}
+          action={<LinkButton href={!pros?.length ? "/equipe" : "/catalogo"}>{!pros?.length ? "Ir para Equipe" : "Ir para Serviços"}</LinkButton>}
         />
       ) : (
         <Card className="p-5 sm:p-7">

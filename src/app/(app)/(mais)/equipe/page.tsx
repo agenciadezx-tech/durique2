@@ -39,7 +39,7 @@ const ACCESS: { label: string; roles: Role[]; note?: string }[] = [
   { label: "Prontuário e evolução", roles: ["admin", "profissional"], note: "Só de quem a pessoa atende" },
   { label: "Receber e cobrar", roles: ["admin", "recepcao", "financeiro"] },
   { label: "Despesas, resultado e comissões", roles: ["admin", "financeiro"] },
-  { label: "Configurações e equipe", roles: ["admin"] },
+  { label: "Ajustes e equipe", roles: ["admin"] },
 ];
 const ROLES = ["admin", "recepcao", "profissional", "financeiro"] as const;
 const ROLE_TONE: Record<Role, string> = {

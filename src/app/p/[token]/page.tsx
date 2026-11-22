@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { brandCss } from "@/lib/theme";
 import { notFound } from "next/navigation";
 import {
   CalendarCheck,
@@ -184,6 +185,7 @@ export default async function PortalPage({ params, searchParams }: { params: Pro
 
   return (
     <main className="min-h-dvh bg-bg pb-28">
+      <style>{brandCss(color)}</style>
       <header className="border-b border-line bg-surface px-5 pt-6 pb-4">
         <div className="mx-auto max-w-lg">
           <div className="flex items-start justify-between gap-3">

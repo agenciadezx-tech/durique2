@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui";
 import { getContext, ROLE_LABEL } from "@/lib/context";
 import { maisGroups } from "@/lib/mais-menu";
 
-export const metadata = { title: "Mais" };
+export const metadata = { title: "Menu" };
 
 export default async function MaisPage() {
   const ctx = await getContext();
@@ -12,7 +12,7 @@ export default async function MaisPage() {
     <>
       {/* Celular: a própria lista */}
       <div className="lg:hidden">
-        <PageHeader title="Mais" description="Dinheiro, divulgação e tudo da sua clínica." />
+        <PageHeader title="Menu" description="Resultados, dinheiro, divulgação e tudo da sua clínica." />
         <div className="space-y-8">
           <MaisNav groups={maisGroups(ctx)} />
           <form action="/auth/sair" method="post" className="rounded-2xl border border-line bg-surface p-4">

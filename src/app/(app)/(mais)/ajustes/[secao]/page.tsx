@@ -15,7 +15,7 @@ import { Disclosure } from "../shared";
 import { proColor } from "@/lib/colors";
 import { PIX_KEY_TYPES } from "@/lib/pix";
 
-export const metadata = { title: "Configurações" };
+export const metadata = { title: "Ajustes" };
 
 const TITLES: Record<string, { t: string; d: string }> = {
   clinica: { t: "Dados e avaliação no Google", d: "Nome da clínica e link para pedir avaliação." },
@@ -58,7 +58,7 @@ export default async function AjustesSecaoPage({ params }: { params: Promise<{ s
 
   return (
     <>
-      <PageHeader title={TITLES[secao].t} description={TITLES[secao].d} back={{ href: "/ajustes", label: "Configurações" }} />
+      <PageHeader title={TITLES[secao].t} description={TITLES[secao].d} back={{ href: "/ajustes", label: "Ajustes" }} />
       <div className="space-y-10">
         {secao === "clinica" && (
         <Section id="clinica" title="Clínica">

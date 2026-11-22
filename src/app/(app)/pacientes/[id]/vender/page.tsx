@@ -97,8 +97,8 @@ export default async function VenderPage({ params, searchParams }: { params: Pro
       {!list.length && !classes.length ? (
         <EmptyState
           title={kind === "plano" ? "Nenhum plano de aulas cadastrado" : "Nenhum pacote cadastrado"}
-          text={ctx.isAdmin ? "Cadastre no Catálogo o que a clínica vende, por exemplo: Pacote 10 sessões ou Pilates 2x por semana." : "Peça ao administrador para cadastrar no Catálogo."}
-          action={ctx.isAdmin && <LinkButton href="/catalogo">Ir para o Catálogo</LinkButton>}
+          text={ctx.isAdmin ? "Cadastre em Serviços o que a clínica vende, por exemplo: Pacote 10 sessões ou Pilates 2x por semana." : "Peça ao administrador para cadastrar em Serviços."}
+          action={ctx.isAdmin && <LinkButton href="/catalogo">Ir para Serviços</LinkButton>}
         />
       ) : (
         <Card className="p-5 pb-0 sm:p-7 sm:pb-0">

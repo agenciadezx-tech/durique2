@@ -4,10 +4,10 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { cx } from "@/components/ui";
 
-/** Marca os serviços do Catálogo que a pessoa faz. Nenhum marcado = faz todos. */
+/** Marca os serviços de Serviços que a pessoa faz. Nenhum marcado = faz todos. */
 export function ServicePicker({ services, chosen }: { services: { id: string; name: string; kind: string }[]; chosen: string[] }) {
   const [sel, setSel] = useState<string[]>(chosen);
-  if (!services.length) return <p className="text-[15px] text-muted">Cadastre os serviços no Catálogo para escolher aqui.</p>;
+  if (!services.length) return <p className="text-[15px] text-muted">Cadastre os serviços em Serviços para escolher aqui.</p>;
   const groups = [
     { t: "Consultas", items: services.filter((s) => s.kind !== "turma"), dot: "bg-chart-in" },
     { t: "Aulas", items: services.filter((s) => s.kind === "turma"), dot: "bg-chart-out" },

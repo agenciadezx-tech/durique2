@@ -10,7 +10,7 @@ import { firstName, renderTemplate } from "@/lib/messages";
 import { pixCode, pixMessage, type PixConfig } from "@/lib/pix";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Cobranças" };
+export const metadata = { title: "A receber" };
 
 type Tx = {
   id: string;
@@ -87,7 +87,7 @@ export default async function CobrancasPage({ searchParams }: { searchParams: Pr
     <>
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">Cobranças</h1>
+          <h1 className="text-[26px] leading-tight font-semibold tracking-tight">A receber</h1>
           <p className="mt-1 text-[15px] text-muted">Quem está devendo, cobrar pelo WhatsApp e dar baixa.</p>
         </div>
         <LinkButton href="/financeiro/novo?tipo=receita" variant="secondary" size="md">

@@ -128,7 +128,7 @@ export function ServicesEditor({
             </section>
           );
         })}
-      <p className="text-[13px] text-muted">O preço aqui é o da sessão avulsa. Pacotes e planos mensais você monta depois no Catálogo.</p>
+      <p className="text-[13px] text-muted">O preço aqui é o da sessão avulsa. Pacotes e planos mensais você monta depois em Serviços.</p>
     </div>
   );
 }

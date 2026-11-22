@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { brandCss } from "@/lib/theme";
 import { BrandHeader, type PublicBrand } from "@/components/clinic-mark";
 import { Card } from "@/components/ui";
 import { mergeConfig, type PreConfig } from "@/lib/pre-assessment";
@@ -22,6 +23,7 @@ export default async function PrePage({ params }: { params: Promise<{ token: str
   if (!d) notFound();
   return (
     <main className="mx-auto min-h-dvh max-w-lg px-5 pt-6 pb-16">
+      <style>{brandCss((brandData as PublicBrand | null)?.color)}</style>
       <BrandHeader brand={(brandData as PublicBrand | null) ?? { name: d.clinic, logo: null, color: null }} />
       <h1 className="text-[24px] leading-tight font-semibold tracking-tight">Olá, {d.patient}!</h1>
       <p className="mt-1 mb-6 text-[15px] text-muted">

@@ -307,7 +307,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
             </div>
           </details>
           <p className="text-[13px] text-muted">
-            Os profissionais que ainda não têm horário próprio passam a atender nesse horário. Feriados e folgas você marca depois em Configurações.
+            Os profissionais que ainda não têm horário próprio passam a atender nesse horário. Feriados e folgas você marca depois em Ajustes.
           </p>
         </div>
         <Footer n={4} inForm solo={solo} primary={<SubmitButton size="md">Salvar e continuar</SubmitButton>} />
@@ -344,7 +344,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
       <ActionForm action={saveProfile} className={formCls}>
         <div className={bodyCls}>
           <p className="rounded-xl bg-bg px-4 py-3 text-sm text-muted">
-            Só o nome é obrigatório. O resto aparece em recibos e contratos. Pode preencher agora ou depois em Configurações.
+            Só o nome é obrigatório. O resto aparece em recibos e contratos. Pode preencher agora ou depois em Ajustes.
           </p>
           <Field label="Nome da clínica">
             <Input name="name" defaultValue={clinic.name} required maxLength={80} />
@@ -401,7 +401,7 @@ export default async function ConfigurarPage({ searchParams }: { searchParams: P
               </a>
             </div>
           )}
-          <p className="text-[13px] text-muted">Cor, foto, Instagram e quais serviços aparecem você ajusta depois em Mais › Página da clínica.</p>
+          <p className="text-[13px] text-muted">Cor, foto, Instagram e quais serviços aparecem você ajusta depois em Menu › Página da clínica.</p>
         </div>
         <Footer n={7} inForm skip primary={<SubmitButton size="md">Salvar e continuar</SubmitButton>} />
       </ActionForm>

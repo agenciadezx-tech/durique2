@@ -26,7 +26,7 @@ export default async function ComecarPage() {
           <p className="text-sm font-medium text-accent">Passo 1 de 1</p>
           <h1 className="mt-1 text-[22px] font-semibold tracking-tight">Como se chama sua clínica?</h1>
           <p className="mt-1 mb-6 text-[15px] text-muted">
-            É o nome que aparece para sua equipe. Dá para mudar depois em Configurações.
+            É o nome que aparece para sua equipe. Dá para mudar depois em Ajustes.
           </p>
           <ActionForm action={createClinic}>
             <Field label="Nome da clínica ou estúdio" htmlFor="name">

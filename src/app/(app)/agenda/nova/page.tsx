@@ -36,8 +36,8 @@ export default async function NovaSessaoPage({ searchParams }: { searchParams: P
       {!pros?.length || !services?.length ? (
         <EmptyState
           title={!pros?.length ? "Cadastre um profissional primeiro" : "Cadastre um serviço primeiro"}
-          text={!pros?.length ? "Leva 10 segundos, em Mais › Equipe." : "Leva 10 segundos, no Catálogo."}
-          action={<LinkButton href={!pros?.length ? "/equipe" : "/catalogo"}>{!pros?.length ? "Ir para Equipe" : "Ir para o Catálogo"}</LinkButton>}
+          text={!pros?.length ? "Leva 10 segundos, em Menu › Equipe." : "Leva 10 segundos, em Serviços."}
+          action={<LinkButton href={!pros?.length ? "/equipe" : "/catalogo"}>{!pros?.length ? "Ir para Equipe" : "Ir para Serviços"}</LinkButton>}
         />
       ) : (
         <Card className="p-5 sm:p-7">

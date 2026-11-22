@@ -10,7 +10,7 @@ import { ProductFields } from "../(mais)/ajustes/product-fields";
 import { Disclosure, ServiceFields } from "../(mais)/ajustes/shared";
 import { ServiceDetail, type FullService } from "./service-detail";
 
-export const metadata = { title: "Catálogo" };
+export const metadata = { title: "Serviços" };
 
 type Service = {
   id: string;
@@ -106,7 +106,7 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
     <div className="flex h-full flex-col">
       <div className="space-y-3 px-4 pt-6 pb-3 lg:pt-8">
         <div>
-          <h1 className="text-[24px] leading-tight font-semibold tracking-tight">Catálogo</h1>
+          <h1 className="text-[24px] leading-tight font-semibold tracking-tight">Serviços e preços</h1>
           <p className="text-sm text-muted">O que a clínica vende: preços, pacotes, planos e turmas.</p>
         </div>
         <form action="/catalogo" className="relative">
@@ -360,7 +360,7 @@ export default async function CatalogoPage({ searchParams }: { searchParams: Pro
         <div className="mx-auto w-full max-w-3xl">
           {hasDetail && (
             <Link href={qs({ s: undefined, novo: undefined })} className="mb-4 inline-flex min-h-11 items-center gap-1 text-sm text-muted hover:text-ink lg:hidden">
-              <ArrowLeft size={16} /> Catálogo
+              <ArrowLeft size={16} /> Serviços
             </Link>
           )}
           {detail}
