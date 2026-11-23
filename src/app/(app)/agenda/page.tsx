@@ -32,6 +32,7 @@ import { isActiveAttendee } from "@/components/status";
 import { getContext } from "@/lib/context";
 import { createClient } from "@/lib/supabase/server";
 import { AppointmentDetail } from "./[id]/detail";
+import { MonthView } from "@/components/month-view";
 import { AgendaFab } from "./fab";
 import { DragMove } from "./move";
 import { MobileApptCard, type MobileAppt } from "./mobile-card";
@@ -62,7 +63,7 @@ type Appt = {
 
 const isAula = (a: { capacity: number; services: { kind: string } | null }) => a.services?.kind === "turma" || a.capacity > 1;
 
-type Sp = { d?: string; bemvindo?: string; v?: string; t?: string; pro?: string; f?: string; st?: string; s?: string };
+type Sp = { d?: string; m?: string; bemvindo?: string; v?: string; t?: string; pro?: string; f?: string; st?: string; s?: string };
 
 export default async function AgendaPage({ searchParams }: { searchParams: Promise<Sp> }) {
   const ctx = await getContext();
@@ -80,6 +81,28 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
 
   // Mantém sempre as próximas 8 semanas das turmas lançadas
   if (ctx.canManageAgenda) await supabase.rpc("ensure_agenda", { p_clinic: ctx.clinicId });
+
+  // Visão do mês: calendário com consultas e aulas por dia
+  if (sp.v === "mes") {
+    const m = sp.m && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : day.slice(0, 7);
+    const t = sp.t === "consultas" || sp.t === "aulas" ? sp.t : undefined;
+    const d0 = m === today.slice(0, 7) ? today : `${m}-01`;
+    return (
+      <div className="mx-auto max-w-5xl">
+        <MonthView
+          clinicId={ctx.clinicId}
+          month={m}
+          tipo={t ?? "tudo"}
+          mode="agenda"
+          views={[
+            { label: "Dia", href: `/agenda?d=${d0}${t ? `&t=${t}` : ""}` },
+            { label: "Semana", href: `/agenda?v=semana&d=${d0}${t ? `&t=${t}` : ""}` },
+            { label: "Mês", href: `/agenda?v=mes&m=${m}`, on: true },
+          ]}
+        />
+      </div>
+    );
+  }
 
   const { from, to } = dayRange(day);
   const weekRange = { from: dayRange(week[0]).from, to: dayRange(week[6]).to };
@@ -382,6 +405,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
           </Link>
           <Link href={href({ v: "semana" })} className={seg(view === "semana")}>
             Semana
+          </Link>
+          <Link href={`/agenda?v=mes&m=${day.slice(0, 7)}${tipo !== "tudo" ? `&t=${tipo}` : ""}`} className={seg(false)}>
+            Mês
           </Link>
         </div>
         <Link href={href({ d: addDaysISO(day, -step) })} aria-label="Anterior" className="grid size-10 place-items-center rounded-xl border border-line hover:bg-hover">
@@ -773,20 +799,21 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
             </div>
           </details>
         </div>
-        <div className={cx("mt-4 grid grid-cols-2 gap-1 rounded-2xl p-1", tone === "light" ? "bg-white/15" : "bg-black/10")} role="tablist" aria-label="Visualização">
+        <div className={cx("mt-4 grid grid-cols-3 gap-1 rounded-2xl p-1", tone === "light" ? "bg-white/15" : "bg-black/10")} role="tablist" aria-label="Visualização">
           {(
             [
               { v: "dia", label: "Dia" },
               { v: "semana", label: "Semana" },
+              { v: "mes", label: "Mês" },
             ] as const
           ).map((o) => {
-            const on = o.v === "dia" ? view !== "semana" : view === "semana";
+            const on = o.v === "dia" ? view !== "semana" : o.v === "semana" ? view === "semana" : false;
             return (
               <Link
                 key={o.v}
                 role="tab"
                 aria-selected={on}
-                href={href({ v: o.v === "dia" ? undefined : o.v, f: undefined, st: undefined })}
+                href={o.v === "mes" ? `/agenda?v=mes&m=${day.slice(0, 7)}` : href({ v: o.v === "dia" ? undefined : o.v, f: undefined, st: undefined })}
                 className={cx("flex h-11 items-center justify-center rounded-xl text-[16px] font-semibold transition-colors", on ? "bg-surface text-ink shadow-sm" : bandMuted)}
               >
                 {o.label}

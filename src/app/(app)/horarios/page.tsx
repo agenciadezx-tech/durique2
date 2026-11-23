@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { MonthView } from "@/components/month-view";
 import { DragMove } from "../agenda/move";
 import { AgendaFab } from "../agenda/fab";
-import { CalendarDays, ChevronLeft, ChevronRight, Columns3, List, Plus, Repeat, Search, Sparkles, UserPlus } from "lucide-react";
+import { CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Columns3, List, Plus, Repeat, Search, Sparkles, UserPlus } from "lucide-react";
 import { Alert, Card, cx, EmptyState, LinkButton, PageHeader } from "@/components/ui";
 import { WeekColumns, type ClassOcc } from "./week-columns";
 import { WeekGrid, type GridAppt } from "../agenda/week-grid";
@@ -11,7 +12,7 @@ import { addDaysISO, dayRange, formatDayLong, isoWeekday, todayISO, TZ, WEEKDAYS
 
 export const metadata = { title: "Turmas" };
 
-type Sp = { criados?: string; encerrado?: string; v?: string; d?: string; dia?: string; servico?: string; q?: string; sel?: string };
+type Sp = { m?: string; criados?: string; encerrado?: string; v?: string; d?: string; dia?: string; servico?: string; q?: string; sel?: string };
 
 export default async function HorariosPage({ searchParams }: { searchParams: Promise<Sp> }) {
   const ctx = await getContext();
@@ -21,6 +22,26 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
   const today = todayISO();
   const q = (sp.q ?? "").trim().toLowerCase();
   const diaF = Number(sp.dia) >= 1 && Number(sp.dia) <= 7 ? Number(sp.dia) : null;
+
+  // Visão do mês: aulas por dia e ocupação
+  if (sp.v === "mes") {
+    if (ctx.canManageAgenda) await supabase.rpc("ensure_agenda", { p_clinic: ctx.clinicId });
+    const m = sp.m && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : today.slice(0, 7);
+    return (
+      <div className="mx-auto max-w-5xl">
+        <MonthView
+          clinicId={ctx.clinicId}
+          month={m}
+          mode="turmas"
+          views={[
+            { label: "Semana", href: "/horarios" },
+            { label: "Mês", href: `/horarios?v=mes&m=${m}`, on: true },
+            { label: "Turmas fixas", href: "/horarios?v=fixos" },
+          ]}
+        />
+      </div>
+    );
+  }
 
   const [{ data: series }, { data: svcData }] = await Promise.all([
     supabase
@@ -138,7 +159,10 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
                 <ChevronRight size={18} />
               </Link>
             </div>
-            <Link href={href({ v: "fixos", sel: undefined })} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium">
+            <Link href={`/horarios?v=mes&m=${weekStart.slice(0, 7)}`} className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium">
+              <CalendarRange size={16} /> Mês
+            </Link>
+            <Link href={href({ v: "fixos", sel: undefined })} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-line bg-surface px-3 text-sm font-medium">
               <List size={16} /> Turmas fixas
             </Link>
           </div>
@@ -193,7 +217,10 @@ export default async function HorariosPage({ searchParams }: { searchParams: Pro
         </form>
         <div className="flex rounded-xl bg-hover p-1" role="tablist" aria-label="Visualização">
           <Link href={href({ v: undefined })} className={seg(view === "calendario")}>
-            <CalendarDays size={14} /> Calendário
+            <CalendarDays size={14} /> Semana
+          </Link>
+          <Link href="/horarios?v=mes" className={seg(false)}>
+            <CalendarRange size={14} /> Mês
           </Link>
           <Link href={href({ v: "colunas" })} className={seg(view === "colunas")}>
             <Columns3 size={14} /> Colunas
