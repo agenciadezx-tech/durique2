@@ -215,7 +215,13 @@ export async function createInvite(_: ActionState, data: FormData): Promise<Acti
   if (!professionalId && data.get("attends") === "on") {
     const { data: pro, error: e1 } = await supabase
       .from("professionals")
-      .insert({ clinic_id: ctx.clinicId, name: name || email.split("@")[0], phone, email })
+      .insert({
+        clinic_id: ctx.clinicId,
+        name: name || email.split("@")[0],
+        phone,
+        email,
+        color: /^#[0-9a-f]{6}$/i.test(String(data.get("color") ?? "")) ? String(data.get("color")) : null,
+      })
       .select("id")
       .single();
     if (e1) return { error: friendlyError(e1) };

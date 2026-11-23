@@ -6,6 +6,7 @@ import { UserPlus, X } from "lucide-react";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { buttonClass, cx, Field, Input } from "@/components/ui";
 import { createInvite } from "../ajustes/actions";
+import { PRO_COLORS } from "@/lib/colors";
 
 const ROLES = [
   { v: "admin", t: "Administrador", d: "Vê e muda tudo: configurações, equipe, financeiro e prontuário." },
@@ -15,10 +16,11 @@ const ROLES = [
 ] as const;
 
 /** Botão "Convidar membro" + janela de baixo com nome, e-mail, WhatsApp, papel e "já entra atendendo". */
-export function InviteSheet({ full }: { full?: boolean }) {
+export function InviteSheet({ full, used = [] }: { full?: boolean; used?: string[] }) {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<string>("profissional");
   const [attends, setAttends] = useState(true);
+  const [color, setColor] = useState<string>(PRO_COLORS.find((c) => !used.includes(c.hex))?.hex ?? PRO_COLORS[0].hex);
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
     return () => {
@@ -49,6 +51,7 @@ export function InviteSheet({ full }: { full?: boolean }) {
               <ActionForm action={createInvite} className="flex min-h-0 flex-1 flex-col space-y-0!">
                 <input type="hidden" name="back" value="equipe" />
                 <input type="hidden" name="role" value={role} />
+                <input type="hidden" name="color" value={color} />
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
                   <Field label="Nome">
                     <Input name="name" required placeholder="Nome completo" autoComplete="off" />
@@ -95,9 +98,30 @@ export function InviteSheet({ full }: { full?: boolean }) {
                       </span>
                       <span>
                         <span className="block font-semibold">Já entra atendendo (aparece na agenda)</span>
-                        <span className="block text-[14px] text-muted">Serviços, comissão e cor você ajusta depois, tocando na pessoa.</span>
+                        <span className="block text-[14px] text-muted">Serviços e comissão você ajusta depois, tocando na pessoa.</span>
                       </span>
                     </label>
+                  )}
+                  {(role === "profissional" || role === "admin") && attends && (
+                    <fieldset>
+                      <legend className="mb-1 text-[14px] font-semibold text-accent">Cor dela nas aulas e atendimentos</legend>
+                      <p className="mb-2 text-[13px] text-muted">O nome aparece nessa cor na agenda e nas turmas, para saber de quem é a aula só de olhar. Não muda a cor do app.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRO_COLORS.map((c) => (
+                          <button
+                            key={c.hex}
+                            type="button"
+                            aria-label={c.name + (used.includes(c.hex) ? " (já usada)" : "")}
+                            aria-pressed={color === c.hex}
+                            onClick={() => setColor(c.hex)}
+                            className={cx("relative size-11 rounded-full ring-offset-2 transition", color === c.hex && "ring-2 ring-ink")}
+                            style={{ background: c.hex }}
+                          >
+                            {used.includes(c.hex) && <span className="absolute -top-1 -right-1 rounded-full bg-surface px-1 text-[10px] font-bold text-muted shadow">em uso</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
                   )}
                 </div>
                 <div className="flex items-center justify-end gap-2 border-t border-line bg-surface px-5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">

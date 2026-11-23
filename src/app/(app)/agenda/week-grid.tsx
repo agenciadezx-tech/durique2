@@ -4,6 +4,7 @@ import { cx } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
 import { isoWeekday, TZ, WEEKDAYS_SHORT } from "@/lib/format";
 import { proColor } from "@/lib/colors";
+import { brandPalette } from "@/lib/theme";
 
 export type GridAppt = {
   id: string;
@@ -210,7 +211,7 @@ export function WeekGrid({
                               st && <span className={cx("rounded px-1 py-px text-[10px] font-semibold", st.c)}>{st.l}</span>
                             )}
                             {nCols === 1 && (
-                              <span className="flex min-w-0 items-center gap-1 truncate">
+                              <span className="flex min-w-0 items-center gap-1 truncate font-semibold" style={{ color: brandPalette(color).accent }}>
                                 <span className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
                                 {a.professionals?.name?.split(" ")[0]}
                               </span>

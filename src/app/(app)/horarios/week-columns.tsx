@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProTag } from "@/components/pro-tag";
 import { ArrowRight, Check, CheckCheck, ChevronRight, Pencil, Plus, X } from "lucide-react";
 import { cx } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
@@ -70,7 +71,7 @@ export function WeekColumns({ week, today, items, canEdit, stack = false }: { we
                             {formatTime(a.starts_at)} <span className="text-[14px] font-normal text-muted">{formatTime(a.ends_at)}</span>
                           </p>
                           <p className="truncate text-[16px] font-medium">{a.recurring_series?.name ?? a.services?.name}</p>
-                          <p className="truncate text-[13px] text-muted">{a.professionals?.name}</p>
+                          <ProTag pro={a.professionals} className="mt-0.5" />
                         </div>
                         <Link href={`/agenda/${a.id}`} className="inline-flex min-h-10 items-center gap-1 rounded-xl border border-line px-3 text-sm font-medium hover:bg-hover">
                           <ArrowRight size={15} /> Abrir
@@ -88,7 +89,7 @@ export function WeekColumns({ week, today, items, canEdit, stack = false }: { we
                           {formatTime(a.starts_at)} <span className="text-[13px] font-normal text-muted">– {formatTime(a.ends_at)}</span>
                         </p>
                         <p className="truncate text-[15px] font-medium">{a.recurring_series?.name ?? a.services?.name}</p>
-                        <p className="truncate text-[13px] text-muted">{a.professionals?.name}</p>
+                        <ProTag pro={a.professionals} className="mt-0.5" />
                       </div>
                       <ChevronRight size={18} className="mt-1 text-faint" />
                     </Link>

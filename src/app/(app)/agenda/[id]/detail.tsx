@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProTag } from "@/components/pro-tag";
 import { notFound } from "next/navigation";
 import { Check, CheckCheck, Gift, MessageCircle, NotebookPen, Plus, Repeat, UserRound, Users, X } from "lucide-react";
 import { ActionForm, ConfirmSubmit, SubmitButton } from "@/components/forms";
@@ -38,14 +39,14 @@ export async function AppointmentDetail({ id, nova, embedded, marcado }: { id: s
   const { data: appt } = await supabase
     .from("appointments")
     .select(
-      "*, services(name, kind, price_cents), professionals(name), recurring_series(id, name), appointment_attendees(id, status, is_makeup, booked_online, charge_kind, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
+      "*, services(name, kind, price_cents), professionals(id, name, color), recurring_series(id, name), appointment_attendees(id, status, is_makeup, booked_online, charge_kind, enrollment_id, package_id, patients(id, name, phone, access_via), patient_packages(name, kind, total_sessions))",
     )
     .eq("id", id)
     .maybeSingle();
   if (!appt) notFound();
 
   const service = appt.services as unknown as { name: string; kind: string; price_cents: number | null } | null;
-  const pro = appt.professionals as unknown as { name: string } | null;
+  const pro = appt.professionals as unknown as { id: string; name: string; color: string | null } | null;
   const all = (appt.appointment_attendees as unknown as Attendee[]).sort((a, b) =>
     (a.patients?.name ?? "").localeCompare(b.patients?.name ?? ""),
   );
@@ -217,7 +218,7 @@ export async function AppointmentDetail({ id, nova, embedded, marcado }: { id: s
             </div>
             <div className="px-4 py-3">
               <dt className="text-[12px] font-semibold tracking-wide text-muted uppercase">{isClass ? "Professor" : "Profissional"}</dt>
-              <dd className="mt-1 truncate font-semibold">{pro?.name ?? "—"}</dd>
+              <dd className="mt-1">{pro ? <ProTag pro={pro} first={false} className="text-[14px]" /> : "—"}</dd>
             </div>
             <div className="px-4 py-3">
               <dt className="text-[12px] font-semibold tracking-wide text-muted uppercase">{isClass ? "Vagas" : "Serviço"}</dt>

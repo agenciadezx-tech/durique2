@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProTag } from "@/components/pro-tag";
 import { Users } from "lucide-react";
 import { Avatar, cx } from "@/components/ui";
 import { isActiveAttendee } from "@/components/status";
@@ -11,6 +12,7 @@ export type MobileAppt = {
   capacity: number;
   services: { name: string; kind: string } | null;
   recurring_series?: { name: string | null } | null;
+  professionals?: { id: string; name: string; color: string | null } | null;
   appointment_attendees: { status: string; patients: { name: string; skip_confirmation?: boolean } | null }[];
 };
 
@@ -59,6 +61,7 @@ export function MobileApptCard({ a, flag, now, href, move }: { a: MobileAppt; fl
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[16px] font-semibold">{title}</span>
         <span className={cx("block truncate text-[14px]", aula ? "text-chart-out" : "text-muted")}>{sub}</span>
+        {a.professionals && <ProTag pro={a.professionals} className="mt-1" />}
       </span>
       {badge && <span className={cx("shrink-0 rounded-full px-2.5 py-1 text-[12px] font-semibold", badge.c)}>{badge.l}</span>}
     </Link>

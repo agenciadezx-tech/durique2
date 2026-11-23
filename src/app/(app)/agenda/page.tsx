@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProTag } from "@/components/pro-tag";
 import {
   AlertTriangle,
   BellRing,
@@ -638,6 +639,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[14px] font-semibold">{title}</span>
                             <span className="block truncate text-[12px] text-muted">{sub}</span>
+                            {pros.length > 1 && <ProTag pro={a.professionals} className="mt-1" />}
                           </span>
                         </span>
                         {tag && <span className={cx("mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold", tag.c)}>{tag.t}</span>}

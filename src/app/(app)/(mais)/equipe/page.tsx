@@ -152,7 +152,7 @@ export default async function EquipePage({ searchParams }: { searchParams: Promi
 
       {ctx.isAdmin && (
         <div className="space-y-2">
-          <InviteSheet full />
+          <InviteSheet full used={(pros ?? []).filter((p) => p.active && p.color).map((p) => p.color as string)} />
           <p className="text-center text-[14px] text-muted">
             Profissional que não vai usar o sistema?{" "}
             <Link href="/equipe/novo" className="font-semibold text-accent">
