@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { TERMS_VERSION } from "@/lib/legal";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/forms";
@@ -30,6 +31,7 @@ export async function signUp(_: ActionState, data: FormData): Promise<ActionStat
   const password = String(data.get("password") ?? "");
   if (!email) return { error: "Informe seu e-mail." };
   if (password.length < 8) return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  if (data.get("terms") !== "on") return { error: "Para criar a conta, marque que aceita os Termos de uso e a Política de privacidade." };
 
   const h = await headers();
   const origin = h.get("origin") ?? `https://${h.get("host")}`;
@@ -37,7 +39,9 @@ export async function signUp(_: ActionState, data: FormData): Promise<ActionStat
   const { data: res, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/auth/confirm${safeNext(data.get("next")) ? `?next=${encodeURIComponent(safeNext(data.get("next"))!)}` : ""}` },
+    options: {
+      data: { terms_version: TERMS_VERSION, terms_accepted_at: new Date().toISOString() },
+      emailRedirectTo: `${origin}/auth/confirm${safeNext(data.get("next")) ? `?next=${encodeURIComponent(safeNext(data.get("next"))!)}` : ""}` },
   });
   if (error) {
     if (error.code === "user_already_exists") return { error: "Já existe uma conta com este e-mail. Tente entrar." };

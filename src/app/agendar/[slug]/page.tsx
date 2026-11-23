@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { brandCss } from "@/lib/theme";
 import { AtSign, Clock, MapPin, MessageCircle } from "lucide-react";
@@ -166,6 +167,15 @@ export default async function BookingPage({
           Agenda feita com <Logo compact />
         </p>
       </div>
+      <p className="mt-8 pb-4 text-center text-[13px] text-faint">
+        <Link href="/privacidade" className="hover:underline">
+          Privacidade
+        </Link>{" "}
+        ·{" "}
+        <Link href="/termos" className="hover:underline">
+          Termos
+        </Link>
+      </p>
     </main>
   );
 }

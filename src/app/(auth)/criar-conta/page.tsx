@@ -20,6 +20,20 @@ export default async function CriarContaPage({ searchParams }: { searchParams: P
           <Field label="Crie uma senha" htmlFor="password" hint="Pelo menos 8 caracteres.">
             <Input id="password" name="password" type="password" autoComplete="new-password" minLength={8} required />
           </Field>
+          <label className="flex items-start gap-3 rounded-xl border border-line bg-bg px-3.5 py-3 text-[15px] leading-snug">
+            <input type="checkbox" name="terms" required className="mt-0.5 size-5 shrink-0 accent-[var(--color-accent)]" />
+            <span>
+              Li e aceito os{" "}
+              <Link href="/termos" target="_blank" className="font-medium text-accent underline">
+                Termos de uso
+              </Link>{" "}
+              e a{" "}
+              <Link href="/privacidade" target="_blank" className="font-medium text-accent underline">
+                Política de privacidade
+              </Link>
+              .
+            </span>
+          </label>
           <SubmitButton full pendingText="Criando…">
             Criar conta
           </SubmitButton>
