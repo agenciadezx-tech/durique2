@@ -95,7 +95,7 @@ export async function MonthView({
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-[24px] leading-tight font-semibold tracking-tight capitalize">{formatMonth(key)}</h1>
+        <h1 className="mr-auto text-[24px] leading-tight font-semibold tracking-tight">{formatMonth(key).replace(/^./, (c) => c.toUpperCase()).replace(" De ", " de ")}</h1>
         <div className="flex rounded-xl bg-hover p-1">
           {views.map((v) => (
             <Link key={v.label} href={v.href} aria-current={v.on ? "page" : undefined} className={cx("inline-flex h-9 items-center rounded-lg px-3.5 text-[14px] font-semibold", v.on ? "bg-surface text-ink shadow-sm" : "text-muted")}>

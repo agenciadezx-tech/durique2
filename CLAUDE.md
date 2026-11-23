@@ -89,6 +89,8 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 
 - Termos e privacidade: páginas públicas `/termos` e `/privacidade` (route group `(legal)`, versão/data em `src/lib/legal.ts`); caixa obrigatória em Criar conta (servidor confere) e o aceite fica no usuário (`user_metadata.terms_version/terms_accepted_at`). Links no rodapé do login, do link de agendamento e do app do aluno.
 
+- Visão Mês: `src/components/month-view.tsx` (`MonthView`, servidor) em `/agenda?v=mes&m=AAAA-MM[&t=]` (consultas × aulas por dia) e `/horarios?v=mes&m=` (aulas e % de ocupação); feriados nacionais + dias fechados listrados; dia leva a `/agenda?d=` ou `/horarios?d=&sel=`. Botão Mês ao lado de Dia | Semana.
+
 ## Gestão (Etapa 4)
 - Saúde do negócio: `/financeiro/saude` (aba do Financeiro, admin/financeiro) com RPC `business_health(clinic, de, até)` → caixa, Consultas (ocupação = sessões ÷ minutos de `availability`/50, valor médio do pacote, altas, "pararam no meio"), Aulas (vagas ocupadas, mensalidade média, entraram/saíram), sinais (novos contatos, faltas, NPS, confirmadas 7 dias), faltosos e atrasados. Metas em `clinic_goals` (chaves e padrões em `src/lib/goals.ts`, só admin edita). "Faça esta semana" sai desses números. Por profissional: gera × comissão × fica (`commission_report`).
 - Fim do tratamento: `discharges` (`alta`/`pausa`/`abandono`), cartão "Fim do tratamento" na aba Geral da ficha; aparece na linha do tempo.
