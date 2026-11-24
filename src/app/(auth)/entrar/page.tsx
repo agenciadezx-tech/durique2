@@ -23,6 +23,11 @@ export default async function EntrarPage({ searchParams }: { searchParams: Promi
           <Field label="Senha" htmlFor="password">
             <Input id="password" name="password" type="password" autoComplete="current-password" required />
           </Field>
+          <p className="-mt-2 text-right">
+            <Link href="/esqueci-senha" className="text-[14px] font-medium text-accent hover:underline">
+              Esqueci minha senha
+            </Link>
+          </p>
           <SubmitButton full pendingText="Entrando…">
             Entrar
           </SubmitButton>

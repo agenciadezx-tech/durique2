@@ -93,6 +93,8 @@ Especificação completa (decisões do produto): https://claude.ai/artifact/BSVU
 
 - Cor do profissional visível: `src/components/pro-tag.tsx` (`ProTag`: nome com fundo clarinho e texto na cor do profissional, via `brandPalette`) nos cartões do celular, colunas de Turmas, lista do computador e detalhe da sessão; grade semanal pinta o nome. Cor escolhida no Convidar membro (paleta `PRO_COLORS`, marca "em uso") e grava em `professionals.color`. Independe da cor da clínica.
 
+- Senha: "Esqueci minha senha" em Entrar → `/esqueci-senha` (`requestPasswordReset`, link para `/auth/confirm?next=/nova-senha`) → `/nova-senha` (`setNewPassword`, exige sessão do link).
+
 ## Gestão (Etapa 4)
 - Saúde do negócio: `/financeiro/saude` (aba do Financeiro, admin/financeiro) com RPC `business_health(clinic, de, até)` → caixa, Consultas (ocupação = sessões ÷ minutos de `availability`/50, valor médio do pacote, altas, "pararam no meio"), Aulas (vagas ocupadas, mensalidade média, entraram/saíram), sinais (novos contatos, faltas, NPS, confirmadas 7 dias), faltosos e atrasados. Metas em `clinic_goals` (chaves e padrões em `src/lib/goals.ts`, só admin edita). "Faça esta semana" sai desses números. Por profissional: gera × comissão × fica (`commission_report`).
 - Fim do tratamento: `discharges` (`alta`/`pausa`/`abandono`), cartão "Fim do tratamento" na aba Geral da ficha; aparece na linha do tempo.
